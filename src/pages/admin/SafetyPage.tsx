@@ -244,7 +244,7 @@ function PostPreview({ post }: { post: PausedGist["post"] | null }) {
   if (!post) return <p className="text-xs font-semibold text-ink-muted">The post is no longer available.</p>;
   return (
     <>
-      <p className="whitespace-pre-wrap break-words text-sm font-semibold leading-relaxed text-ink-soft">{post.content}</p>
+      <p className="whitespace-pre-wrap wrap-break-word text-sm font-semibold leading-relaxed text-ink-soft">{post.content}</p>
       <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
         @{post.author?.username ?? "student"} · {timeAgo(post.created_at)}
       </p>

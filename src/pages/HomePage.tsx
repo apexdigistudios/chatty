@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUpRight, Flame, Plus, RefreshCw, Sparkles, TrendingUp, WifiOff, X } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ConfessionCard } from "../components/feed/ConfessionCard";
 import { GistCard } from "../components/feed/GistCard";
 import { Button } from "../components/ui/Button";
@@ -46,6 +46,7 @@ export function FeedSkeleton({ count = 1 }: { count?: number }) {
 /** Live feed. Sticky frosted tab switcher, smart trending (>=1,000 likes), guests welcome. */
 export function HomePage() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { user, profile } = useAuth();
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
 
@@ -69,7 +70,9 @@ export function HomePage() {
   const loadConfessions = useGistStore((state) => state.loadConfessions);
   const setComposerIntent = useGistStore((state) => state.setComposerIntent);
 
-  const [activeTab, setActiveTab] = useState<FeedTab>("All SHSs");
+  const [activeTab, setActiveTab] = useState<FeedTab>(
+    pathname === "/trending" ? "Trending" : "All SHSs"
+  );
   const [refreshing, setRefreshing] = useState(false);
 
   const feedSchool = schools.find((school) => school.id === feedSchoolId) ?? null;

@@ -61,7 +61,7 @@ export function ReportModal({ post, onClose }: ReportModalProps) {
   return createPortal(
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+        className="fixed inset-0 z-90 flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}

@@ -5,6 +5,7 @@ import { AuthGateModal } from "./components/auth/AuthGateModal";
 import { CommentDrawer } from "./components/feed/CommentDrawer";
 import { NotificationDrawer } from "./components/notifications/NotificationDrawer";
 import { NotificationListener } from "./components/notifications/NotificationListener";
+import { SEOHead } from "./components/seo/SEOHead";
 import { AppLayout } from "./components/layout/AppLayout";
 import { SetupGate } from "./components/SetupGate";
 import { ToastProvider, ToastViewport } from "./components/ui/Toast";
@@ -23,10 +24,12 @@ import { SchoolsPage } from "./pages/SchoolsPage";
 import { ShoutoutsPage } from "./pages/ShoutoutsPage";
 import { ShoutoutCreatePage } from "./pages/ShoutoutCreatePage";
 import { SafetyPage } from "./pages/admin/SafetyPage";
+import { SpotlightPage } from "./pages/SpotlightPage";
+import { LegalPage } from "./pages/LegalPage";
 import { useGistStore } from "./store/gistStore";
 import { springs } from "./theme/tokens";
 
-const FULLSCREEN_PATHS = new Set(["/create", "/auth", "/shoutouts/create"]);
+const FULLSCREEN_PATHS = new Set(["/create", "/auth", "/login", "/register", "/shoutouts/create"]);
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -43,6 +46,12 @@ function AnimatedRoutes() {
         <Routes location={location}>
           <Route path="/" element={<HomePage />} />
           <Route path="/explore" element={<ExplorePage />} />
+          <Route path="/trending" element={<HomePage />} />
+          <Route path="/spotlight" element={<SpotlightPage />} />
+          <Route path="/login" element={<AuthWizardPage />} />
+          <Route path="/register" element={<AuthWizardPage />} />
+          <Route path="/privacy" element={<LegalPage kind="privacy" />} />
+          <Route path="/terms" element={<LegalPage kind="terms" />} />
           <Route path="/schools" element={<SchoolsPage />} />
           <Route path="/schools/:id" element={<SchoolPage />} />
           <Route path="/confessions" element={<ConfessionsPage />} />
@@ -72,7 +81,7 @@ function Shell() {
   }, [location.pathname]);
 
   if (FULLSCREEN_PATHS.has(location.pathname)) {
-    if (location.pathname === "/auth") return <AuthWizardPage />;
+    if (["/auth", "/login", "/register"].includes(location.pathname)) return <AuthWizardPage />;
     if (location.pathname === "/shoutouts/create") return <ShoutoutCreatePage />;
     return <CreatePage />;
   }
@@ -92,6 +101,7 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <ToastProvider>
+            <SEOHead />
             <NotificationListener />
             <Shell />
             <AuthGateModal />

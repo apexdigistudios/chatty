@@ -1,0 +1,25 @@
+# Gist me
+
+> Gist me is a localized social micro-blogging and community spotlight platform for Ghanaian Senior High School (SHS) students and youth culture.
+
+## About
+
+Students can discover school communities, share short public gists, explore trending conversations, publish anonymous confessions, send shoutouts, and find promoted Spotlight posts. Community reporting and moderation features support safer participation.
+
+## Public pages
+
+- [Home](https://www.gistme.online/): Main community feed.
+- [Explore](https://www.gistme.online/explore): Search public gists, students, and school communities.
+- [Trending](https://www.gistme.online/trending): Trending community conversations.
+- [Spotlight](https://www.gistme.online/spotlight): Active promoted gists.
+- [Privacy information](https://www.gistme.online/privacy): Privacy overview.
+- [Terms of use](https://www.gistme.online/terms): Platform and community guidelines.
+
+## Audience and scope
+
+Gist me focuses on Ghanaian SHS and TVET school communities, student life, school events, sports, WASSCE and NSMQ conversations, and Ghanaian youth culture. User-generated content may change frequently and should not be treated as official school information.
+
+## Discovery
+
+- [XML sitemap](https://www.gistme.online/sitemap.xml)
+- [Robots policy](https://www.gistme.online/robots.txt)

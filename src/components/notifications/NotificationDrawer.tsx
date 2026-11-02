@@ -159,7 +159,7 @@ export function NotificationDrawer() {
           role="dialog"
           aria-modal="true"
           aria-label="Notifications"
-          className="fixed inset-0 z-[70] flex justify-end"
+          className="fixed inset-0 z-70 flex justify-end"
         >
           <motion.div
             initial={{ opacity: 0 }}

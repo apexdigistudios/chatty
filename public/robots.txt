@@ -1,0 +1,49 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api
+Disallow: /settings
+
+User-agent: GPTBot
+Allow: /
+Disallow: /admin
+Disallow: /api
+Disallow: /settings
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /admin
+Disallow: /api
+Disallow: /settings
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /admin
+Disallow: /api
+Disallow: /settings
+
+User-agent: anthropic-ai
+Allow: /
+Disallow: /admin
+Disallow: /api
+Disallow: /settings
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /admin
+Disallow: /api
+Disallow: /settings
+
+User-agent: Bytespider
+Allow: /
+Disallow: /admin
+Disallow: /api
+Disallow: /settings
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /settings/
+
+Sitemap: https://www.gistme.online/sitemap.xml

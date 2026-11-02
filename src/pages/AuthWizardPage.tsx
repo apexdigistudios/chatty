@@ -7,7 +7,7 @@ import {
   type FormEvent,
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -113,6 +113,7 @@ function passwordScore(pw: string): { score: 0 | 1 | 2 | 3 | 4; label: string } 
  */
 export function AuthWizardPage() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const { user, setProfile, refreshProfile } = useAuth();
@@ -122,7 +123,7 @@ export function AuthWizardPage() {
   const loadSchools = useGistStore((state) => state.loadSchools);
 
   const initialMode: AuthMode =
-    searchParams.get("mode") === "signin" ? "signin" : "signup";
+    pathname === "/login" || searchParams.get("mode") === "signin" ? "signin" : "signup";
   const returnTo = searchParams.get("returnTo") || "/";
   const prefillSchoolId = searchParams.get("schoolId") || "";
 
@@ -174,8 +175,12 @@ export function AuthWizardPage() {
     const paramMode = searchParams.get("mode");
     if (paramMode === "signin" || paramMode === "signup") {
       setMode(paramMode);
+    } else if (pathname === "/login") {
+      setMode("signin");
+    } else if (pathname === "/register") {
+      setMode("signup");
     }
-  }, [searchParams]);
+  }, [pathname, searchParams]);
 
   // Redirect already-logged-in visitors UNLESS they are viewing Step 4 celebration
   useEffect(() => {

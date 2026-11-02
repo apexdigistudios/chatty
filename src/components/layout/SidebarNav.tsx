@@ -126,7 +126,7 @@ export function SidebarNav() {
       <button
         type="button"
         onClick={() => navigate("/shoutouts/create")}
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-brand bg-brand-wash px-3 py-2.5 text-[11px] font-black uppercase tracking-wider text-brand-deep shadow-[0_3px_0_var(--brand-edge)] transition-transform active:translate-y-[2px]"
+        className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-brand bg-brand-wash px-3 py-2.5 text-[11px] font-black uppercase tracking-wider text-brand-deep shadow-[0_3px_0_var(--brand-edge)] transition-transform active:translate-y-0.5"
       >
         <Mailbox size={15} strokeWidth={2.6} aria-hidden />
         Send a Shoutout
