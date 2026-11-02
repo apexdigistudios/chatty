@@ -1,0 +1,179 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* CSS-first theme tokens. ThemeContext switches only the root class. */
+:root {
+  color-scheme: light;
+
+  --page-bg: #f4f4f5;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-deep: #ffffff;
+  --surface-muted: #fafafa;
+  --border-color: #e4e4e7;
+  --border-strong: #18181b;
+  --text-main: #0f0f11;
+  --text-body: #18181b;
+  --text-muted: #71717a;
+  --text-faint: #a1a1aa;
+
+  --brand: #8b5cf6;
+  --brand-deep: #7c3aed;
+  --brand-edge: #5b21b6;
+  --brand-contrast: #ffffff;
+  --brand-soft: #ede9fe;
+  --brand-wash: #f5f3ff;
+
+  --accent: #0ea5e9;
+  --accent-deep: #0369a1;
+  --accent-soft: #bae6fd;
+  --accent-wash: #e0f2fe;
+  --success: #10b981;
+  --success-deep: #047857;
+  --success-soft: #a7f3d0;
+  --success-wash: #ecfdf5;
+  --warning: #f59e0b;
+  --warning-deep: #b45309;
+  --warning-soft: #fde68a;
+  --warning-wash: #fffbeb;
+  --danger: #ef4444;
+  --danger-deep: #b91c1c;
+  --danger-soft: #fecaca;
+  --danger-wash: #fef2f2;
+
+  --shadow-card: 0px 4px 0px 0px #e4e4e7;
+  --shadow-card-hover: 0px 6px 0px 0px #18181b;
+  --shadow-card-press: 0px 2px 0px 0px #18181b;
+  --shadow-toast: 0px 4px 0px 0px rgba(15, 15, 17, 0.2);
+  --toast-bg: #18181b;
+  --toast-fg: #ffffff;
+}
+
+:root.dark {
+  color-scheme: dark;
+
+  --page-bg: #121215;
+  --surface: #18181b;
+  --surface-raised: #202024;
+  --surface-deep: #09090b;
+  --surface-muted: #202024;
+  --border-color: #3f3f46;
+  --border-strong: #71717a;
+  --text-main: #fafafa;
+  --text-body: #e4e4e7;
+  --text-muted: #a1a1aa;
+  --text-faint: #71717a;
+
+  --brand: #a78bfa;
+  --brand-deep: #a78bfa;
+  --brand-edge: #7c3aed;
+  --brand-contrast: #18181b;
+  --brand-soft: #3b2d5c;
+  --brand-wash: #251d35;
+
+  --accent: #38bdf8;
+  --accent-deep: #7dd3fc;
+  --accent-soft: #0c4a6e;
+  --accent-wash: #082f49;
+  --success: #34d399;
+  --success-deep: #6ee7b7;
+  --success-soft: #064e3b;
+  --success-wash: #052e2b;
+  --warning: #fbbf24;
+  --warning-deep: #fcd34d;
+  --warning-soft: #713f12;
+  --warning-wash: #422006;
+  --danger: #be123c;
+  --danger-deep: #fda4af;
+  --danger-soft: #881337;
+  --danger-wash: #4c0519;
+
+  --shadow-card: 0px 4px 0px 0px #3f3f46;
+  --shadow-card-hover: 0px 6px 0px 0px #71717a;
+  --shadow-card-press: 0px 2px 0px 0px #71717a;
+  --shadow-toast: 0px 4px 0px 0px rgba(0, 0, 0, 0.35);
+  --toast-bg: var(--surface-deep);
+  --toast-fg: #fafafa;
+}
+
+@theme inline {
+  --font-sans: "Nunito Variable", "Nunito", ui-rounded, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+
+  --color-page: var(--page-bg);
+  --color-card: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-deep: var(--surface-deep);
+  --color-surface-muted: var(--surface-muted);
+  --color-line: var(--border-color);
+  --color-line-deep: var(--border-strong);
+  --color-ink: var(--text-main);
+  --color-ink-soft: var(--text-body);
+  --color-ink-muted: var(--text-muted);
+  --color-ink-faint: var(--text-faint);
+
+  --color-brand: var(--brand);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-edge: var(--brand-edge);
+  --color-brand-contrast: var(--brand-contrast);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-wash: var(--brand-wash);
+  --color-accent: var(--accent);
+  --color-accent-deep: var(--accent-deep);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-wash: var(--accent-wash);
+  --color-success: var(--success);
+  --color-success-deep: var(--success-deep);
+  --color-success-soft: var(--success-soft);
+  --color-success-wash: var(--success-wash);
+  --color-warning: var(--warning);
+  --color-warning-deep: var(--warning-deep);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-wash: var(--warning-wash);
+  --color-danger: var(--danger);
+  --color-danger-deep: var(--danger-deep);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-wash: var(--danger-wash);
+
+  --shadow-chunk: var(--shadow-card);
+  --shadow-chunk-lg: var(--shadow-card-hover);
+}
+
+@layer base {
+  html {
+    min-width: 320px;
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply min-h-screen overflow-x-clip bg-page font-sans text-ink antialiased transition-colors duration-200;
+    font-optical-sizing: auto;
+  }
+
+  #root {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  ::selection {
+    background-color: var(--brand-soft);
+    color: var(--text-main);
+  }
+
+  button,
+  a,
+  input,
+  textarea,
+  select {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
