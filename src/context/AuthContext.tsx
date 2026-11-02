@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -36,24 +37,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roles, setRoles] = useState<AdminRoleRow[]>([]);
   const [loading, setLoading] = useState(isSupabaseConfigured);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const sessionUserId = useRef<string | null>(null);
 
   // Session bootstrap + live auth changes.
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let active = true;
+    let sessionCheckComplete = false;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      setSession(data.session);
-      if (!data.session) setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (!active) return;
+        sessionCheckComplete = true;
+        if (error) {
+          setProfileError(error.message);
+          setLoading(false);
+          return;
+        }
+        setProfileError(null);
+        sessionUserId.current = data.session?.user.id ?? null;
+        setSession(data.session);
+        if (!data.session) setLoading(false);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setProfileError(
+          error instanceof Error ? error.message : "Could not check your sign-in status."
+        );
+        sessionCheckComplete = true;
+        setLoading(false);
+      });
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      const nextUserId = nextSession?.user.id ?? null;
+      if (sessionUserId.current !== nextUserId) {
+        sessionUserId.current = nextUserId;
+        setLoading(Boolean(nextSession));
+      }
       setSession(nextSession);
       if (!nextSession) {
         setProfileState(null);
         setRoles([]);
-        setLoading(false);
+        if (sessionCheckComplete) setLoading(false);
       }
     });
 
