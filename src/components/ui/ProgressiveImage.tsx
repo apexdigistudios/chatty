@@ -1,6 +1,7 @@
 import { useEffect, useState, type ImgHTMLAttributes } from "react";
 import { ImageOff } from "lucide-react";
 import { cn } from "../../utils/cn";
+import { SafeImage } from "../common/SafeImage";
 
 export interface ProgressiveImageProps
   extends Omit<ImgHTMLAttributes<HTMLImageElement>, "loading" | "decoding"> {
@@ -64,20 +65,18 @@ export function ProgressiveImage({
           <span className="text-[11px] font-bold">Image unavailable offline</span>
         </span>
       ) : (
-        <img
+        <SafeImage
           {...rest}
           src={src}
           alt={alt}
           loading="lazy"
           decoding="async"
+          onUnavailable={() => setFailed(true)}
           onLoad={(event) => {
             setLoaded(true);
             onLoad?.(event);
           }}
-          onError={(event) => {
-            setFailed(true);
-            onError?.(event);
-          }}
+          onError={onError}
           className={cn(
             "block size-full object-cover transition-[opacity,filter,transform] duration-400 ease-out",
             loaded ? "scale-100 opacity-100 blur-0" : "scale-[1.03] opacity-0 blur-md",

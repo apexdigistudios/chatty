@@ -1,5 +1,10 @@
 import { MEDIA_BUCKET, requireUserId, supabase } from "../lib/supabase";
 import { defaultAvatarUrl, shortNameOf } from "../lib/media";
+import {
+  isBrowserOffline,
+  readOfflineValue,
+  writeOfflineValue,
+} from "../lib/offlineCache";
 import { COMPRESSION_PRESETS, compressImageWithStats } from "../lib/imageCompression";
 import type { AdminRoleRow, Profile, ProfileRow, PublicProfile } from "../types/models";
 import { uploadImage } from "./storageService";
@@ -68,13 +73,29 @@ export function mapProfile(row: ProfileRow): Profile {
 }
 
 export async function fetchProfile(userId: string): Promise<Profile | null> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(await profileSelect())
-    .eq("id", userId)
-    .maybeSingle<ProfileRow>();
-  if (error) throw new Error(error.message);
-  return data ? mapProfile(data) : null;
+  const cacheKey = `profile:private:${userId}`;
+  if (isBrowserOffline()) return readOfflineValue<Profile>(cacheKey);
+
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(await profileSelect())
+      .eq("id", userId)
+      .maybeSingle<ProfileRow>();
+    if (error) throw new Error(error.message);
+    const profile = data ? mapProfile(data) : null;
+    if (profile) {
+      try {
+        await writeOfflineValue(cacheKey, profile);
+      } catch (cacheError) {
+        console.warn("Could not save your profile for offline use.", cacheError);
+      }
+    }
+    return profile;
+  } catch (error) {
+    if (!isBrowserOffline()) throw error;
+    return readOfflineValue<Profile>(cacheKey);
+  }
 }
 
 /**
@@ -146,28 +167,42 @@ interface RawPublicProfile extends ProfileRow {
 
 /** Read-only public profile for `/profile/:userId` (no email or private fields). */
 export async function fetchPublicProfile(userId: string): Promise<PublicProfile | null> {
-  const select = await profileSelect();
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(`${select}, school:schools!school_id(name, crest_url)`)
-    .eq("id", userId)
-    .maybeSingle<RawPublicProfile>();
-  if (error) throw new Error(error.message);
-  if (!data) return null;
-  return {
-    id: data.id,
-    username: data.username,
-    avatarUrl: data.avatar_url,
-    coverUrl: data.cover_url ?? null,
-    bio: data.bio ?? "",
-    fullName: data.full_name ?? null,
-    classForm: data.class_form ?? null,
-    schoolId: data.school_id,
-    schoolName: data.school?.name ?? null,
-    schoolShort: data.school ? shortNameOf(data.school.name) : null,
-    schoolCrest: data.school?.crest_url ?? null,
-    createdAt: data.created_at,
-  };
+  const cacheKey = `profile:public:${userId}`;
+  if (isBrowserOffline()) return readOfflineValue<PublicProfile>(cacheKey);
+
+  try {
+    const select = await profileSelect();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(`${select}, school:schools!school_id(name, crest_url)`)
+      .eq("id", userId)
+      .maybeSingle<RawPublicProfile>();
+    if (error) throw new Error(error.message);
+    if (!data) return null;
+    const profile: PublicProfile = {
+      id: data.id,
+      username: data.username,
+      avatarUrl: data.avatar_url,
+      coverUrl: data.cover_url ?? null,
+      bio: data.bio ?? "",
+      fullName: data.full_name ?? null,
+      classForm: data.class_form ?? null,
+      schoolId: data.school_id,
+      schoolName: data.school?.name ?? null,
+      schoolShort: data.school ? shortNameOf(data.school.name) : null,
+      schoolCrest: data.school?.crest_url ?? null,
+      createdAt: data.created_at,
+    };
+    try {
+      await writeOfflineValue(cacheKey, profile);
+    } catch (cacheError) {
+      console.warn("Could not save this profile for offline use.", cacheError);
+    }
+    return profile;
+  } catch (error) {
+    if (!isBrowserOffline()) throw error;
+    return readOfflineValue<PublicProfile>(cacheKey);
+  }
 }
 
 export interface ProfilePatch {

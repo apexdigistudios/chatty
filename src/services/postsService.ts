@@ -1,4 +1,9 @@
 import { shortNameOf } from "../lib/media";
+import {
+  isBrowserOffline,
+  readOfflineValue,
+  writeOfflineValue,
+} from "../lib/offlineCache";
 import { countOf, currentUserId, requireUserId, supabase } from "../lib/supabase";
 import type { Comment, Post, PostStatus } from "../types/models";
 import { fetchBlockedUserIds } from "./blocksService";
@@ -171,7 +176,7 @@ export interface FeedQuery {
   offset?: number;
 }
 
-export async function fetchFeed(query: FeedQuery = {}): Promise<Post[]> {
+async function fetchFeedOnline(query: FeedQuery): Promise<Post[]> {
   const limit = query.limit ?? 10;
   const offset = query.offset ?? 0;
   const [blockedUserIds, userId, supportsHiddenPosts] = await Promise.all([
@@ -304,6 +309,56 @@ export async function fetchFeed(query: FeedQuery = {}): Promise<Post[]> {
   if (error) throw new Error(error.message);
   const organicPosts = await hydrateLikes(data ?? []);
   return [...promotedPosts, ...organicPosts];
+}
+
+function feedCacheKey(query: FeedQuery, userId: string | null): string {
+  return `feed:${userId ?? "guest"}:${JSON.stringify({
+    schoolId: query.schoolId ?? null,
+    groupId: query.groupId ?? null,
+    authorId: query.authorId ?? null,
+    includeModerated: query.includeModerated ?? false,
+    search: query.search?.trim() ?? "",
+    includeSpotlight: query.includeSpotlight ?? true,
+    limit: query.limit ?? 10,
+    offset: query.offset ?? 0,
+  })}`;
+}
+
+function refreshCachedSpotlights(posts: Post[]): Post[] {
+  const now = Date.now();
+  return posts.map((post) =>
+    post.spotlightStatus === "active" &&
+    post.spotlightExpiresAt &&
+    Date.parse(post.spotlightExpiresAt) <= now
+      ? { ...post, spotlightStatus: null, spotlightExpiresAt: null }
+      : post
+  );
+}
+
+export async function fetchFeed(query: FeedQuery = {}): Promise<Post[]> {
+  const userId = await currentUserId();
+  const key = feedCacheKey(query, userId);
+
+  if (isBrowserOffline()) {
+    const cached = await readOfflineValue<Post[]>(key);
+    if (cached) return refreshCachedSpotlights(cached);
+    throw new Error("You are offline and this feed has not been cached on this device.");
+  }
+
+  try {
+    const posts = await fetchFeedOnline(query);
+    try {
+      await writeOfflineValue(key, posts);
+    } catch (error) {
+      console.warn("Could not save this feed for offline use.", error);
+    }
+    return posts;
+  } catch (error) {
+    if (!isBrowserOffline()) throw error;
+    const cached = await readOfflineValue<Post[]>(key);
+    if (cached) return refreshCachedSpotlights(cached);
+    throw error;
+  }
 }
 
 /** Smart Trending: only gists that have crossed 1,000 likes. */

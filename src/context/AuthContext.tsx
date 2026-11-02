@@ -97,13 +97,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRoles([]);
       return;
     }
-    try {
-      const [nextProfile, nextRoles] = await Promise.all([ensureProfile(), fetchMyRoles()]);
-      setProfileState(nextProfile);
-      setRoles(nextRoles);
+    const [profileResult, rolesResult] = await Promise.allSettled([
+      ensureProfile(),
+      fetchMyRoles(),
+    ]);
+    if (profileResult.status === "rejected") {
+      setProfileError(
+        profileResult.reason instanceof Error
+          ? profileResult.reason.message
+          : "Could not load your profile."
+      );
+      return;
+    }
+
+    setProfileState(profileResult.value);
+    if (rolesResult.status === "fulfilled") {
+      setRoles(rolesResult.value);
       setProfileError(null);
-    } catch (error) {
-      setProfileError(error instanceof Error ? error.message : "Could not load your profile.");
+    } else {
+      setRoles([]);
+      setProfileError(
+        rolesResult.reason instanceof Error
+          ? rolesResult.reason.message
+          : "Could not load your account roles."
+      );
     }
   }, [userId]);
 

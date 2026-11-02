@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { defaultAvatarUrl } from "../../lib/media";
 import { cn } from "../../utils/cn";
+import { SafeImage } from "../common/SafeImage";
 
 export type AvatarSize = "sm" | "md" | "lg" | "xl" | "2xl";
 
@@ -57,22 +58,20 @@ export function Avatar({ name, src, size = "md", online = false, ring = false, c
         {!loaded && (
           <span className="absolute inset-0 animate-pulse bg-brand-soft/60 motion-reduce:animate-none" aria-hidden />
         )}
-        <motion.img
+        <SafeImage
           key={photo}
           src={photo}
           alt={name}
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
+          fallbackSrc="/logo.png"
           onLoad={() => setLoaded(true)}
-          onError={() => {
-            if (!failed) setFailed(true);
-            else setLoaded(true);
-          }}
-          initial={{ opacity: 0, scale: 1.06 }}
-          animate={{ opacity: loaded ? 1 : 0, scale: 1 }}
-          transition={{ duration: 0.28 }}
-          className="relative size-full object-cover"
+          onUnavailable={() => setFailed(true)}
+          className={cn(
+            "relative size-full object-cover transition-[opacity,transform] duration-300",
+            loaded ? "scale-100 opacity-100" : "scale-[1.06] opacity-0"
+          )}
         />
       </span>
 
