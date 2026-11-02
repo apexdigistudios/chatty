@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { BrandLogo } from "../brand/BrandLogo";
 import { timeAgoShort } from "../../lib/time";
 import { useAuthGateStore } from "../../store/authGateStore";
 import { useGistStore } from "../../store/gistStore";
@@ -217,22 +218,25 @@ export function NotificationDrawer() {
                 />
 
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-brand-deep">
-                      <span className="relative flex size-1.5">
-                        <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#8B5CF6] opacity-70 motion-reduce:animate-none" aria-hidden />
-                        <span className="relative inline-flex size-1.5 rounded-full bg-[#8B5CF6]" />
-                      </span>
-                      Campus signal · live
-                    </p>
-                    <h2 className="mt-1 text-[28px] font-black leading-none tracking-tight text-ink">
-                      Notifications
-                    </h2>
-                    <p className="mt-1.5 text-xs font-semibold text-ink-muted">
-                      {totalUnread > 0
-                        ? `${totalUnread} unread across your SHS network`
-                        : "You're all caught up"}
-                    </p>
+                  <div className="flex min-w-0 items-start gap-2.5">
+                    <BrandLogo className="mt-1 h-8 w-auto max-w-8 shrink-0 object-contain" />
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-brand-deep">
+                        <span className="relative flex size-1.5">
+                          <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#8B5CF6] opacity-70 motion-reduce:animate-none" aria-hidden />
+                          <span className="relative inline-flex size-1.5 rounded-full bg-[#8B5CF6]" />
+                        </span>
+                        Gist me · live
+                      </p>
+                      <h2 className="mt-1 text-[28px] font-black leading-none tracking-tight text-ink">
+                        Notifications
+                      </h2>
+                      <p className="mt-1.5 text-xs font-semibold text-ink-muted">
+                        {totalUnread > 0
+                          ? `${totalUnread} unread across your SHS network`
+                          : "You're all caught up"}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex shrink-0 items-center gap-1.5">

@@ -1,4 +1,4 @@
-# Let's Gist — Setup (Step 07 · Supabase backend)
+# Gist me — Setup (Step 07 · Supabase backend)
 
 Mobile-first social network for Ghanaian SHS students. React + TypeScript + Vite,
 Tailwind CSS v4, Motion, Zustand, and **Supabase** (Postgres, Auth, Storage, Realtime).
@@ -64,9 +64,8 @@ centre can listen for live INSERTs.
 
 No new tables are required: the notification feed is a projection over `likes`,
 `comments`, `shoutouts` and `posts`, scoped by the RLS policies you already have.
-Read/unread receipts are stored on the device in `localStorage`
-(`lets-gist-notification-reads`), so a future `notification_reads` table can replace
-them without changing any caller.
+Read/unread receipts are stored on the device in `localStorage`, so a future
+`notification_reads` table can replace them without changing any caller.
 
 ### A6 · Applying Step 13 (Profile Cover Photos)
 

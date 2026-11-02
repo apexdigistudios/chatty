@@ -42,7 +42,7 @@ export function SchoolCard({ school, view }: SchoolCardProps) {
     }
     if (!user) {
       openAuthGate({
-        title: `Rep ${school.shortName} on Let's Gist!`,
+        title: `Rep ${school.shortName} on Gist me!`,
         speech: `Create your student pass to wear the ${school.shortName} crest beside all your campus gists!`,
         prefillSchoolId: school.id,
       });

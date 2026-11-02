@@ -379,7 +379,7 @@ export function ShoutoutCreatePage() {
                   icon={<UserRound size={18} strokeWidth={2.6} aria-hidden />}
                   eyebrow="Postal lookup"
                   title="Who is the letter for?"
-                  description="Choose their SHS, type their official name, and pick a class. We check whether they have a Let's Gist pass."
+                  description="Choose their SHS, type their official name, and pick a class. We check whether they have a Gist me pass."
                 />
 
                 <div className="mt-5 space-y-4">

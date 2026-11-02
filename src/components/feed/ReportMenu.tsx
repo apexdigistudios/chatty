@@ -34,7 +34,7 @@ export function ReportMenu({ open, onClose, targetType, targetId, schoolId, mode
       toast(
         schoolId && targetType !== "confession"
           ? "Reported to the school moderators."
-          : "Reported to the Let's Gist safety team.",
+          : "Reported to the Gist me safety team.",
         "danger"
       );
       onClose();

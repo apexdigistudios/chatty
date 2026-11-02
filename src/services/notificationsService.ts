@@ -316,7 +316,7 @@ async function fetchSafetyNotifications(profile: Profile): Promise<AppNotificati
     id: `safety:${row.id}`,
     kind: "safety",
     category: "campus",
-    actorName: "Let's Gist Safety",
+    actorName: "Gist me Safety",
     actorAvatar: null,
     actorSchoolShort: null,
     title: row.title,

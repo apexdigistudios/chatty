@@ -1,6 +1,7 @@
-import { MessageCircle, Search, Sparkles } from "lucide-react";
+import { Search, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { BrandLogo } from "../brand/BrandLogo";
 import { NotificationBell } from "../notifications/NotificationBell";
 import { ThemeToggle } from "../ui/ThemeToggle";
 
@@ -20,13 +21,11 @@ export function Header() {
         <Link
           to="/"
           className="flex min-w-0 shrink-0 items-center gap-2 rounded-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:gap-2.5"
-          aria-label="Let's Gist home"
+          aria-label="Gist me home"
         >
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-brand-deep text-brand-contrast shadow-[0_3px_0_var(--brand-edge)] sm:size-10">
-            <MessageCircle size={20} strokeWidth={2.7} aria-hidden />
-          </span>
+          <BrandLogo className="h-9 w-auto max-w-10 shrink-0 object-contain sm:h-10" />
           <span className="truncate text-[18px] font-black leading-none tracking-tight text-ink sm:text-xl">
-            Let&apos;s Gist
+            Gist me
           </span>
           <span className="hidden rounded-lg bg-brand-wash px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-brand-deep min-[380px]:inline">
             SHS

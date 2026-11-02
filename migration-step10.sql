@@ -1,5 +1,5 @@
 -- ============================================================================
---  Let's Gist · Step 10 Migration
+--  Gist me · Step 10 Migration
 --  Video posts, profile identity extensions, and the digital Shoutout postal system.
 --  Additive & idempotent. Run after migration-step9.sql in the Supabase SQL Editor.
 -- ============================================================================

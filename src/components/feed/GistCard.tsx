@@ -96,7 +96,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
     const url = `${window.location.origin}/profile/${post.authorId}?gist=${post.id}`;
     if (typeof navigator.share === "function") {
       try {
-        await navigator.share({ title: "Gist on Let's Gist", text: post.content.slice(0, 120), url });
+        await navigator.share({ title: "Gist on Gist me", text: post.content.slice(0, 120), url });
         return;
       } catch {
         // User cancelled or share unavailable → fall through to clipboard.

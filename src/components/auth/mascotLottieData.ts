@@ -1,5 +1,5 @@
 /**
- * Lightweight, 60fps Skeletal Lottie Vector Animations for Let's Gist Mascot ("Kofi").
+ * Lightweight, 60fps Skeletal Lottie Vector Animations for the Gist me mascot ("Kofi").
  *
  * Engineered as pure Bodymovin v5.7 JSON data objects for `LottieLight` (`lottie-react`),
  * eliminating external network fetches on low-data Ghanaian networks & SM1 tablets.

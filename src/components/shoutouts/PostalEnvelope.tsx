@@ -10,7 +10,7 @@ import { cn } from "../../utils/cn";
 export function envelopePalette(school: School | null, theme = "school_crest") {
   const preset = ENVELOPE_THEME_BY_ID.get(theme);
   if (preset) return preset;
-  const [primary, secondary] = crestColorsFor(school?.id ?? "lets-gist");
+  const [primary, secondary] = crestColorsFor(school?.id ?? "gist-me");
   return { primary, secondary, accent: "#EDE9FE" };
 }
 
@@ -71,7 +71,7 @@ export function PostalEnvelope({
 
       {/* Crest and school identity */}
       <div className="absolute left-4 top-3 flex items-center gap-2 rounded-xl border border-white/35 bg-white/90 px-2 py-1.5 shadow-sm">
-        <SchoolBadge schoolId={school?.id} crestUrl={school?.crestUrl} name={school?.name ?? "Let's Gist"} size="xs" />
+        <SchoolBadge schoolId={school?.id} crestUrl={school?.crestUrl} name={school?.name ?? "Gist me"} size="xs" />
         <span className="max-w-[9rem] truncate text-[9px] font-black uppercase tracking-[0.12em] text-[#18181B]">
           {school?.shortName ?? "SHS"} Post Office
         </span>

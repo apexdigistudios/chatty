@@ -62,7 +62,7 @@ const spinnerSize: Record<ButtonSize, number> = { sm: 14, md: 16, lg: 18 };
 /* ————————————————————— Component ————————————————————— */
 
 /**
- * Let's Gist signature 3D button.
+ * Gist me signature 3D button.
  *
  * The chunky bottom edge is a hard bottom shadow (a `border-b-[5px]` look
  * without layout shift). On press, the face springs down into its edge —

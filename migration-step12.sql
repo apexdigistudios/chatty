@@ -1,5 +1,5 @@
 -- ============================================================================
---  Let's Gist · Step 12 Migration (Real-Time Notifications)
+--  Gist me · Step 12 Migration (Real-Time Notifications)
 --  Additive & idempotent. Run after migration-step10.sql.
 --
 --  The notification centre reads likes / comments / shoutouts / posts directly

@@ -1,5 +1,5 @@
 -- ============================================================================
---  Let's Gist · Step 09 Migration
+--  Gist me · Step 09 Migration
 --  UX refinements: sub-communities (groups/clubs), group posts,
 --  smart trending (>= 1,000 likes) and the permanent school identity lock.
 --

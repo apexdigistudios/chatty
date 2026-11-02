@@ -1,5 +1,5 @@
 -- ============================================================================
---  Let's Gist · Step 07 migration for the EXISTING project
+--  Gist me · Step 07 migration for the EXISTING project
 --  (wemdjlyxorixmknfruam — already has schools/profiles/posts/… with live data)
 --
 --  Purely additive and idempotent. Run the whole file in the SQL Editor.

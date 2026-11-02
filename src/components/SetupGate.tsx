@@ -1,14 +1,18 @@
 import { Database, KeyRound, TerminalSquare } from "lucide-react";
+import { BrandLogo } from "./brand/BrandLogo";
 
 /** Shown only when Supabase env vars are missing — the app never falls back to mock data. */
 export function SetupGate() {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-page px-4 py-10 text-ink">
       <div className="w-full max-w-lg rounded-3xl border-2 border-line bg-card p-6 shadow-[0_5px_0_var(--border-color)] sm:p-8">
-        <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-deep text-brand-contrast shadow-[0_4px_0_var(--brand-edge)]">
-          <Database size={22} strokeWidth={2.6} aria-hidden />
-        </span>
-        <h1 className="mt-4 text-2xl font-black tracking-tight">Connect Let&apos;s Gist to Supabase</h1>
+        <div className="flex items-center gap-3">
+          <BrandLogo className="h-12 w-auto max-w-12 shrink-0 object-contain" />
+          <div>
+            <p className="text-sm font-black text-ink">Gist me</p>
+            <h1 className="text-xl font-black tracking-tight sm:text-2xl">Connect to Supabase</h1>
+          </div>
+        </div>
         <p className="mt-2 text-sm font-semibold leading-relaxed text-ink-muted">
           This build talks to a live Supabase project for every post, school and confession.
           Add your project keys to get started.

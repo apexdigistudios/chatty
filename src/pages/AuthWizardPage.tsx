@@ -24,7 +24,6 @@ import {
   Lock,
   LogIn,
   Mail,
-  MessageCircle,
   Search,
   ShieldCheck,
   Sparkles,
@@ -37,6 +36,7 @@ import {
   type MascotReaction,
 } from "../components/auth/MascotCharacter";
 import { Avatar } from "../components/ui/Avatar";
+import { BrandLogo } from "../components/brand/BrandLogo";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { SchoolBadge } from "../components/ui/SchoolBadge";
@@ -340,7 +340,7 @@ export function AuthWizardPage() {
       }
 
       goStep(4);
-      toast(`Welcome to Let's Gist, @${cleanUsername}!`, "success");
+      toast(`Welcome to Gist me, @${cleanUsername}!`, "success");
     } catch (error) {
       const msg = describeError(error, "Could not create your account.");
       setErrorMessage(msg);
@@ -415,7 +415,7 @@ export function AuthWizardPage() {
       return {
         outfit: "shs_welcome" as const,
         badge: "STEP 1 · WELCOME",
-        speech: "Yo! Welcome to Let's Gist! Which SHS are you repping on campus?",
+        speech: "Yo! Welcome to Gist me! Which SHS are you repping on campus?",
       };
     }
 
@@ -528,9 +528,10 @@ export function AuthWizardPage() {
               )}
             </motion.button>
           ) : (
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-brand-deep text-brand-contrast shadow-[0_3px_0_var(--brand-edge)]">
-              <MessageCircle size={19} strokeWidth={2.7} aria-hidden />
-            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              <BrandLogo className="h-9 w-auto max-w-10 object-contain" />
+              <span className="text-sm font-black tracking-tight text-ink">Gist me</span>
+            </div>
           )}
 
           {/* Center: Animated 3D Progress Bar (Signup) or Brand Title (Signin) */}
@@ -565,11 +566,9 @@ export function AuthWizardPage() {
               to="/"
               className="flex min-w-0 flex-1 items-center justify-center gap-2"
             >
-              <span className="flex size-8 items-center justify-center rounded-xl bg-brand-deep text-brand-contrast shadow-[0_2px_0_var(--brand-edge)]">
-                <MessageCircle size={16} strokeWidth={2.7} aria-hidden />
-              </span>
+              <BrandLogo className="h-8 w-auto max-w-8 shrink-0 object-contain" />
               <span className="truncate text-base font-black tracking-tight text-ink">
-                Let&apos;s Gist
+                Gist me
               </span>
             </Link>
           )}
@@ -591,6 +590,12 @@ export function AuthWizardPage() {
 
       {/* ——— Main Wizard / Login Stage ——— */}
       <main className="mx-auto flex w-full max-w-xl flex-1 flex-col px-4 pb-8 pt-5 sm:px-6 sm:pt-7">
+        {mode === "signup" && (
+          <Link to="/" aria-label="Gist me home" className="mb-3 inline-flex w-fit items-center gap-2 rounded-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft">
+            <BrandLogo className="h-8 w-auto max-w-8 shrink-0 object-contain" />
+            <span className="text-sm font-black tracking-tight text-ink">Gist me</span>
+          </Link>
+        )}
         {/* Reactive Cartoon Student Mascot & Speech Bubble */}
         <MascotCharacter
           step={step}

@@ -1,5 +1,5 @@
 -- ============================================================================
---  Let's Gist · Supabase Schema (Step 07)
+--  Gist me · Supabase Schema (Step 07)
 --  FRESH PROJECTS ONLY. For the existing wemdjlyxorixmknfruam project (which
 --  already has these tables with live data) run migration-step7.sql instead.
 --  Run this whole file in the Supabase SQL Editor. It is idempotent.
@@ -686,7 +686,7 @@ on conflict (name) do nothing;
 -- Step 10 additions (video metadata, profile identity, shoutout postal system)
 -- ============================================================================
 -- ============================================================================
---  Let's Gist · Step 10 Migration
+--  Gist me · Step 10 Migration
 --  Video posts, profile identity extensions, and the digital Shoutout postal system.
 --  Additive & idempotent. Run after migration-step9.sql in the Supabase SQL Editor.
 -- ============================================================================

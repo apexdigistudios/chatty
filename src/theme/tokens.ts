@@ -1,7 +1,7 @@
 import type { Transition } from "framer-motion";
 
 /**
- * Let's Gist design tokens.
+ * Gist me design tokens.
  * CSS equivalents live in `src/index.css` (@theme) — keep both in sync.
  */
 

@@ -5,9 +5,9 @@
  */
 export async function downloadMedia(
   src: string,
-  filenameHint = "lets-gist-image"
+  filenameHint = "gist-me-image"
 ): Promise<"downloaded" | "opened"> {
-  const safeName = filenameHint.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 48) || "lets-gist";
+  const safeName = filenameHint.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 48) || "gist-me";
   try {
     const response = await fetch(src, { mode: "cors", credentials: "omit" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);

@@ -9,6 +9,7 @@ import { describeError } from "../../lib/supabase";
 import { Avatar } from "../ui/Avatar";
 import { ThemeToggle } from "../ui/ThemeToggle";
 import { useToast } from "../ui/Toast";
+import { BrandLogo } from "../brand/BrandLogo";
 
 interface SidebarItem {
   label: string;
@@ -95,6 +96,10 @@ export function SidebarNav() {
 
   return (
     <nav aria-label="Main navigation" className="sticky top-[88px] py-7">
+      <Link to="/" aria-label="Gist me home" className="mb-6 flex items-center gap-2.5 rounded-xl px-3 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft">
+        <BrandLogo className="h-8 w-auto max-w-8 shrink-0 object-contain" />
+        <span className="truncate text-base font-black tracking-tight text-ink">Gist me</span>
+      </Link>
       <p className="mb-3 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-ink-muted">Your space</p>
       <div className="space-y-2">
         {primary.map((item) => (
