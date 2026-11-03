@@ -9,6 +9,8 @@ export interface ProgressiveImageProps
   alt: string;
   /** Wrapper classes (aspect ratio, sizing, border radius). */
   containerClassName?: string;
+  /** Contain the complete image without cropping, preserving its natural ratio. */
+  fit?: "cover" | "contain";
 }
 
 /**
@@ -23,6 +25,7 @@ export function ProgressiveImage({
   alt,
   className,
   containerClassName,
+  fit = "cover",
   onLoad,
   onError,
   ...rest
@@ -78,8 +81,13 @@ export function ProgressiveImage({
           }}
           onError={onError}
           className={cn(
-            "block size-full object-cover transition-[opacity,filter,transform] duration-400 ease-out",
-            loaded ? "scale-100 opacity-100 blur-0" : "scale-[1.03] opacity-0 blur-md",
+            "block transition-[opacity,filter,transform] duration-400 ease-out",
+            fit === "contain" ? "h-auto w-full object-contain" : "size-full object-cover",
+            loaded
+              ? "scale-100 opacity-100 blur-0"
+              : fit === "contain"
+                ? "opacity-0 blur-md"
+                : "scale-[1.03] opacity-0 blur-md",
             className
           )}
         />
