@@ -12,7 +12,6 @@ import { supabase } from "../lib/supabase";
 import { useAuthGateStore } from "../store/authGateStore";
 import { useGistStore } from "../store/gistStore";
 import { springs } from "../theme/tokens";
-import { useScrollDirection } from "../hooks/useScrollDirection";
 
 const tabs = ["All SHSs", "My School", "Trending", "Confessions"] as const;
 type FeedTab = (typeof tabs)[number];
@@ -145,7 +144,6 @@ export function HomePage() {
 
   const showingConfessions = activeTab === "Confessions";
   const showingTrending = activeTab === "Trending";
-  const chromeHidden = useScrollDirection();
   const loading = showingConfessions
     ? confessionsLoading && confessions.length === 0
     : showingTrending
@@ -154,7 +152,7 @@ export function HomePage() {
 
   return (
     <div className="mx-auto w-full max-w-[720px] min-w-0 px-0 pt-0 sm:px-6 sm:pt-7">
-      <div className={`sticky top-[calc(3.4375rem+max(0.625rem,env(safe-area-inset-top)))] z-40 border-b border-line/60 bg-white/80 px-3 py-1.5 backdrop-blur-md transition-transform duration-300 ease-in-out dark:border-neutral-800/50 dark:bg-neutral-950/80 sm:px-4 md:top-[calc(3.5625rem+max(0.625rem,env(safe-area-inset-top)))] ${chromeHidden ? "-translate-y-[calc(100%+3.4375rem+max(0.625rem,env(safe-area-inset-top)))] md:-translate-y-[calc(100%+3.5625rem+max(0.625rem,env(safe-area-inset-top)))]" : "translate-y-0"}`}>
+      <div className="sticky top-[calc(3.4375rem+max(0.625rem,env(safe-area-inset-top)))] z-40 border-b border-line/60 bg-white/80 px-3 py-1.5 backdrop-blur-md dark:border-neutral-800/50 dark:bg-neutral-950/80 sm:px-4 md:top-[calc(3.5625rem+max(0.625rem,env(safe-area-inset-top)))]">
         <div className="mx-auto grid w-full max-w-[720px] grid-cols-4 items-center" role="tablist" aria-label="Choose feed">
           {tabs.map((tab) => {
             const selected = activeTab === tab;

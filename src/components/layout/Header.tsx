@@ -4,7 +4,6 @@ import { useAuth } from "../../context/AuthContext";
 import { BrandLogo } from "../brand/BrandLogo";
 import { NotificationBell } from "../notifications/NotificationBell";
 import { ThemeToggle } from "../ui/ThemeToggle";
-import { useScrollDirection } from "../../hooks/useScrollDirection";
 
 /**
  * Sticky brand bar. Mobile keeps only the search trigger (per Step 9 polish);
@@ -12,11 +11,10 @@ import { useScrollDirection } from "../../hooks/useScrollDirection";
  */
 export function Header() {
   const { user } = useAuth();
-  const hidden = useScrollDirection();
 
   return (
     <header
-      className={`sticky top-0 z-50 border-b border-line/60 bg-white/80 px-3 py-2.5 backdrop-blur-md transition-[transform,background-color] duration-300 ease-in-out will-change-transform dark:border-neutral-800/50 dark:bg-neutral-950/80 sm:px-4 md:py-3 ${hidden ? "-translate-y-full" : "translate-y-0"}`}
+      className="sticky top-0 z-50 border-b border-line/60 bg-white/80 px-3 py-2.5 backdrop-blur-md dark:border-neutral-800/50 dark:bg-neutral-950/80 sm:px-4 md:py-3"
       style={{ paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}
     >
       <div className="mx-auto flex w-full max-w-[1320px] items-center gap-3 md:gap-6">
