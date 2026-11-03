@@ -7,11 +7,11 @@
 --
 --  Adds:
 --   1. is_school_moderator()  – founder/appointed-moderator check used by policies
---   2. claim_school()          – first student to claim a seeded school moderates it
+--   2. claim_school()          – first student to claim an unowned school moderates it
 --   3. on_school_created       – founders are auto-registered in admin_roles
 --   4. confession_reactions    – Laugh / Shock / Heart / Relatable
 --   5. School-moderator policies on posts, comments and reports (campus-scoped)
---   6. Eight well-known Ghanaian SHS communities (unclaimed; founder = first claimer)
+--   6. Existing school communities remain user-managed; no seed schools are inserted
 -- ============================================================================
 
 create extension if not exists "pgcrypto";
@@ -167,30 +167,6 @@ create policy "reports: school moderators resolve" on public.reports
   for update to authenticated
   using (school_id is not null and public.is_school_moderator(school_id))
   with check (school_id is not null and public.is_school_moderator(school_id));
-
--- 6 ─ Seed well-known communities (skip any that already exist) ---------------
--- creator_id stays NULL → the first student to "Claim & moderate" becomes founder.
-
-insert into public.schools (name, region, school_type, crest_url)
-select v.name, v.region, v.school_type, v.crest_url
-from (values
-  ('Presbyterian Boys'' Senior High School', 'Greater Accra Region', 'public',
-   'https://upload.wikimedia.org/wikipedia/en/4/44/Presbyterian_boys_secondary_logo_2.png'),
-  ('Achimota School',                        'Greater Accra Region', 'public',
-   'https://upload.wikimedia.org/wikipedia/en/6/6f/Achimota_School_crest.png'),
-  ('Mfantsipim School',                      'Central Region',       'public',
-   'https://upload.wikimedia.org/wikipedia/commons/e/eb/Mfantsipim-School-Logo-1-300x274.png'),
-  ('Wesley Girls'' Senior High School',      'Central Region',       'public', null),
-  ('Adisadel College',                       'Central Region',       'public',
-   'https://upload.wikimedia.org/wikipedia/en/6/68/Crest_orig.gif'),
-  ('Prempeh College',                        'Ashanti Region',       'public',
-   'https://upload.wikimedia.org/wikipedia/commons/5/5e/Prempeh_College_Crest.jpg'),
-  ('Opoku Ware School',                      'Ashanti Region',       'public',
-   'https://upload.wikimedia.org/wikipedia/commons/7/73/Opoku_Ware_School_crest.png'),
-  ('St. Peter''s Boys Senior High School',   'Eastern Region',       'public',
-   'https://upload.wikimedia.org/wikipedia/en/9/9f/St._Peter%27s_Boys_Senior_High_School_logo.png')
-) as v(name, region, school_type, crest_url)
-where not exists (select 1 from public.schools s where lower(s.name) = lower(v.name));
 
 -- ──────────────────── Make yourself a Global Admin ─────────────────────────
 -- insert into public.admin_roles (user_id, role)

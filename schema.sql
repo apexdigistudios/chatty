@@ -25,6 +25,7 @@ create table if not exists public.schools (
   school_type  text not null default 'public'
                check (school_type in ('public','private','mission','technical')),
   crest_url    text,
+  logo_url     text,
   creator_id   uuid,                               -- FK added after profiles
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
@@ -169,6 +170,8 @@ alter table public.posts
 -- ───────────────────────────── Indexes ─────────────────────────────────────
 
 create index if not exists posts_school_created_idx      on public.posts (school_id, created_at desc);
+create unique index if not exists idx_schools_unique_normalized_name
+  on public.schools (lower(btrim(name)));
 create index if not exists posts_user_created_idx        on public.posts (user_id, created_at desc);
 create index if not exists posts_feed_idx                on public.posts (status, post_type, created_at desc);
 create index if not exists comments_post_created_idx     on public.comments (post_id, created_at);
@@ -227,6 +230,9 @@ declare
   base_username    text;
   candidate        text;
   requested_school uuid;
+  pending_school_name text;
+  pending_school_region text;
+  pending_school_type text;
   attempt          int := 0;
 begin
   base_username := lower(regexp_replace(
@@ -248,6 +254,13 @@ begin
     requested_school := null;
   end if;
 
+  pending_school_name := nullif(btrim(new.raw_user_meta_data->>'school_name'), '');
+  pending_school_region := coalesce(nullif(btrim(new.raw_user_meta_data->>'school_region'), ''), 'Not specified');
+  pending_school_type := lower(coalesce(nullif(new.raw_user_meta_data->>'school_type', ''), 'public'));
+  if pending_school_type not in ('public', 'private', 'mission', 'technical') then
+    pending_school_type := 'public';
+  end if;
+
   loop
     begin
       insert into public.profiles (id, username, school_id, avatar_url, bio)
@@ -262,6 +275,29 @@ begin
       if attempt > 5 then raise; end if;
     end;
   end loop;
+
+  if pending_school_name is not null then
+    if char_length(pending_school_name) < 3 or char_length(pending_school_name) > 80 then
+      raise exception 'School names must be between 3 and 80 characters.';
+    end if;
+
+    begin
+      insert into public.schools (name, region, school_type, creator_id)
+      values (pending_school_name, pending_school_region, pending_school_type, new.id)
+      returning id into requested_school;
+    exception when unique_violation then
+      select id into requested_school
+      from public.schools
+      where lower(btrim(name)) = lower(btrim(pending_school_name))
+      order by created_at, id
+      limit 1;
+    end;
+
+    update public.profiles
+    set school_id = requested_school
+    where id = new.id;
+  end if;
+
   return new;
 end;
 $$;
@@ -637,6 +673,60 @@ create policy "letsgist-media: owner delete" on storage.objects
   for delete to authenticated
   using (bucket_id = 'letsgist-media' and owner = auth.uid());
 
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('school-assets', 'school-assets', true, 8388608, array['image/webp'])
+on conflict (id) do update
+  set public = excluded.public,
+      file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "school assets: public read"       on storage.objects;
+drop policy if exists "school assets: moderators upload" on storage.objects;
+drop policy if exists "school assets: moderators update" on storage.objects;
+drop policy if exists "school assets: moderators delete" on storage.objects;
+
+create policy "school assets: public read" on storage.objects
+  for select to anon, authenticated
+  using (bucket_id = 'school-assets');
+create policy "school assets: moderators upload" on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'school-assets'
+    and case
+      when (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      then public.is_school_moderator(((storage.foldername(name))[1])::uuid) or public.is_global_admin()
+      else false
+    end
+  );
+create policy "school assets: moderators update" on storage.objects
+  for update to authenticated
+  using (
+    bucket_id = 'school-assets'
+    and case
+      when (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      then public.is_school_moderator(((storage.foldername(name))[1])::uuid) or public.is_global_admin()
+      else false
+    end
+  )
+  with check (
+    bucket_id = 'school-assets'
+    and case
+      when (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      then public.is_school_moderator(((storage.foldername(name))[1])::uuid) or public.is_global_admin()
+      else false
+    end
+  );
+create policy "school assets: moderators delete" on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'school-assets'
+    and case
+      when (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      then public.is_school_moderator(((storage.foldername(name))[1])::uuid) or public.is_global_admin()
+      else false
+    end
+  );
+
 -- ───────────────────────────── Realtime ────────────────────────────────────
 do $$
 begin
@@ -653,26 +743,6 @@ begin
     alter publication supabase_realtime add table public.group_memberships;
   exception when duplicate_object then null; end;
 end $$;
-
--- ─────────────────────── Seed: Ghanaian SHS communities ────────────────────
--- creator_id is NULL so any signed-in student can claim and moderate them.
-insert into public.schools (name, region, school_type, crest_url) values
-  ('Presbyterian Boys'' Senior High School', 'Greater Accra Region', 'public',
-   'https://upload.wikimedia.org/wikipedia/en/4/44/Presbyterian_boys_secondary_logo_2.png'),
-  ('Achimota School',                        'Greater Accra Region', 'public',
-   'https://upload.wikimedia.org/wikipedia/en/6/6f/Achimota_School_crest.png'),
-  ('Mfantsipim School',                      'Central Region',       'public',
-   'https://upload.wikimedia.org/wikipedia/commons/e/eb/Mfantsipim-School-Logo-1-300x274.png'),
-  ('Wesley Girls'' Senior High School',      'Central Region',       'public', null),
-  ('Adisadel College',                       'Central Region',       'public',
-   'https://upload.wikimedia.org/wikipedia/en/6/68/Crest_orig.gif'),
-  ('Prempeh College',                        'Ashanti Region',       'public',
-   'https://upload.wikimedia.org/wikipedia/commons/5/5e/Prempeh_College_Crest.jpg'),
-  ('Opoku Ware School',                      'Ashanti Region',       'public',
-   'https://upload.wikimedia.org/wikipedia/commons/7/73/Opoku_Ware_School_crest.png'),
-  ('St. Peter''s Boys Senior High School',   'Eastern Region',       'public',
-   'https://upload.wikimedia.org/wikipedia/en/9/9f/St._Peter%27s_Boys_Senior_High_School_logo.png')
-on conflict (name) do nothing;
 
 -- ──────────────────── Bootstrap your first Global Admin ────────────────────
 -- After signing up in the app, run (replace the username):

@@ -54,6 +54,7 @@ import {
   signInWithEmail,
   signUpWithEmail,
 } from "../services/profilesService";
+import { findSchoolByName, GHANA_REGIONS } from "../services/schoolsService";
 import { useGistStore } from "../store/gistStore";
 import { springs } from "../theme/tokens";
 import { schoolTypeLabel } from "../types/models";
@@ -139,6 +140,9 @@ export function AuthWizardPage() {
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>(prefillSchoolId);
   const [skippedSchool, setSkippedSchool] = useState(false);
   const [schoolQuery, setSchoolQuery] = useState("");
+  const [pendingSchoolName, setPendingSchoolName] = useState("");
+  const [pendingSchoolRegion, setPendingSchoolRegion] = useState<string>(GHANA_REGIONS[0]);
+  const [checkingNewSchool, setCheckingNewSchool] = useState(false);
 
   // Step 2: Secret Nickname + Profile Avatar
   const [username, setUsername] = useState("");
@@ -281,6 +285,37 @@ export function AuthWizardPage() {
     navigate(returnTo);
   };
 
+  const addSchoolCommunity = async () => {
+    const name = schoolQuery.trim();
+    if (name.length < 3 || name.length > 80) {
+      toast("School names must be between 3 and 80 characters.", "danger");
+      return;
+    }
+
+    setCheckingNewSchool(true);
+    try {
+      const existingSchool = await findSchoolByName(name);
+      if (existingSchool) {
+        setPendingSchoolName("");
+        setSelectedSchoolId(existingSchool.id);
+        setSkippedSchool(false);
+        toast(`${existingSchool.name} is already listed. It has been selected.`, "brand");
+        return;
+      }
+
+      setPendingSchoolName(name);
+      setSelectedSchoolId("");
+      setSkippedSchool(false);
+      toast("This community will be created when you complete signup.", "brand");
+    } catch (error) {
+      const message = describeError(error, "Could not check for an existing school.");
+      toast(message, "danger");
+      setErrorMessage(message);
+    } finally {
+      setCheckingNewSchool(false);
+    }
+  };
+
   const pickAvatarFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const rawFile = event.target.files?.[0];
     event.target.value = "";
@@ -330,6 +365,9 @@ export function AuthWizardPage() {
         password,
         username: cleanUsername,
         schoolId: skippedSchool ? null : selectedSchoolId || null,
+        schoolName: skippedSchool ? null : pendingSchoolName || null,
+        schoolRegion: pendingSchoolRegion,
+        schoolType: "public",
         avatarUrl: selectedAvatarUrl,
         avatarFile,
       });
@@ -402,6 +440,13 @@ export function AuthWizardPage() {
     }
 
     if (step === 1) {
+      if (pendingSchoolName) {
+        return {
+          outfit: "shs_welcome" as const,
+          badge: "STEP 1 · NEW COMMUNITY",
+          speech: `${pendingSchoolName} will be added to the campus directory when you finish signing up.`,
+        };
+      }
       if (selectedSchool) {
         return {
           outfit: "shs_welcome" as const,
@@ -486,6 +531,7 @@ export function AuthWizardPage() {
     mode,
     step,
     selectedSchool,
+    pendingSchoolName,
     skippedSchool,
     nickStatus,
     cleanUsername,
@@ -495,7 +541,7 @@ export function AuthWizardPage() {
   ]);
 
   const progressPct = (step / 4) * 100;
-  const canProceedStep1 = Boolean(selectedSchoolId) || skippedSchool || schools.length === 0;
+  const canProceedStep1 = Boolean(selectedSchoolId || pendingSchoolName) || skippedSchool || schools.length === 0;
   const canProceedStep2 =
     /^[A-Za-z0-9_]{3,24}$/.test(cleanUsername) &&
     (nickStatus === "available" || nickStatus === "checking");
@@ -780,7 +826,14 @@ export function AuthWizardPage() {
                       <input
                         type="search"
                         value={schoolQuery}
-                        onChange={(event) => setSchoolQuery(event.target.value)}
+                        role="combobox"
+                        aria-autocomplete="list"
+                        aria-expanded={filteredSchools.length > 0 || Boolean(schoolQuery.trim())}
+                        aria-controls="signup-school-options"
+                        onChange={(event) => {
+                          setSchoolQuery(event.target.value);
+                          setPendingSchoolName("");
+                        }}
                         placeholder="Search PRESEC, Achimota, Wesley Girls..."
                         aria-label="Search SHS communities"
                         className="min-w-0 flex-1 bg-transparent text-xs font-bold text-ink outline-none placeholder:text-ink-faint sm:text-sm"
@@ -788,7 +841,12 @@ export function AuthWizardPage() {
                     </label>
 
                     {/* School Cards Grid */}
-                    <div className="mt-3 grid max-h-[300px] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                    <div
+                      id="signup-school-options"
+                      role="listbox"
+                      aria-label="Available school communities"
+                      className="mt-3 grid max-h-[300px] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2"
+                    >
                       {schoolsLoading && schools.length === 0 ? (
                         Array.from({ length: 4 }, (_, idx) => (
                           <div
@@ -808,10 +866,13 @@ export function AuthWizardPage() {
                               transition={springs.snappy}
                               onClick={() => {
                                 setSkippedSchool(false);
+                                setPendingSchoolName("");
                                 setSelectedSchoolId(school.id);
                                 triggerReaction("valid");
                               }}
                               aria-pressed={isSelected}
+                              role="option"
+                              aria-selected={isSelected}
                               className={cn(
                                 "flex items-center gap-3 rounded-2xl border-2 p-2.5 text-left transition-all",
                                 isSelected
@@ -847,13 +908,58 @@ export function AuthWizardPage() {
                           );
                         })
                       ) : (
-                        <div className="col-span-full rounded-2xl border-2 border-dashed border-line px-4 py-6 text-center">
-                          <p className="text-xs font-extrabold text-ink">
-                            No school matched &ldquo;{schoolQuery}&rdquo;
+                        <div className="col-span-full rounded-2xl border-2 border-dashed border-line px-4 py-4">
+                          <p className="text-center text-xs font-extrabold text-ink">
+                            No school matched &ldquo;{schoolQuery.trim()}&rdquo;
                           </p>
-                          <p className="mt-1 text-[11px] font-semibold text-ink-muted">
-                            Skip for now — you can found your SHS community right after signing up!
-                          </p>
+                          {pendingSchoolName === schoolQuery.trim() ? (
+                            <div className="mt-3 rounded-xl border-2 border-brand bg-brand-wash p-3 text-center">
+                              <p className="text-xs font-extrabold text-brand-deep">
+                                {pendingSchoolName} · {pendingSchoolRegion}
+                              </p>
+                              <p className="mt-1 text-[11px] font-semibold text-ink-muted">
+                                This community will be checked and created during signup.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => setPendingSchoolName("")}
+                                className="mt-2 min-h-11 rounded-xl px-3 text-xs font-extrabold text-ink-muted hover:text-ink"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="mt-1 text-center text-[11px] font-semibold text-ink-muted">
+                                Add your school community to the directory.
+                              </p>
+                              <label className="mt-3 block">
+                                <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">
+                                  School region
+                                </span>
+                                <select
+                                  value={pendingSchoolRegion}
+                                  onChange={(event) => setPendingSchoolRegion(event.target.value)}
+                                  className="h-11 w-full rounded-xl border-2 border-line bg-page px-3 text-xs font-bold text-ink outline-none focus:border-brand"
+                                >
+                                  {GHANA_REGIONS.map((region) => (
+                                    <option key={region} value={region}>{region}</option>
+                                  ))}
+                                </select>
+                              </label>
+                              <Button
+                                type="button"
+                                fullWidth
+                                size="sm"
+                                className="mt-3"
+                                loading={checkingNewSchool}
+                                disabled={!schoolQuery.trim()}
+                                onClick={() => void addSchoolCommunity()}
+                              >
+                                Add New School Community
+                              </Button>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
@@ -863,6 +969,7 @@ export function AuthWizardPage() {
                       type="button"
                       onClick={() => {
                         setSelectedSchoolId("");
+                        setPendingSchoolName("");
                         setSkippedSchool(true);
                         triggerReaction("valid");
                       }}

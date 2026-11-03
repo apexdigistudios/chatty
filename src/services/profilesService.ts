@@ -8,6 +8,7 @@ import {
 import { COMPRESSION_PRESETS, compressImageWithStats } from "../lib/imageCompression";
 import type { AdminRoleRow, Profile, ProfileRow, PublicProfile } from "../types/models";
 import { uploadImage } from "./storageService";
+import { findSchoolByName } from "./schoolsService";
 
 const PROFILE_SELECT = "id, username, school_id, avatar_url, bio, created_at";
 const IDENTITY_SELECT = `${PROFILE_SELECT}, full_name, class_form`;
@@ -174,7 +175,7 @@ export async function fetchPublicProfile(userId: string): Promise<PublicProfile 
     const select = await profileSelect();
     const { data, error } = await supabase
       .from("profiles")
-      .select(`${select}, school:schools!school_id(name, crest_url)`)
+      .select(`${select}, school:schools!school_id(name, crest_url:logo_url)`)
       .eq("id", userId)
       .maybeSingle<RawPublicProfile>();
     if (error) throw new Error(error.message);
@@ -305,7 +306,7 @@ export async function searchStudentsBySchool(
   const select = supportsIdentity ? IDENTITY_SELECT : PROFILE_SELECT;
   const { data, error } = await supabase
     .from("profiles")
-    .select(`${select}, school:schools!school_id(name, crest_url)`)
+    .select(`${select}, school:schools!school_id(name, crest_url:logo_url)`)
     .eq("school_id", schoolId)
     .or(supportsIdentity ? `full_name.ilike.%${clean}%,username.ilike.%${clean}%` : `username.ilike.%${clean}%`)
     .order("username", { ascending: true })
@@ -347,6 +348,9 @@ export interface SignUpInput {
   password: string;
   username: string;
   schoolId?: string | null;
+  schoolName?: string | null;
+  schoolRegion?: string | null;
+  schoolType?: "public" | "private" | "mission" | "technical";
   avatarUrl?: string | null;
   avatarFile?: File | null;
 }
@@ -363,6 +367,18 @@ export interface SignUpResult {
 export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult> {
   const cleanUsername = input.username.trim().replace(/^@/, "");
   const fallbackAvatar = input.avatarUrl || defaultAvatarUrl(cleanUsername);
+  let schoolId = input.schoolId ?? null;
+  let schoolName = input.schoolName?.trim() ?? "";
+
+  if (schoolName) {
+    const existingSchool = await findSchoolByName(schoolName);
+    if (existingSchool) {
+      schoolId = existingSchool.id;
+      schoolName = "";
+    } else {
+      schoolId = null;
+    }
+  }
 
   const { data, error } = await supabase.auth.signUp({
     email: input.email.trim(),
@@ -370,7 +386,10 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
     options: {
       data: {
         username: cleanUsername,
-        school_id: input.schoolId ?? "",
+        school_id: schoolId ?? "",
+        school_name: schoolName,
+        school_region: input.schoolRegion?.trim() || "",
+        school_type: input.schoolType ?? "public",
         avatar_url: fallbackAvatar,
       },
     },
@@ -381,7 +400,7 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
     return { hasSession: false, profile: null };
   }
 
-  await ensureProfile();
+  const profile = await ensureProfile();
 
   let finalAvatarUrl = fallbackAvatar;
   if (input.avatarFile) {
@@ -395,7 +414,7 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
 
   const updatedProfile = await updateMyProfile({
     username: cleanUsername,
-    schoolId: input.schoolId ?? null,
+    schoolId: schoolId ?? profile.schoolId,
     avatarUrl: finalAvatarUrl,
   });
 

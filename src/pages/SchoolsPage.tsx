@@ -7,23 +7,14 @@ import { SchoolCard } from "../components/schools/SchoolCard";
 import { Button } from "../components/ui/Button";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../context/AuthContext";
-import {
-  COMPRESSION_PRESETS,
-  compressImageWithStats,
-  formatBytes,
-} from "../lib/imageCompression";
+import { formatBytes } from "../lib/imageCompression";
 import { describeError } from "../lib/supabase";
 import { useAuthGateStore } from "../store/authGateStore";
 import { springs } from "../theme/tokens";
 import { useGistStore } from "../store/gistStore";
 import { SCHOOL_TYPES, schoolTypeLabel, type SchoolType } from "../types/models";
 import { cn } from "../utils/cn";
-
-const REGIONS = [
-  "Greater Accra Region", "Ashanti Region", "Central Region", "Eastern Region", "Western Region",
-  "Volta Region", "Northern Region", "Upper East Region", "Upper West Region", "Bono Region",
-  "Bono East Region", "Ahafo Region", "Oti Region", "Savannah Region", "North East Region", "Western North Region",
-];
+import { GHANA_REGIONS } from "../services/schoolsService";
 
 /** SHS directory + "create a community" flow (the creator becomes its moderator). */
 export function SchoolsPage() {
@@ -41,8 +32,12 @@ export function SchoolsPage() {
   const [region, setRegion] = useState("All regions");
   const [typeFilter, setTypeFilter] = useState<SchoolType | "All">("All");
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ name: "", region: REGIONS[0]!, schoolType: "public" as SchoolType });
-  const [crestFile, setCrestFile] = useState<File | null>(null);
+  const [form, setForm] = useState<{ name: string; region: string; schoolType: SchoolType }>({
+    name: "",
+    region: GHANA_REGIONS[0],
+    schoolType: "public",
+  });
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -79,11 +74,11 @@ export function SchoolsPage() {
     if (form.name.trim().length < 3) return;
     setSaving(true);
     try {
-      const school = await createSchool({ ...form, crestFile });
+      const school = await createSchool({ ...form, logoFile });
       toast(`${school.shortName} is live — you are its moderator.`, "success");
       setCreating(false);
-      setForm({ name: "", region: REGIONS[0]!, schoolType: "public" });
-      setCrestFile(null);
+      setForm({ name: "", region: GHANA_REGIONS[0], schoolType: "public" });
+      setLogoFile(null);
       navigate(`/schools/${school.id}?tab=manage`);
     } catch (error) {
       toast(describeError(error), "danger");
@@ -126,7 +121,7 @@ export function SchoolsPage() {
                 <label className="block">
                   <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Region</span>
                   <select value={form.region} onChange={(event) => setForm({ ...form, region: event.target.value })} className="h-10 w-full rounded-xl border-2 border-line bg-page px-3 text-xs font-bold text-ink outline-none focus:border-brand">
-                    {REGIONS.map((item) => <option key={item} value={item}>{item}</option>)}
+                    {GHANA_REGIONS.map((item) => <option key={item} value={item}>{item}</option>)}
                   </select>
                 </label>
                 <label className="block">
@@ -140,9 +135,9 @@ export function SchoolsPage() {
                   <span className="flex h-11 items-center gap-2 rounded-xl border-2 border-dashed border-line bg-page px-3 text-xs font-bold text-ink-muted transition-colors hover:border-brand">
                     <ImagePlus size={15} strokeWidth={2.5} className="shrink-0 text-brand-deep" aria-hidden />
                     <span className="truncate">
-                      {crestFile
-                        ? `${crestFile.name} (${formatBytes(crestFile.size)})`
-                        : "Upload crest (auto WebP)"}
+                      {logoFile
+                        ? `${logoFile.name} (${formatBytes(logoFile.size)})`
+                        : "Upload logo (auto WebP)"}
                     </span>
                     <input
                       type="file"
@@ -152,13 +147,12 @@ export function SchoolsPage() {
                         const raw = event.target.files?.[0];
                         event.target.value = "";
                         if (!raw) return;
-                        try {
-                          const res = await compressImageWithStats(raw, COMPRESSION_PRESETS.crests);
-                          setCrestFile(res.file);
-                          toast(`Crest optimized to ${formatBytes(res.compressedBytes)}!`, "success");
-                        } catch (error) {
-                          toast(describeError(error, "Invalid crest image."), "danger");
+                        if (!raw.type.startsWith("image/")) {
+                          toast("Choose an image file for the school logo.", "danger");
+                          return;
                         }
+                        setLogoFile(raw);
+                        toast("Logo selected. It will be compressed and uploaded when the community is created.", "brand");
                       }}
                     />
                   </span>

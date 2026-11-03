@@ -46,14 +46,14 @@ const TOTAL_LIMIT = 80;
 
 const LIKES_SELECT = `id, created_at, user_id,
   liker:profiles(id, username, avatar_url, school:schools!school_id(name)),
-  post:posts!inner(id, user_id, content, media_url, school_id, school:schools(name, crest_url))`;
+  post:posts!inner(id, user_id, content, media_url, school_id, school:schools(name, crest_url:logo_url))`;
 
 const COMMENTS_SELECT = `id, content, created_at,
-  post:posts!inner(id, user_id, content, school_id, school:schools(name, crest_url)),
+  post:posts!inner(id, user_id, content, school_id, school:schools(name, crest_url:logo_url)),
   author:profiles(id, username, avatar_url, school:schools!school_id(name))`;
 
 const CAMPUS_SELECT = `id, content, media_url, created_at, user_id,
-  school:schools(name, crest_url), author:profiles(username, avatar_url),
+  school:schools(name, crest_url:logo_url), author:profiles(username, avatar_url),
   likes(count), comments(count)`;
 
 interface RawLike {

@@ -1,13 +1,19 @@
 import { shortNameOf } from "../lib/media";
 import { countOf, requireUserId, supabase } from "../lib/supabase";
 import type { School, SchoolRow, SchoolType } from "../types/models";
-import { uploadImage } from "./storageService";
+import { uploadSchoolLogo } from "../lib/images/imageUpload";
+
+export const GHANA_REGIONS = [
+  "Greater Accra Region", "Ashanti Region", "Central Region", "Eastern Region", "Western Region",
+  "Volta Region", "Northern Region", "Upper East Region", "Upper West Region", "Bono Region",
+  "Bono East Region", "Ahafo Region", "Oti Region", "Savannah Region", "North East Region", "Western North Region",
+] as const;
 
 /**
  * `profiles!school_id` disambiguates the two profiles↔schools relationships
  * (profiles.school_id vs schools.creator_id) by column rather than constraint name.
  */
-const SCHOOL_SELECT = `id, name, region, school_type, crest_url, creator_id, created_at,
+const SCHOOL_SELECT = `id, name, region, school_type, crest_url:logo_url, creator_id, created_at,
   members:profiles!school_id(count), posts(count)`;
 
 interface RawSchool extends SchoolRow {
@@ -50,17 +56,30 @@ export async function fetchSchool(schoolId: string): Promise<School | null> {
   return data ? mapSchool(data) : null;
 }
 
+export async function findSchoolByName(name: string): Promise<School | null> {
+  const cleanName = name.trim();
+  if (!cleanName) return null;
+  const pattern = cleanName.replace(/[\\%_]/g, "\\$&");
+  const { data, error } = await supabase
+    .from("schools")
+    .select(SCHOOL_SELECT)
+    .ilike("name", pattern)
+    .maybeSingle<RawSchool>();
+  if (error) throw new Error(error.message);
+  return data ? mapSchool(data) : null;
+}
+
 export interface CreateSchoolInput {
   name: string;
   region: string;
   schoolType: SchoolType;
+  logoFile?: File | null;
   crestFile?: File | null;
 }
 
 /** Inserts a community with the caller as founder → moderator. */
 export async function createSchoolCommunity(input: CreateSchoolInput): Promise<School> {
   const userId = await requireUserId();
-  const crestUrl = input.crestFile ? await uploadImage(input.crestFile, "crests") : null;
 
   const { data, error } = await supabase
     .from("schools")
@@ -68,7 +87,6 @@ export async function createSchoolCommunity(input: CreateSchoolInput): Promise<S
       name: input.name.trim(),
       region: input.region.trim(),
       school_type: input.schoolType,
-      crest_url: crestUrl,
       creator_id: userId,
     })
     .select(SCHOOL_SELECT)
@@ -77,10 +95,18 @@ export async function createSchoolCommunity(input: CreateSchoolInput): Promise<S
     if (error.code === "23505") throw new Error("A community with that name already exists.");
     throw new Error(error.message);
   }
-  return mapSchool(data);
+  const school = mapSchool(data);
+  const logoFile = input.logoFile ?? input.crestFile;
+  if (!logoFile) return school;
+  try {
+    const logoUrl = await uploadSchoolLogo(school.id, logoFile);
+    return { ...school, crestUrl: logoUrl };
+  } catch (error) {
+    throw new Error(`The community was created, but its logo could not be uploaded: ${error instanceof Error ? error.message : "unknown error"}`);
+  }
 }
 
-/** Becomes moderator of a seeded community that has no founder yet (RPC from migration-step7.sql). */
+/** Becomes moderator of an unowned community (RPC from migration-step7.sql). */
 export async function claimSchool(schoolId: string): Promise<void> {
   const { error } = await supabase.rpc("claim_school", { target_school: schoolId });
   if (error) {
@@ -90,8 +116,5 @@ export async function claimSchool(schoolId: string): Promise<void> {
 }
 
 export async function updateSchoolCrest(schoolId: string, file: File): Promise<string> {
-  const crestUrl = await uploadImage(file, "crests");
-  const { error } = await supabase.from("schools").update({ crest_url: crestUrl }).eq("id", schoolId);
-  if (error) throw new Error(error.message);
-  return crestUrl;
+  return uploadSchoolLogo(schoolId, file);
 }

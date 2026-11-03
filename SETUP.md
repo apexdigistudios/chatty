@@ -26,10 +26,20 @@ it. It is additive and idempotent; it adds:
 - the founder→moderator trigger, plus a back-fill for existing founders
 - `confession_reactions` (the reaction bar hides itself until this exists)
 - campus-scoped moderator policies on `posts`, `comments`, `reports`
-- eight well-known SHS communities, left unclaimed so students can claim them
+- no seeded school communities; students add and select communities during signup
 
 The app works against the live project **before** the migration too — reactions
 and "Claim & moderate" are the only features that wait for it.
+
+### A9 · User-created school communities and logos
+
+Run `supabase/migrations/clean_and_deduplicate_schools.sql` in the SQL Editor.
+It clears existing school image URLs without deleting communities, adds case- and
+whitespace-insensitive name uniqueness, creates the public `school-assets` bucket,
+and provisions signup-time community creation. If normalized duplicate names
+already exist, the migration stops and lists them so their records can be merged
+without silently reassigning students or posts. Apply this migration before
+deploying the updated school queries or signup flow.
 
 ### A2 · Applying Step 9 (sub-communities + trending + school lock)
 
@@ -105,7 +115,7 @@ dashboard and must be processed manually.
    - triggers: profile-on-signup, founder-becomes-moderator
    - RPC: `claim_school(uuid)`
    - the public `letsgist-media` storage bucket + object policies
-   - eight seeded Ghanaian SHS communities (with Wikimedia crests)
+   - a user-created school community directory with optional school logos in Storage
 3. **Auth → Providers → Email**: enabled by default. For a frictionless local dev
    loop, turn **off** "Confirm email" so sign-up creates a session immediately.
 4. For Spotlight, reports, and account safety actions, also run

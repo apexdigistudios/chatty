@@ -11,12 +11,12 @@ import { uploadPostMedia } from "./storageService";
 
 const BASE_POST_SELECT = `id, user_id, school_id, content, media_url, post_type, status, created_at,
   author:profiles(id, username, avatar_url, school_id),
-  school:schools(id, name, crest_url),
+  school:schools(id, name, crest_url:logo_url),
   likes(count), comments(count)`;
 
 const GROUP_POST_SELECT = `id, user_id, school_id, group_id, content, media_url, post_type, status, created_at,
   author:profiles(id, username, avatar_url, school_id),
-  school:schools(id, name, crest_url),
+  school:schools(id, name, crest_url:logo_url),
   group:school_groups(id, name, emoji),
   likes(count), comments(count)`;
 
