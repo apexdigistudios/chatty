@@ -502,7 +502,7 @@ export function ProfilePage() {
 
       <div className="mt-5">
         {tab === "My Gists" && (
-          <div className="space-y-4">
+          <div className="space-y-0">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-extrabold text-ink sm:text-base">Published by @{profile.username}</h2>
               <Button size="sm" leftIcon={<Plus size={14} strokeWidth={2.8} aria-hidden />} onClick={() => { setComposerIntent("gist", profile.schoolId); navigate("/create"); }}>New gist</Button>
@@ -514,7 +514,7 @@ export function ProfilePage() {
         )}
 
         {tab === "Liked Gists" && (
-          <div className="space-y-4">
+          <div className="space-y-0">
             <h2 className="text-sm font-extrabold text-ink sm:text-base">Gists you liked ({liked.length})</h2>
             {loadingPosts ? <FeedSkeleton count={2} /> : liked.length > 0 ? liked.map((post) => <GistCard key={post.id} post={post} onRemoved={(postId) => { setMyPosts((prev) => prev.filter((item) => item.id !== postId)); setLiked((prev) => prev.filter((item) => item.id !== postId)); }} />) : (
               <Empty title="No liked gists yet" detail="Tap the heart on any campus gist and it will collect here." action="Browse feed" onAction={() => navigate("/")} />

@@ -222,7 +222,7 @@ export function PublicProfilePage() {
         </div>
 
         {posts.length > 0 ? (
-          <div className="space-y-4">
+          <div className="space-y-0">
             {posts.map((post) => (
               <GistCard key={post.id} post={post} onRemoved={(postId) => setPosts((prev) => prev.filter((item) => item.id !== postId))} />
             ))}

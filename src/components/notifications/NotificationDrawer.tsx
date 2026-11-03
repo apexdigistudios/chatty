@@ -347,7 +347,7 @@ export function NotificationDrawer() {
               ) : loading && items.length === 0 ? (
                 <ListSkeleton />
               ) : visible.length > 0 ? (
-                <ul className="space-y-2">
+                <ul className="space-y-0">
                   {visible.map((item, index) => (
                     <NotificationRow
                       key={item.id}
@@ -422,10 +422,10 @@ function NotificationRow({
         whileTap={{ scale: 0.985 }}
         transition={springs.snappy}
         className={cn(
-          "group relative flex w-full items-start gap-3 overflow-hidden rounded-2xl border-2 p-3 text-left transition-colors",
+          "group relative flex w-full items-start gap-3 overflow-hidden border-b border-line/60 px-2 py-3 text-left transition-colors last:border-b-0 dark:border-neutral-800/60",
           item.read
-            ? "border-line bg-card hover:border-line-deep"
-            : "border-brand/45 bg-brand-wash/45 hover:border-brand"
+            ? "bg-transparent hover:bg-page/70"
+            : "bg-brand-wash/45 hover:bg-brand-wash/70"
         )}
       >
         {/* Unread spine */}

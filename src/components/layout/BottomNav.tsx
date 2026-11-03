@@ -6,6 +6,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useAuthGateStore } from "../../store/authGateStore";
 import { springs } from "../../theme/tokens";
 import { Avatar } from "../ui/Avatar";
+import { useScrollDirection } from "../../hooks/useScrollDirection";
 
 interface NavigationItem {
   label: string;
@@ -28,11 +29,12 @@ const navigation: NavigationItem[] = [
 export function BottomNav() {
   const { user, profile } = useAuth();
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
+  const hidden = useScrollDirection();
 
   return (
     <nav
       aria-label="Primary navigation"
-      className="fixed inset-x-0 bottom-0 z-40 w-full border-t border-zinc-200/60 bg-white/65 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur-lg transition-colors duration-200 dark:border-white/10 dark:bg-black/40 dark:shadow-[0_-8px_24px_rgba(0,0,0,0.2)] md:hidden"
+      className={`fixed inset-x-0 bottom-0 z-40 w-full border-t border-zinc-200/60 bg-white/65 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur-lg transition-transform duration-300 ease-in-out dark:border-white/10 dark:bg-black/40 dark:shadow-[0_-8px_24px_rgba(0,0,0,0.2)] md:hidden ${hidden ? "translate-y-full" : "translate-y-0"}`}
     >
       <div className="mx-auto grid w-full max-w-sm grid-cols-5 items-center justify-items-center">
         {navigation.map(({ label, to, icon: Icon, end, create, profile: isProfile }) => (

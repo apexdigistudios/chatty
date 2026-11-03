@@ -11,7 +11,6 @@ import { springs } from "../../theme/tokens";
 import type { Confession, ConfessionCategory, ReactionKind } from "../../types/models";
 import { cn } from "../../utils/cn";
 import { Badge, type BadgeTone } from "../ui/Badge";
-import { Card, CardBody } from "../ui/Card";
 import { SchoolTag } from "../ui/SchoolBadge";
 import { useToast } from "../ui/Toast";
 import { ReportMenu } from "./ReportMenu";
@@ -88,8 +87,12 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
   const status = pending ? confession.moderationStatus : "approved";
 
   return (
-    <Card role="article" aria-label={`Anonymous confession${school ? `, ${school.shortName}` : ""}`} className="relative overflow-visible">
-      <CardBody className="pb-4 pt-4 sm:pb-5 sm:pt-5">
+    <article
+      role="article"
+      aria-label={`Anonymous confession${school ? `, ${school.shortName}` : ""}`}
+      className="relative overflow-visible border-b-4 border-line/60 px-4 py-4 dark:border-neutral-900/60"
+    >
+      <div>
         <div className="flex items-start gap-3">
           <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-wash text-brand-deep">
             <EyeOff size={20} strokeWidth={2.5} aria-hidden />
@@ -151,35 +154,35 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
         )}
 
         {reactionsAvailable() && (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {REACTION_META.map(({ kind, label, icon: Icon, activeClass }) => {
-            const active = confession.myReaction === kind;
-            const count = confession.reactions[kind];
-            return (
-              <motion.button
-                key={kind}
-                type="button"
-                whileTap={{ scale: 0.9 }}
-                transition={springs.snappy}
-                onClick={() => react(kind)}
-                disabled={pending}
-                aria-pressed={active}
-                aria-label={`${label} reaction, ${count}`}
-                className={cn(
-                  "flex min-h-11 items-center gap-1.5 rounded-full border-2 px-2.5 text-[11px] font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft disabled:opacity-50",
-                  active ? activeClass : "border-line bg-card text-ink-muted hover:border-line-deep hover:text-ink"
-                )}
-              >
-                <Icon size={14} strokeWidth={2.5} aria-hidden />
-                <span className="tabular-nums">{count}</span>
-              </motion.button>
-            );
-          })}
-        </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {REACTION_META.map(({ kind, label, icon: Icon, activeClass }) => {
+              const active = confession.myReaction === kind;
+              const count = confession.reactions[kind];
+              return (
+                <motion.button
+                  key={kind}
+                  type="button"
+                  whileTap={{ scale: 0.9 }}
+                  transition={springs.snappy}
+                  onClick={() => react(kind)}
+                  disabled={pending}
+                  aria-pressed={active}
+                  aria-label={`${label} reaction, ${count}`}
+                  className={cn(
+                    "flex min-h-11 items-center gap-1.5 rounded-full border-2 px-2.5 text-[11px] font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft disabled:opacity-50",
+                    active ? activeClass : "border-line bg-card text-ink-muted hover:border-line-deep hover:text-ink"
+                  )}
+                >
+                  <Icon size={14} strokeWidth={2.5} aria-hidden />
+                  <span className="tabular-nums">{count}</span>
+                </motion.button>
+              );
+            })}
+          </div>
         )}
-      </CardBody>
+      </div>
 
-      <div className="flex items-center gap-1 border-t-2 border-line px-2 py-2 sm:px-3">
+      <div className="mt-3 flex items-center gap-1 border-t border-line/50 pt-1.5">
         <button
           type="button"
           onClick={share}
@@ -202,6 +205,6 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
         schoolId={null}
         requireAuth={requireAuth}
       />
-    </Card>
+    </article>
   );
 }

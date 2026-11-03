@@ -271,8 +271,8 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
                     src={item.src}
                     alt={item.alt}
                     referrerPolicy="no-referrer"
-                    containerClassName="w-full"
-                    fit="contain"
+                    containerClassName="aspect-[4/3] max-h-[480px] w-full bg-neutral-950"
+                    fit="cover"
                   />
                   <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-[#09090b]/75 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white opacity-0 backdrop-blur transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                     <ZoomIn size={11} strokeWidth={2.8} aria-hidden />

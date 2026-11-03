@@ -44,7 +44,7 @@ export function SpotlightPage() {
       {loading ? (
         <Card className="p-6 text-center text-sm font-bold text-ink-muted">Loading active Spotlight gists…</Card>
       ) : posts.length ? (
-        <div className="space-y-4">
+        <div className="space-y-0">
           {posts.map((post) => <GistCard key={post.id} post={post} />)}
         </div>
       ) : (
