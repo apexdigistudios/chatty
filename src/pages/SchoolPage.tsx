@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { ArrowLeft, Hash, Loader2, MapPin, Plus, ShieldCheck, Sparkles, Users, X } from "lucide-react";
 import { GistCard } from "../components/feed/GistCard";
 import { ManageCommunityPanel } from "../components/moderation/ManageCommunityPanel";
+import { SchoolCrestUploader } from "../components/schools/SchoolCrestUploader";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { SchoolBadge } from "../components/ui/SchoolBadge";
@@ -252,7 +253,18 @@ export function SchoolPage() {
       <header className="relative mt-3 overflow-hidden rounded-[26px] border-2 border-line bg-card p-4 shadow-[0_4px_0_var(--border-color)] sm:p-5">
         <span className="pointer-events-none absolute -right-12 -top-16 size-48 rounded-full opacity-80" style={{ background: "radial-gradient(circle, var(--brand-wash), transparent 70%)" }} aria-hidden />
         <div className="relative flex items-start gap-3 sm:gap-4">
-          <SchoolBadge schoolId={school.id} crestUrl={school.crestUrl} name={school.name} size="2xl" ring={moderator} className="size-16 sm:size-24" />
+          <div className="relative size-16 shrink-0 sm:size-24">
+            <SchoolBadge schoolId={school.id} crestUrl={school.crestUrl} name={school.name} size="2xl" ring={moderator} className="size-full" />
+            <SchoolCrestUploader
+              schoolId={school.id}
+              canEdit={moderator}
+              onUploaded={(logoUrl) => {
+                const updatedSchool = { ...school, crestUrl: logoUrl };
+                setSchool(updatedSchool);
+                upsertSchool(updatedSchool);
+              }}
+            />
+          </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="truncate text-xl font-black tracking-tight text-ink sm:text-2xl">{school.name}</h1>
