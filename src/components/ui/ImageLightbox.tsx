@@ -187,7 +187,6 @@ export function ImageLightbox({ images, index, onClose }: ImageLightboxProps) {
                 decoding="async"
                 draggable={false}
                 referrerPolicy="no-referrer"
-                fallbackSrc="/logo.png"
                 className="block h-auto max-h-dvh w-screen max-w-[100vw] object-contain sm:w-auto"
               />
             </motion.div>

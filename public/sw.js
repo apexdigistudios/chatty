@@ -1,7 +1,7 @@
 const IMAGE_CACHE = "gist-me-image-cache-v1";
 const IMAGE_META_CACHE = "gist-me-image-cache-meta-v1";
-const MAX_IMAGE_ENTRIES = 200;
-const MAX_IMAGE_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const MAX_IMAGE_ENTRIES = 500;
+const MAX_IMAGE_AGE_MS = 60 * 24 * 60 * 60 * 1000;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
@@ -65,7 +65,7 @@ async function pruneCache(imageCache, metadataCache) {
 async function cacheFirstImage(request) {
   const imageCache = await caches.open(IMAGE_CACHE);
   const metadataCache = await caches.open(IMAGE_META_CACHE);
-  const cached = await imageCache.match(request, { ignoreVary: true });
+  let cached = await imageCache.match(request, { ignoreVary: true });
   if (cached) {
     const savedAt = await readCachedAt(metadataCache, request.url);
     if (savedAt !== null && Date.now() - savedAt <= MAX_IMAGE_AGE_MS) return cached;
@@ -73,6 +73,7 @@ async function cacheFirstImage(request) {
       imageCache.delete(request),
       metadataCache.delete(metadataRequest(request.url)),
     ]);
+    cached = null;
   }
 
   try {
@@ -89,8 +90,7 @@ async function cacheFirstImage(request) {
     }
     return response;
   } catch (error) {
-    const fallback = cached ?? await imageCache.match(request, { ignoreVary: true });
-    if (fallback) return fallback;
+    if (cached) return cached;
     throw error;
   }
 }

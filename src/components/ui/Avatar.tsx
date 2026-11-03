@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { defaultAvatarUrl } from "../../lib/media";
 import { cn } from "../../utils/cn";
@@ -36,42 +35,23 @@ const dotClasses: Record<AvatarSize, string> = {
 /** Circular student avatar: uploaded photo, else the DiceBear illustration stored at signup. */
 export function Avatar({ name, src, size = "md", online = false, ring = false, className }: AvatarProps) {
   const primary = src || defaultAvatarUrl(name);
-  const [failed, setFailed] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    setFailed(false);
-    setLoaded(false);
-  }, [primary]);
-
-  const photo = failed && src ? defaultAvatarUrl(name) : primary;
 
   return (
     <span className={cn("relative inline-flex shrink-0", className)}>
       <span
         className={cn(
-          "relative flex items-center justify-center overflow-hidden rounded-full bg-brand-wash ring-2 ring-line",
+          "relative flex items-center justify-center overflow-hidden rounded-full ring-2 ring-line",
           sizeClasses[size],
           ring && "ring-2 ring-brand"
         )}
       >
-        {!loaded && (
-          <span className="absolute inset-0 animate-pulse bg-brand-soft/60 motion-reduce:animate-none" aria-hidden />
-        )}
         <SafeImage
-          key={photo}
-          src={photo}
+          src={primary}
           alt={name}
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
-          fallbackSrc="/logo.png"
-          onLoad={() => setLoaded(true)}
-          onUnavailable={() => setFailed(true)}
-          className={cn(
-            "relative size-full object-cover transition-[opacity,transform] duration-300",
-            loaded ? "scale-100 opacity-100" : "scale-[1.06] opacity-0"
-          )}
+          className="relative size-full object-cover"
         />
       </span>
 

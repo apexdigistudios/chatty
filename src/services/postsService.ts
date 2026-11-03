@@ -176,6 +176,13 @@ export interface FeedQuery {
   offset?: number;
 }
 
+export function sortPostsNewestFirst(posts: Post[]): Post[] {
+  return [...posts].sort((left, right) => {
+    const dateDifference = Date.parse(right.createdAt) - Date.parse(left.createdAt);
+    return dateDifference || right.id.localeCompare(left.id);
+  });
+}
+
 async function fetchFeedOnline(query: FeedQuery): Promise<Post[]> {
   const limit = query.limit ?? 10;
   const offset = query.offset ?? 0;
@@ -275,7 +282,7 @@ async function fetchFeedOnline(query: FeedQuery): Promise<Post[]> {
   }
 
   const organicLimit = Math.max(0, limit - promotedPosts.length);
-  if (organicLimit === 0) return promotedPosts;
+  if (organicLimit === 0) return sortPostsNewestFirst(promotedPosts);
   const supportsGroups = await supportsSchoolGroups();
   let request = supabase
     .from("posts")
@@ -308,7 +315,7 @@ async function fetchFeedOnline(query: FeedQuery): Promise<Post[]> {
   const { data, error } = await request.returns<RawPost[]>();
   if (error) throw new Error(error.message);
   const organicPosts = await hydrateLikes(data ?? []);
-  return [...promotedPosts, ...organicPosts];
+  return sortPostsNewestFirst([...promotedPosts, ...organicPosts]);
 }
 
 function feedCacheKey(query: FeedQuery, userId: string | null): string {
@@ -341,12 +348,12 @@ export async function fetchFeed(query: FeedQuery = {}): Promise<Post[]> {
 
   if (isBrowserOffline()) {
     const cached = await readOfflineValue<Post[]>(key);
-    if (cached) return refreshCachedSpotlights(cached);
+    if (cached) return sortPostsNewestFirst(refreshCachedSpotlights(cached));
     throw new Error("You are offline and this feed has not been cached on this device.");
   }
 
   try {
-    const posts = await fetchFeedOnline(query);
+    const posts = sortPostsNewestFirst(await fetchFeedOnline(query));
     try {
       await writeOfflineValue(key, posts);
     } catch (error) {
@@ -356,7 +363,7 @@ export async function fetchFeed(query: FeedQuery = {}): Promise<Post[]> {
   } catch (error) {
     if (!isBrowserOffline()) throw error;
     const cached = await readOfflineValue<Post[]>(key);
-    if (cached) return refreshCachedSpotlights(cached);
+    if (cached) return sortPostsNewestFirst(refreshCachedSpotlights(cached));
     throw error;
   }
 }

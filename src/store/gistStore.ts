@@ -20,6 +20,7 @@ import type {
 export type ComposerType = "gist" | "confession";
 
 const PAGE_SIZE = 10;
+let feedLoadRequestId = 0;
 
 interface GistState {
   /* schools */
@@ -136,13 +137,29 @@ export const useGistStore = create<GistState>()((set, get) => ({
 
   loadFeed: async ({ silent } = {}) => {
     const schoolId = get().feedSchoolId;
+    const existingPostIds = new Set(get().posts.map((post) => post.id));
+    const requestId = ++feedLoadRequestId;
     if (!silent) set({ feedLoading: true, feedError: null });
     try {
       const posts = await postsService.fetchFeed({ schoolId, limit: PAGE_SIZE });
       // Ignore stale responses if the school filter changed mid-flight.
-      if (get().feedSchoolId !== schoolId) return;
-      set({ posts, feedLoading: false, feedHasMore: posts.length === PAGE_SIZE, feedError: null });
+      if (get().feedSchoolId !== schoolId || requestId !== feedLoadRequestId) return;
+      set((state) => {
+        const refreshedPosts = new Map(posts.map((post) => [post.id, post]));
+        for (const post of state.posts) {
+          if (!existingPostIds.has(post.id) && !refreshedPosts.has(post.id)) {
+            refreshedPosts.set(post.id, post);
+          }
+        }
+        return {
+          posts: postsService.sortPostsNewestFirst([...refreshedPosts.values()]),
+          feedLoading: false,
+          feedHasMore: posts.length === PAGE_SIZE,
+          feedError: null,
+        };
+      });
     } catch (error) {
+      if (requestId !== feedLoadRequestId) return;
       set({ feedLoading: false, feedError: describeError(error, "Could not load the feed.") });
     }
   },
@@ -159,11 +176,14 @@ export const useGistStore = create<GistState>()((set, get) => ({
         offset: organicOffset,
         includeSpotlight: false,
       });
-      const seen = new Set(posts.map((post) => post.id));
-      set({
-        posts: [...posts, ...more.filter((post) => !seen.has(post.id))],
-        feedHasMore: more.length === PAGE_SIZE,
-        feedLoadingMore: false,
+      set((state) => {
+        const mergedPosts = new Map(state.posts.map((post) => [post.id, post]));
+        for (const post of more) mergedPosts.set(post.id, post);
+        return {
+          posts: postsService.sortPostsNewestFirst([...mergedPosts.values()]),
+          feedHasMore: more.length === PAGE_SIZE,
+          feedLoadingMore: false,
+        };
       });
     } catch (error) {
       set({ feedLoadingMore: false, feedError: describeError(error, "Could not load more gists.") });
@@ -187,7 +207,11 @@ export const useGistStore = create<GistState>()((set, get) => ({
     const post = await postsService.createPost(input);
     const { feedSchoolId } = get();
     if (!feedSchoolId || feedSchoolId === post.schoolId) {
-      set((state) => ({ posts: [post, ...state.posts] }));
+      set((state) => {
+        const postsById = new Map(state.posts.map((item) => [item.id, item]));
+        postsById.set(post.id, post);
+        return { posts: postsService.sortPostsNewestFirst([...postsById.values()]) };
+      });
     }
     set((state) => ({
       schools: state.schools.map((school) =>

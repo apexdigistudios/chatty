@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { crestColorsFor, initialsOf } from "../../lib/media";
 import { useGistStore } from "../../store/gistStore";
 import { cn } from "../../utils/cn";
@@ -59,46 +58,30 @@ export function SchoolBadge({ schoolId, crestUrl, name, size = "md", ring = fals
   );
   const resolvedCrest = crestUrl !== undefined ? crestUrl : school?.crestUrl ?? null;
   const resolvedName = name ?? school?.name ?? "School";
-  const [failed, setFailed] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    setFailed(false);
-    setLoaded(false);
-  }, [resolvedCrest]);
 
   const colors = crestColorsFor(schoolId ?? resolvedName);
-  const showImage = Boolean(resolvedCrest) && !failed;
+  const showImage = Boolean(resolvedCrest);
 
   return (
     <span
       className={cn(
-        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-muted ring-2 ring-line",
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-2 ring-line",
         frameSize[size],
+        !showImage && "bg-surface-muted",
         ring && "ring-2 ring-brand",
         className
       )}
       aria-hidden
     >
       {showImage ? (
-        <>
-          {!loaded && (
-            <span className="absolute inset-0 animate-pulse motion-reduce:animate-none" style={{ backgroundColor: colors[1] }} />
-          )}
-          <SafeImage
-            src={resolvedCrest as string}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            referrerPolicy="no-referrer"
-            onLoad={() => setLoaded(true)}
-            onUnavailable={() => setFailed(true)}
-            className={cn(
-              "relative size-full object-contain p-[8%] transition-[opacity,transform] duration-300",
-              loaded ? "scale-100 opacity-100" : "scale-[1.08] opacity-0"
-            )}
-          />
-        </>
+        <SafeImage
+          src={resolvedCrest as string}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          className="relative size-full object-contain p-[8%]"
+        />
       ) : (
         <CrestMedallion initials={initialsOf(resolvedName)} colors={colors} />
       )}

@@ -1,6 +1,9 @@
 const DATABASE_NAME = "gist_me_local_cache";
 const DATABASE_VERSION = 1;
 const STORE_NAME = "entries";
+const MEDIA_DATABASE_NAME = "gist_me_media_store";
+const MEDIA_DATABASE_VERSION = 1;
+const MEDIA_STORE_NAME = "images";
 
 interface CacheEntry<T> {
   key: string;
@@ -9,6 +12,48 @@ interface CacheEntry<T> {
 }
 
 let databasePromise: Promise<IDBDatabase> | null = null;
+let mediaDatabasePromise: Promise<IDBDatabase> | null = null;
+
+function openMediaDatabase(): Promise<IDBDatabase> {
+  if (typeof indexedDB === "undefined") {
+    return Promise.reject(new Error("IndexedDB is unavailable in this browser."));
+  }
+  if (!mediaDatabasePromise) {
+    const opening = new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(MEDIA_DATABASE_NAME, MEDIA_DATABASE_VERSION);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains(MEDIA_STORE_NAME)) {
+          request.result.createObjectStore(MEDIA_STORE_NAME);
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error ?? new Error("Could not open offline media storage."));
+      request.onblocked = () => reject(new Error("Offline media storage upgrade is blocked."));
+    });
+    mediaDatabasePromise = opening.catch((error: unknown) => {
+      mediaDatabasePromise = null;
+      throw error;
+    });
+  }
+  const pending = mediaDatabasePromise;
+  if (!pending) throw new Error("Offline media storage could not be initialized.");
+  return pending;
+}
+
+async function requestMediaValue<T>(
+  mode: IDBTransactionMode,
+  operation: (store: IDBObjectStore) => IDBRequest<T>
+): Promise<T> {
+  const database = await openMediaDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(MEDIA_STORE_NAME, mode);
+    const request = operation(transaction.objectStore(MEDIA_STORE_NAME));
+    request.onerror = () => reject(request.error ?? new Error("Offline media storage request failed."));
+    transaction.oncomplete = () => resolve(request.result);
+    transaction.onerror = () => reject(transaction.error ?? new Error("Offline media storage transaction failed."));
+    transaction.onabort = () => reject(transaction.error ?? new Error("Offline media storage transaction aborted."));
+  });
+}
 
 function openDatabase(): Promise<IDBDatabase> {
   if (typeof indexedDB === "undefined") {
@@ -72,11 +117,20 @@ export function isBrowserOffline(): boolean {
 
 export async function persistImageBlob(url: string, blob: Blob): Promise<void> {
   if (blob.size === 0 || !blob.type.startsWith("image/")) return;
-  await writeOfflineValue(`image:${normalizeUrl(url)}`, blob);
+  await requestMediaValue<IDBValidKey>("readwrite", (store) =>
+    store.put(blob, normalizeUrl(url))
+  );
 }
 
 export async function readImageBlob(url: string): Promise<Blob | null> {
-  return readOfflineValue<Blob>(`image:${normalizeUrl(url)}`);
+  const normalizedUrl = normalizeUrl(url);
+  const blob = await requestMediaValue<Blob | undefined>("readonly", (store) =>
+    store.get(normalizedUrl)
+  );
+  if (blob) return blob;
+
+  // Read image blobs written by earlier app versions before the media store existed.
+  return readOfflineValue<Blob>(`image:${normalizedUrl}`);
 }
 
 export async function cacheLoadedImage(url: string): Promise<void> {

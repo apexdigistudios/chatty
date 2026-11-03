@@ -9,7 +9,6 @@ export function BrandLogo({ className, ...props }: BrandLogoProps) {
       src="/logo.png"
       alt="Gist me Logo"
       className={className ?? "h-8 w-auto"}
-      fallbackSrc="/favicon.png"
       {...props}
     />
   );
