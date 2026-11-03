@@ -19,6 +19,7 @@ import { useCanModerate } from "../../hooks/useModeration";
 import { isPostSaved, subscribeToSavedPosts, toggleSavedPost } from "../../lib/savedPosts";
 import { describeError } from "../../lib/supabase";
 import { timeAgo } from "../../lib/time";
+import { recordPostShare } from "../../services/followsService";
 import { useAuthGateStore } from "../../store/authGateStore";
 import { useGistStore } from "../../store/gistStore";
 import { springs } from "../../theme/tokens";
@@ -34,6 +35,7 @@ import { useToast } from "../ui/Toast";
 import { PostActionMenu } from "./PostActionMenu";
 import { SpotlightModal } from "../spotlight/SpotlightModal";
 import { ReportModal } from "./ReportModal";
+import { ProfileHoverCard } from "../profile/ProfileHoverCard";
 
 interface GistCardProps {
   post: Post;
@@ -118,14 +120,20 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
     if (typeof navigator.share === "function") {
       try {
         await navigator.share({ title: "Gist on Gist me", text: post.content.slice(0, 120), url });
+        void recordPostShare(post.id).catch((error: unknown) => {
+          console.error("Could not record this gist share.", error);
+        });
         return;
-      } catch {
-        // User cancelled or share unavailable → fall through to clipboard.
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
       }
     }
     try {
       await navigator.clipboard.writeText(url);
       toast("Gist link copied to clipboard.", "info");
+      void recordPostShare(post.id).catch((error: unknown) => {
+        console.error("Could not record this gist share.", error);
+      });
     } catch {
       toast("Gist link is ready to share.", "brand");
     }
@@ -149,13 +157,20 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
       className="relative w-full overflow-visible border-b-4 border-line/60 px-4 py-3 dark:border-neutral-900/60"
     >
       <div className="flex items-start gap-2.5 pb-2.5">
-        <Link
-          to={profileHref}
-          aria-label={`View @${post.authorName}'s public profile`}
-          className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+        <ProfileHoverCard
+          userId={post.authorId}
+          username={post.authorName}
+          avatarUrl={post.authorAvatar}
+          schoolName={post.schoolShort}
         >
-          <Avatar name={post.authorName} src={post.authorAvatar} size="md" />
-        </Link>
+          <Link
+            to={profileHref}
+            aria-label={`View @${post.authorName}'s public profile`}
+            className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          >
+            <Avatar name={post.authorName} src={post.authorAvatar} size="md" />
+          </Link>
+        </ProfileHoverCard>
         <div className="min-w-0 flex-1 pt-0.5">
           <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
             <Link

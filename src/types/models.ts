@@ -118,6 +118,7 @@ export interface Post {
   likeCount: number;
   likedByMe: boolean;
   commentCount: number;
+  shareCount?: number;
 }
 
 /** A sub-community inside one SHS (club, squad, geng). */

@@ -143,6 +143,23 @@ create table if not exists public.user_blocks (
 create index if not exists user_blocks_blocked_id_idx
   on public.user_blocks (blocked_id);
 
+create table if not exists public.follows (
+  id           uuid primary key default gen_random_uuid(),
+  follower_id  uuid not null references public.profiles (id) on delete cascade,
+  following_id uuid not null references public.profiles (id) on delete cascade,
+  created_at   timestamptz not null default now(),
+  constraint follows_unique_follower_following unique (follower_id, following_id),
+  constraint follows_no_self_follow check (follower_id <> following_id)
+);
+
+create table if not exists public.post_shares (
+  id         uuid primary key default gen_random_uuid(),
+  post_id    uuid not null references public.posts (id) on delete cascade,
+  user_id    uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  constraint post_shares_unique_post_user unique (post_id, user_id)
+);
+
 -- ────────────────── Sub-communities (clubs, squads, gengs) ──────────────────
 
 create table if not exists public.school_groups (
@@ -184,6 +201,8 @@ create index if not exists reports_school_status_idx     on public.reports (scho
 create index if not exists reports_status_created_idx    on public.reports (status, created_at desc);
 create index if not exists admin_roles_user_idx          on public.admin_roles (user_id);
 create index if not exists profiles_school_idx           on public.profiles (school_id);
+create index if not exists follows_following_id_idx       on public.follows (following_id);
+create index if not exists post_shares_post_id_idx        on public.post_shares (post_id);
 
 -- ─────────────────────── Authorization helpers ─────────────────────────────
 -- SECURITY DEFINER so policies can consult admin_roles/schools without
@@ -387,6 +406,8 @@ alter table public.confession_reactions enable row level security;
 alter table public.reports              enable row level security;
 alter table public.admin_roles          enable row level security;
 alter table public.user_blocks          enable row level security;
+alter table public.follows               enable row level security;
+alter table public.post_shares           enable row level security;
 
 -- schools ------------------------------------------------------------------
 drop policy if exists "schools: public read"            on public.schools;
@@ -437,6 +458,40 @@ create policy "user blocks: own delete" on public.user_blocks
 revoke all on table public.user_blocks from anon, authenticated;
 grant select, insert, delete on table public.user_blocks to authenticated;
 grant all on table public.user_blocks to service_role;
+
+-- follows -----------------------------------------------------------------
+drop policy if exists "follows: public read" on public.follows;
+drop policy if exists "follows: own create" on public.follows;
+drop policy if exists "follows: own delete" on public.follows;
+
+create policy "follows: public read" on public.follows
+  for select using (true);
+create policy "follows: own create" on public.follows
+  for insert to authenticated
+  with check (follower_id = (select auth.uid()));
+create policy "follows: own delete" on public.follows
+  for delete to authenticated
+  using (follower_id = (select auth.uid()));
+
+revoke all on table public.follows from anon, authenticated;
+grant select on table public.follows to anon, authenticated;
+grant insert, delete on table public.follows to authenticated;
+grant all on table public.follows to service_role;
+
+-- post shares -------------------------------------------------------------
+drop policy if exists "post shares: public read" on public.post_shares;
+drop policy if exists "post shares: own create" on public.post_shares;
+
+create policy "post shares: public read" on public.post_shares
+  for select using (true);
+create policy "post shares: own create" on public.post_shares
+  for insert to authenticated
+  with check (user_id = (select auth.uid()));
+
+revoke all on table public.post_shares from anon, authenticated;
+grant select on table public.post_shares to anon, authenticated;
+grant insert on table public.post_shares to authenticated;
+grant all on table public.post_shares to service_role;
 
 -- posts --------------------------------------------------------------------
 drop policy if exists "posts: read active or privileged" on public.posts;

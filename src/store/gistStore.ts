@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { describeError } from "../lib/supabase";
 import * as confessionsService from "../services/confessionsService";
+import { fetchRankedFeed } from "../services/feedAlgo";
 import * as postsService from "../services/postsService";
 import * as schoolsService from "../services/schoolsService";
 import type {
@@ -21,6 +22,7 @@ export type ComposerType = "gist" | "confession";
 
 const PAGE_SIZE = 10;
 let feedLoadRequestId = 0;
+let followingLoadRequestId = 0;
 
 interface GistState {
   /* schools */
@@ -34,10 +36,14 @@ interface GistState {
 
   /* feed */
   posts: Post[];
+  followingPosts: Post[];
   feedLoading: boolean;
+  followingLoading: boolean;
   feedLoadingMore: boolean;
+  followingLoadingMore: boolean;
   feedError: string | null;
   feedHasMore: boolean;
+  followingHasMore: boolean;
   feedSchoolId: string | null;
   trendingPosts: Post[];
   trendingFallback: Post[];
@@ -45,7 +51,9 @@ interface GistState {
   trendingThreshold: number;
   setFeedSchool: (schoolId: string | null) => void;
   loadFeed: (options?: { silent?: boolean }) => Promise<void>;
+  loadFollowingFeed: (options?: { silent?: boolean }) => Promise<void>;
   loadMoreFeed: () => Promise<void>;
+  loadMoreFollowingFeed: () => Promise<void>;
   loadTrending: () => Promise<void>;
   createPost: (input: postsService.CreatePostInput) => Promise<Post>;
   toggleLike: (postId: string) => Promise<void>;
@@ -119,10 +127,14 @@ export const useGistStore = create<GistState>()((set, get) => ({
 
   /* ───────────── feed ───────────── */
   posts: [],
+  followingPosts: [],
   feedLoading: false,
+  followingLoading: false,
   feedLoadingMore: false,
+  followingLoadingMore: false,
   feedError: null,
   feedHasMore: true,
+  followingHasMore: true,
   feedSchoolId: null,
   trendingPosts: [],
   trendingFallback: [],
@@ -131,8 +143,17 @@ export const useGistStore = create<GistState>()((set, get) => ({
 
   setFeedSchool: (schoolId) => {
     if (get().feedSchoolId === schoolId) return;
-    set({ feedSchoolId: schoolId, posts: [], feedHasMore: true });
+    set({
+      feedSchoolId: schoolId,
+      posts: [],
+      followingPosts: [],
+      feedHasMore: true,
+      followingHasMore: true,
+      feedLoadingMore: false,
+      followingLoadingMore: false,
+    });
     void get().loadFeed();
+    void get().loadFollowingFeed();
   },
 
   loadFeed: async ({ silent } = {}) => {
@@ -141,18 +162,16 @@ export const useGistStore = create<GistState>()((set, get) => ({
     const requestId = ++feedLoadRequestId;
     if (!silent) set({ feedLoading: true, feedError: null });
     try {
-      const posts = await postsService.fetchFeed({ schoolId, limit: PAGE_SIZE });
+      const posts = await fetchRankedFeed({ schoolId, limit: PAGE_SIZE });
       // Ignore stale responses if the school filter changed mid-flight.
       if (get().feedSchoolId !== schoolId || requestId !== feedLoadRequestId) return;
       set((state) => {
-        const refreshedPosts = new Map(posts.map((post) => [post.id, post]));
-        for (const post of state.posts) {
-          if (!existingPostIds.has(post.id) && !refreshedPosts.has(post.id)) {
-            refreshedPosts.set(post.id, post);
-          }
-        }
+        const freshPostIds = new Set(posts.map((post) => post.id));
+        const postsCreatedDuringLoad = state.posts.filter(
+          (post) => !existingPostIds.has(post.id) && !freshPostIds.has(post.id)
+        );
         return {
-          posts: postsService.sortPostsNewestFirst([...refreshedPosts.values()]),
+          posts: [...postsCreatedDuringLoad, ...posts],
           feedLoading: false,
           feedHasMore: posts.length === PAGE_SIZE,
           feedError: null,
@@ -164,29 +183,72 @@ export const useGistStore = create<GistState>()((set, get) => ({
     }
   },
 
+  loadFollowingFeed: async ({ silent } = {}) => {
+    const requestId = ++followingLoadRequestId;
+    const schoolId = get().feedSchoolId;
+    if (!silent) set({ followingLoading: true, feedError: null });
+    try {
+      const posts = await fetchRankedFeed({ limit: PAGE_SIZE, followingOnly: true, schoolId });
+      if (requestId !== followingLoadRequestId || get().feedSchoolId !== schoolId) return;
+      set({
+        followingPosts: posts,
+        followingLoading: false,
+        followingHasMore: posts.length === PAGE_SIZE,
+        feedError: null,
+      });
+    } catch (error) {
+      if (requestId !== followingLoadRequestId) return;
+      set({ followingLoading: false, feedError: describeError(error, "Could not load followed students' gists.") });
+    }
+  },
+
   loadMoreFeed: async () => {
     const { feedLoadingMore, feedHasMore, posts, feedSchoolId } = get();
     if (feedLoadingMore || !feedHasMore) return;
     set({ feedLoadingMore: true });
     try {
-      const organicOffset = posts.filter((post) => post.spotlightStatus !== "active").length;
-      const more = await postsService.fetchFeed({
+      const more = await fetchRankedFeed({
         schoolId: feedSchoolId,
         limit: PAGE_SIZE,
-        offset: organicOffset,
-        includeSpotlight: false,
+        offset: posts.length,
       });
+      if (get().feedSchoolId !== feedSchoolId) return;
       set((state) => {
-        const mergedPosts = new Map(state.posts.map((post) => [post.id, post]));
-        for (const post of more) mergedPosts.set(post.id, post);
+        const seen = new Set(state.posts.map((post) => post.id));
         return {
-          posts: postsService.sortPostsNewestFirst([...mergedPosts.values()]),
+          posts: [...state.posts, ...more.filter((post) => !seen.has(post.id))],
           feedHasMore: more.length === PAGE_SIZE,
           feedLoadingMore: false,
         };
       });
     } catch (error) {
       set({ feedLoadingMore: false, feedError: describeError(error, "Could not load more gists.") });
+    }
+  },
+
+  loadMoreFollowingFeed: async () => {
+    const { followingLoadingMore, followingHasMore, followingPosts, feedSchoolId } = get();
+    if (followingLoadingMore || !followingHasMore) return;
+    set({ followingLoadingMore: true });
+    try {
+      const more = await fetchRankedFeed({
+        limit: PAGE_SIZE,
+        offset: followingPosts.length,
+        followingOnly: true,
+        schoolId: feedSchoolId,
+      });
+      if (get().feedSchoolId !== feedSchoolId) return;
+      set((state) => {
+        const mergedPosts = new Map(state.followingPosts.map((post) => [post.id, post]));
+        for (const post of more) mergedPosts.set(post.id, post);
+        return {
+          followingPosts: [...mergedPosts.values()],
+          followingHasMore: more.length === PAGE_SIZE,
+          followingLoadingMore: false,
+        };
+      });
+    } catch (error) {
+      set({ followingLoadingMore: false, feedError: describeError(error, "Could not load more followed gists.") });
     }
   },
 
@@ -208,9 +270,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
     const { feedSchoolId } = get();
     if (!feedSchoolId || feedSchoolId === post.schoolId) {
       set((state) => {
-        const postsById = new Map(state.posts.map((item) => [item.id, item]));
-        postsById.set(post.id, post);
-        return { posts: postsService.sortPostsNewestFirst([...postsById.values()]) };
+        return { posts: [post, ...state.posts.filter((item) => item.id !== post.id)] };
       });
     }
     set((state) => ({

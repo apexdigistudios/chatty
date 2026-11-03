@@ -18,6 +18,7 @@ import { useAuth } from "../../context/AuthContext";
 import { downloadMedia } from "../../lib/download";
 import { isPostSaved, toggleSavedPost } from "../../lib/savedPosts";
 import { describeError } from "../../lib/supabase";
+import { recordPostShare } from "../../services/followsService";
 import { deletePost } from "../../services/postsService";
 import { springs } from "../../theme/tokens";
 import type { Post } from "../../types/models";
@@ -105,6 +106,9 @@ export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onSh
         `${window.location.origin}/profile/${post.authorId}?gist=${post.id}`
       );
       toast("Link copied to clipboard.", "info");
+      void recordPostShare(post.id).catch((error: unknown) => {
+        console.error("Could not record this gist share.", error);
+      });
     } catch {
       toast("Could not copy the link.", "danger");
     }

@@ -75,13 +75,27 @@ export function supportsPostVisibility(): Promise<boolean> {
   return hiddenPostSupportPromise;
 }
 
+let postSharesSupportPromise: Promise<boolean> | null = null;
+function supportsPostShares(): Promise<boolean> {
+  if (!postSharesSupportPromise) {
+    postSharesSupportPromise = (async () => {
+      const { error } = await supabase.from("post_shares").select("id").limit(1);
+      if (error && (error.code === "42P01" || error.code === "PGRST205")) return false;
+      if (error) throw new Error(error.message);
+      return true;
+    })();
+  }
+  return postSharesSupportPromise;
+}
+
 async function selectForGroups(): Promise<string> {
-  const [groups, video, hidden] = await Promise.all([
+  const [groups, video, hidden, shares] = await Promise.all([
     supportsSchoolGroups(),
     supportsVideoMetadata(),
     supportsPostVisibility(),
+    supportsPostShares(),
   ]);
-  return `${groups ? GROUP_POST_SELECT : BASE_POST_SELECT}${video ? ", media_type, video_duration_seconds" : ""}${hidden ? ", is_hidden" : ""}`;
+  return `${groups ? GROUP_POST_SELECT : BASE_POST_SELECT}${video ? ", media_type, video_duration_seconds" : ""}${hidden ? ", is_hidden" : ""}${shares ? ", post_shares(count)" : ""}`;
 }
 
 export interface RawPost {
@@ -102,6 +116,7 @@ export interface RawPost {
   group?: { id: string; name: string; emoji: string } | null;
   likes: { count: number }[];
   comments: { count: number }[];
+  post_shares?: { count: number }[];
 }
 
 interface SpotlightPromotionRow {
@@ -143,6 +158,7 @@ export function mapPost(row: RawPost, liked: boolean): Post {
     likeCount: countOf(row.likes),
     likedByMe: liked,
     commentCount: countOf(row.comments),
+    shareCount: countOf(row.post_shares),
   };
 }
 
@@ -167,6 +183,7 @@ export interface FeedQuery {
   /** Filter to one school club/squad (requires migration-step9). */
   groupId?: string | null;
   authorId?: string | null;
+  authorIds?: string[];
   /** Include flagged/removed rows (RLS still decides visibility). */
   includeModerated?: boolean;
   search?: string;
@@ -184,6 +201,7 @@ export function sortPostsNewestFirst(posts: Post[]): Post[] {
 }
 
 async function fetchFeedOnline(query: FeedQuery): Promise<Post[]> {
+  if (query.authorIds && query.authorIds.length === 0) return [];
   const limit = query.limit ?? 10;
   const offset = query.offset ?? 0;
   const [blockedUserIds, userId, supportsHiddenPosts] = await Promise.all([
@@ -196,7 +214,7 @@ async function fetchFeedOnline(query: FeedQuery): Promise<Post[]> {
 
   let promotedPosts: Post[] = [];
   let promotedPostIds: string[] = [];
-  if (!query.authorId && !query.groupId && spotlightPromotionsTableAvailable !== false) {
+  if (!query.authorId && !query.authorIds && !query.groupId && spotlightPromotionsTableAvailable !== false) {
     let viewerSchoolId = query.schoolId ?? null;
     if (!viewerSchoolId && userId) {
       const { data: viewer, error: viewerError } = await supabase
@@ -296,6 +314,7 @@ async function fetchFeedOnline(query: FeedQuery): Promise<Post[]> {
   if (query.schoolId) request = request.eq("school_id", query.schoolId);
   if (query.groupId && supportsGroups) request = request.eq("group_id", query.groupId);
   if (query.authorId) request = request.eq("user_id", query.authorId);
+  if (query.authorIds) request = request.in("user_id", query.authorIds);
   if (query.search?.trim()) request = request.ilike("content", `%${query.search.trim()}%`);
   if (blockedUserIds.length > 0) {
     request = request.not(
@@ -323,6 +342,7 @@ function feedCacheKey(query: FeedQuery, userId: string | null): string {
     schoolId: query.schoolId ?? null,
     groupId: query.groupId ?? null,
     authorId: query.authorId ?? null,
+    authorIds: query.authorIds ? [...query.authorIds].sort() : undefined,
     includeModerated: query.includeModerated ?? false,
     search: query.search?.trim() ?? "",
     includeSpotlight: query.includeSpotlight ?? true,

@@ -13,7 +13,7 @@ import { useAuthGateStore } from "../store/authGateStore";
 import { useGistStore } from "../store/gistStore";
 import { springs } from "../theme/tokens";
 
-const tabs = ["All SHSs", "My School", "Trending", "Confessions"] as const;
+const tabs = ["All SHSs", "Following", "My School", "Trending", "Confessions"] as const;
 type FeedTab = (typeof tabs)[number];
 
 const listVariants = { hidden: { opacity: 1 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } };
@@ -51,14 +51,20 @@ export function HomePage() {
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
 
   const posts = useGistStore((state) => state.posts);
+  const followingPosts = useGistStore((state) => state.followingPosts);
   const feedLoading = useGistStore((state) => state.feedLoading);
+  const followingLoading = useGistStore((state) => state.followingLoading);
   const feedLoadingMore = useGistStore((state) => state.feedLoadingMore);
+  const followingLoadingMore = useGistStore((state) => state.followingLoadingMore);
   const feedError = useGistStore((state) => state.feedError);
   const feedHasMore = useGistStore((state) => state.feedHasMore);
+  const followingHasMore = useGistStore((state) => state.followingHasMore);
   const feedSchoolId = useGistStore((state) => state.feedSchoolId);
   const setFeedSchool = useGistStore((state) => state.setFeedSchool);
   const loadFeed = useGistStore((state) => state.loadFeed);
+  const loadFollowingFeed = useGistStore((state) => state.loadFollowingFeed);
   const loadMoreFeed = useGistStore((state) => state.loadMoreFeed);
+  const loadMoreFollowingFeed = useGistStore((state) => state.loadMoreFollowingFeed);
   const loadTrending = useGistStore((state) => state.loadTrending);
   const trendingPosts = useGistStore((state) => state.trendingPosts);
   const trendingFallback = useGistStore((state) => state.trendingFallback);
@@ -82,15 +88,18 @@ export function HomePage() {
   useEffect(() => {
     const channel = supabase
       .channel("feed-posts")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "posts" }, () => void loadFeed({ silent: true }))
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "posts" }, () => {
+        void loadFeed({ silent: true });
+        void loadFollowingFeed({ silent: true });
+      })
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadFeed, loadFollowingFeed]);
 
   useEffect(() => {
+    if (activeTab === "Following" && followingPosts.length === 0 && !followingLoading) void loadFollowingFeed();
     if (activeTab === "Confessions" && confessions.length === 0) void loadConfessions();
     if (activeTab === "Trending" && trendingPosts.length === 0 && trendingFallback.length === 0 && !trendingLoading) void loadTrending();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -100,11 +109,12 @@ export function HomePage() {
     setRefreshing(true);
     await Promise.all([
       loadFeed(),
+      activeTab === "Following" ? loadFollowingFeed() : Promise.resolve(),
       activeTab === "Confessions" ? loadConfessions() : Promise.resolve(),
       activeTab === "Trending" ? loadTrending() : Promise.resolve(),
     ]);
     setRefreshing(false);
-  }, [activeTab, loadFeed, loadConfessions, loadTrending]);
+  }, [activeTab, loadFeed, loadFollowingFeed, loadConfessions, loadTrending]);
 
   const visiblePosts = useMemo(() => {
     if (activeTab === "My School") {
@@ -119,8 +129,8 @@ export function HomePage() {
           )
         : [];
     }
-    return posts;
-  }, [activeTab, posts, profile?.schoolId]);
+    return activeTab === "Following" ? followingPosts : posts;
+  }, [activeTab, followingPosts, posts, profile?.schoolId]);
 
   const startComposing = (type: "gist" | "confession") => {
     if (!user) {
@@ -143,16 +153,20 @@ export function HomePage() {
 
   const showingConfessions = activeTab === "Confessions";
   const showingTrending = activeTab === "Trending";
+  const showingFollowing = activeTab === "Following";
   const loading = showingConfessions
     ? confessionsLoading && confessions.length === 0
+    : showingFollowing
+      ? followingLoading && followingPosts.length === 0
     : showingTrending
       ? trendingLoading && trendingPosts.length === 0
       : feedLoading && posts.length === 0;
+  const visibleHasMore = showingFollowing ? followingHasMore : feedHasMore;
 
   return (
     <div className="mx-auto w-full max-w-[720px] min-w-0 px-0 pt-0 sm:px-6 sm:pt-7">
       <div className="sticky top-[calc(3.4375rem+max(0.625rem,env(safe-area-inset-top)))] z-40 border-b border-line/60 bg-white/80 px-3 py-1.5 backdrop-blur-md dark:border-neutral-800/50 dark:bg-neutral-950/80 sm:px-4 md:top-[calc(3.5625rem+max(0.625rem,env(safe-area-inset-top)))]">
-        <div className="mx-auto grid w-full max-w-[720px] grid-cols-4 items-center" role="tablist" aria-label="Choose feed">
+        <div className="mx-auto grid w-full max-w-[720px] grid-cols-5 items-center" role="tablist" aria-label="Choose feed">
           {tabs.map((tab) => {
             const selected = activeTab === tab;
             return (
@@ -262,7 +276,7 @@ export function HomePage() {
 
       <div className="mx-4 mb-3 mt-4 flex items-center justify-between gap-3 sm:mx-0">
         <h2 className="text-sm font-extrabold text-ink sm:text-base" aria-live="polite">
-          {showingTrending ? "Smart trending" : activeTab === "All SHSs" ? "Latest gists" : activeTab}
+          {showingTrending ? "Smart trending" : activeTab === "All SHSs" ? "For you" : activeTab}
         </h2>
         {showingConfessions ? (
           <Link to="/confessions" className="inline-flex shrink-0 items-center gap-1 rounded-xl px-2 py-1 text-[10px] font-extrabold uppercase tracking-wider text-brand-deep hover:bg-brand-wash">
@@ -343,30 +357,58 @@ export function HomePage() {
               ))
             ) : (
               <EmptyFeed
-                title={activeTab === "My School" && !profile?.schoolId ? "Pick your school first" : "Nothing here just yet"}
+                title={
+                  activeTab === "My School" && !profile?.schoolId
+                    ? "Pick your school first"
+                    : showingFollowing && !user
+                      ? "Sign in to build your Following feed"
+                      : "Nothing here just yet"
+                }
                 detail={
                   activeTab === "My School" && !profile?.schoolId
                     ? "Your SHS identity is set during onboarding — browse communities to see their feeds."
-                    : feedSchool
-                      ? `No gists from ${feedSchool.name} yet.`
-                      : "Be the first to share the gist of the day."
+                    : showingFollowing
+                      ? "Follow students from their profiles and their newest gists will appear here."
+                      : feedSchool
+                        ? `No gists from ${feedSchool.name} yet.`
+                        : "Be the first to share the gist of the day."
                 }
-                action={activeTab === "My School" && !profile?.schoolId ? "Browse schools" : "Write a gist"}
-                onAction={() => (activeTab === "My School" && !profile?.schoolId ? navigate("/schools") : startComposing("gist"))}
+                action={
+                  activeTab === "My School" && !profile?.schoolId
+                    ? "Browse schools"
+                    : showingFollowing && !user
+                      ? "Get started"
+                      : showingFollowing
+                        ? "Browse gists"
+                      : "Write a gist"
+                }
+                onAction={() => {
+                  if (activeTab === "My School" && !profile?.schoolId) navigate("/schools");
+                  else if (showingFollowing && !user) navigate("/auth?mode=signup");
+                  else if (showingFollowing) navigate("/explore");
+                  else startComposing("gist");
+                }}
               />
             )}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {!showingConfessions && !showingTrending && !loading && activeTab !== "My School" && feedHasMore && visiblePosts.length > 0 && (
+      {!showingConfessions && !showingTrending && !loading && !showingFollowing && activeTab !== "My School" && visibleHasMore && visiblePosts.length > 0 && (
         <div className="pb-8 pt-5">
           <Button variant="outline" fullWidth loading={feedLoadingMore} onClick={() => void loadMoreFeed()}>
             {feedLoadingMore ? "Loading more gists" : "Load more gists"}
           </Button>
         </div>
       )}
-      {!showingConfessions && !loading && ((showingTrending && trendingPosts.length > 0) || (!feedHasMore && visiblePosts.length > 0)) && (
+      {!showingConfessions && !showingTrending && showingFollowing && !loading && visibleHasMore && visiblePosts.length > 0 && (
+        <div className="pb-8 pt-5">
+          <Button variant="outline" fullWidth loading={followingLoadingMore} onClick={() => void loadMoreFollowingFeed()}>
+            {followingLoadingMore ? "Loading more gists" : "Load more gists"}
+          </Button>
+        </div>
+      )}
+      {!showingConfessions && !loading && ((showingTrending && trendingPosts.length > 0) || (!visibleHasMore && visiblePosts.length > 0)) && (
         <p className="pb-8 pt-6 text-center text-xs font-semibold text-ink-muted">You&apos;re all caught up.</p>
       )}
     </div>

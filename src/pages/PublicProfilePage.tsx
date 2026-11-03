@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CalendarDays, Heart, MessageCircle, Send, Share2, Sparkles, WifiOff } from "lucide-react";
+import { ArrowLeft, CalendarDays, Heart, MessageCircle, Send, Share2, Sparkles, Users, WifiOff } from "lucide-react";
 import { GistCard } from "../components/feed/GistCard";
+import { FollowButton } from "../components/profile/FollowButton";
 import { Avatar } from "../components/ui/Avatar";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
@@ -13,6 +14,8 @@ import { useAuth } from "../context/AuthContext";
 import { describeError } from "../lib/supabase";
 import { fetchFeed } from "../services/postsService";
 import { fetchPublicProfile } from "../services/profilesService";
+import { useAuthGateStore } from "../store/authGateStore";
+import { fetchFollowSummary, followUser, unfollowUser, type FollowSummary } from "../services/followsService";
 import { springs } from "../theme/tokens";
 import type { Post, PublicProfile } from "../types/models";
 import { SafeImage } from "../components/common/SafeImage";
@@ -23,11 +26,18 @@ export function PublicProfilePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
 
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [followSummary, setFollowSummary] = useState<FollowSummary>({
+    followerCount: 0,
+    followingCount: 0,
+    isFollowing: false,
+  });
+  const [followBusy, setFollowBusy] = useState(false);
 
   // A student viewing their own public URL lands on the editable profile page.
   useEffect(() => {
@@ -45,13 +55,18 @@ export function PublicProfilePage() {
       ]);
       setProfile(nextProfile);
       setPosts(nextPosts);
+      try {
+        setFollowSummary(await fetchFollowSummary(userId, user?.id));
+      } catch (followError) {
+        toast(describeError(followError, "Could not load follow counts."), "danger");
+      }
       if (!nextProfile) setError("This student profile does not exist.");
     } catch (err) {
       setError(describeError(err, "Could not load this student profile."));
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, user?.id]);
 
   useEffect(() => {
     void load();
@@ -65,6 +80,41 @@ export function PublicProfilePage() {
       toast("Profile link copied.", "info");
     } catch {
       toast("Could not copy the profile link.", "danger");
+    }
+  };
+
+  const toggleFollow = async () => {
+    if (!profile || followBusy) return;
+    if (!user) {
+      openAuthGate({
+        title: "Follow your SHS community",
+        speech: `Create your Gist me student pass to follow @${profile.username} and see their gists first.`,
+        returnTo: `/profile/${profile.id}`,
+      });
+      return;
+    }
+
+    setFollowBusy(true);
+    try {
+      if (followSummary.isFollowing) {
+        await unfollowUser(profile.id);
+        setFollowSummary((current) => ({
+          ...current,
+          isFollowing: false,
+          followerCount: Math.max(0, current.followerCount - 1),
+        }));
+      } else {
+        await followUser(profile.id);
+        setFollowSummary((current) => ({
+          ...current,
+          isFollowing: true,
+          followerCount: current.followerCount + 1,
+        }));
+      }
+    } catch (followError) {
+      toast(describeError(followError, "Could not update your follow."), "danger");
+    } finally {
+      setFollowBusy(false);
     }
   };
 
@@ -138,7 +188,14 @@ export function PublicProfilePage() {
         <CardBody className="relative px-4 pb-5 pt-16 sm:px-6 sm:pt-20">
           <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              <Button
+                {profile.id !== user?.id && (
+                  <FollowButton
+                    following={followSummary.isFollowing}
+                    loading={followBusy}
+                    onToggle={() => void toggleFollow()}
+                  />
+                )}
+                <Button
                 size="sm"
                 leftIcon={<Send size={14} strokeWidth={2.6} aria-hidden />}
                 onClick={() => navigate(`/shoutouts/create?to=${profile.id}`)}
@@ -192,21 +249,33 @@ export function PublicProfilePage() {
             Joined {joined}
           </p>
 
-          <div className="mt-4 grid grid-cols-3 divide-x-2 divide-line rounded-2xl border-2 border-line bg-page py-3 text-center">
+          <div className="mt-4 grid grid-cols-5 divide-x divide-line rounded-2xl border-2 border-line bg-page py-3 text-center">
             <div>
               <p className="text-lg font-black tabular-nums text-ink">{posts.length}</p>
-              <p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Gists</p>
+              <p className="text-[9px] font-extrabold uppercase tracking-wider text-ink-muted sm:text-[10px]">Gists</p>
             </div>
             <div>
               <p className="text-lg font-black tabular-nums text-ink">{likesReceived}</p>
-              <p className="flex items-center justify-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">
+              <p className="flex items-center justify-center gap-1 text-[9px] font-extrabold uppercase tracking-wider text-ink-muted sm:text-[10px]">
                 <Heart size={10} aria-hidden /> Likes
               </p>
             </div>
             <div>
               <p className="text-lg font-black tabular-nums text-ink">{replies}</p>
-              <p className="flex items-center justify-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">
+              <p className="flex items-center justify-center gap-1 text-[9px] font-extrabold uppercase tracking-wider text-ink-muted sm:text-[10px]">
                 <MessageCircle size={10} aria-hidden /> Replies
+              </p>
+            </div>
+            <div>
+              <p className="text-lg font-black tabular-nums text-ink">{followSummary.followerCount}</p>
+              <p className="flex items-center justify-center gap-1 text-[9px] font-extrabold uppercase tracking-wider text-ink-muted sm:text-[10px]">
+                <Users size={10} aria-hidden /> Followers
+              </p>
+            </div>
+            <div>
+              <p className="text-lg font-black tabular-nums text-ink">{followSummary.followingCount}</p>
+              <p className="flex items-center justify-center gap-1 text-[9px] font-extrabold uppercase tracking-wider text-ink-muted sm:text-[10px]">
+                <Users size={10} aria-hidden /> Following
               </p>
             </div>
           </div>

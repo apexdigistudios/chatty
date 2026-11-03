@@ -96,7 +96,7 @@ export function PWAInstallPrompt() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 24 }}
           transition={{ duration: 0.22, ease: "easeOut" }}
-          className="fixed inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-[90] mx-auto flex max-w-lg items-start gap-3 rounded-2xl border border-white/10 bg-neutral-950/95 p-3.5 text-white shadow-2xl backdrop-blur-xl sm:inset-x-5 sm:bottom-5"
+          className="fixed inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-90 mx-auto flex max-w-lg items-start gap-3 rounded-2xl border border-white/10 bg-neutral-950/95 p-3.5 text-white shadow-2xl backdrop-blur-xl sm:inset-x-5 sm:bottom-5"
         >
           <img
             src="/icons/icon-192x192.png"
