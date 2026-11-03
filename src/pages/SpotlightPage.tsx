@@ -30,7 +30,7 @@ export function SpotlightPage() {
   }, []);
 
   return (
-    <main className="mx-auto w-full max-w-[860px] min-w-0 px-3 pt-5 sm:px-4 sm:pt-7 lg:px-5 xl:px-7">
+    <main className="mx-auto w-full max-w-[860px] min-w-0 px-4 pt-5 sm:px-6 sm:pt-7">
       <PageHeading
         eyebrow="Community picks"
         title="Spotlight"

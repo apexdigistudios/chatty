@@ -121,14 +121,14 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
               onClick={() => setMenuOpen((open) => !open)}
               aria-label="More confession actions"
               aria-expanded={menuOpen}
-              className="-mr-1 -mt-1 flex size-9 shrink-0 items-center justify-center rounded-xl text-ink-muted transition-colors hover:bg-page hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+              className="-mr-1 -mt-1 flex size-11 shrink-0 items-center justify-center rounded-xl text-ink-muted transition-colors hover:bg-page hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
             >
               <MoreHorizontal size={18} strokeWidth={2.5} aria-hidden />
             </button>
           )}
         </div>
 
-        <p className="mt-3.5 whitespace-pre-wrap break-words text-[15px] font-semibold leading-[1.65] text-ink-soft sm:text-base">
+        <p className="mt-3.5 whitespace-pre-wrap wrap-break-word text-[15px] font-semibold leading-[1.65] text-ink-soft sm:text-base">
           {confession.content}
         </p>
 
@@ -166,7 +166,7 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
                 aria-pressed={active}
                 aria-label={`${label} reaction, ${count}`}
                 className={cn(
-                  "flex min-h-9 items-center gap-1.5 rounded-full border-2 px-2.5 text-[11px] font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft disabled:opacity-50",
+                  "flex min-h-11 items-center gap-1.5 rounded-full border-2 px-2.5 text-[11px] font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft disabled:opacity-50",
                   active ? activeClass : "border-line bg-card text-ink-muted hover:border-line-deep hover:text-ink"
                 )}
               >
@@ -183,7 +183,7 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
         <button
           type="button"
           onClick={share}
-          className="flex min-h-10 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold text-ink-muted transition-colors hover:bg-page hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm"
+          className="flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold text-ink-muted transition-colors hover:bg-page hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm"
         >
           <Share2 size={16} strokeWidth={2.4} aria-hidden />
           <span>Share</span>

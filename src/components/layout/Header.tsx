@@ -47,7 +47,7 @@ export function Header() {
           <Link
             to="/explore"
             aria-label="Search gists, students and schools"
-            className="flex size-10 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:hidden"
+            className="flex size-11 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:hidden"
           >
             <Search size={19} strokeWidth={2.5} aria-hidden />
           </Link>
@@ -55,13 +55,13 @@ export function Header() {
           <NotificationBell />
 
           <div className="hidden sm:block">
-            <ThemeToggle className="size-10 min-h-10 p-0" />
+            <ThemeToggle className="size-11 min-h-11 p-0" />
           </div>
 
           {!user && (
             <Link
               to="/auth?mode=signup"
-              className="hidden h-10 items-center gap-1.5 rounded-2xl bg-[#8B5CF6] px-3.5 text-xs font-extrabold uppercase tracking-wider text-white shadow-[0_3px_0_#5B21B6] transition-transform hover:bg-[#7C3AED] active:translate-y-[2px] sm:inline-flex"
+              className="hidden h-11 items-center gap-1.5 rounded-2xl bg-[#8B5CF6] px-3.5 text-xs font-extrabold uppercase tracking-wider text-white shadow-[0_3px_0_#5B21B6] transition-transform hover:bg-[#7C3AED] active:translate-y-0.5 sm:inline-flex"
             >
               <Sparkles size={14} strokeWidth={2.7} aria-hidden />
               <span>Get Started</span>

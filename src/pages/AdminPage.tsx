@@ -74,7 +74,7 @@ export function AdminPage() {
   if (!isGlobalAdmin) return null;
 
   return (
-    <div className="mx-auto w-full max-w-[860px] min-w-0 px-3 pb-10 pt-5 sm:px-4 sm:pt-7 lg:px-5">
+    <div className="mx-auto w-full max-w-[860px] min-w-0 px-4 pb-10 pt-5 sm:px-6 sm:pt-7">
       <PageHeading eyebrow="Global admin" title="Safety Console" description="Approve anonymous confessions and resolve site-wide escalations. School-level reports are handled by each community's founder." action={<Badge tone="brand"><ShieldCheck size={12} strokeWidth={2.6} aria-hidden />Admin</Badge>} />
 
       {error && (

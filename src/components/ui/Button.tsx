@@ -52,7 +52,7 @@ const variantDepths: Record<ButtonVariant, DepthShadow> = {
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: "h-10 gap-1.5 rounded-xl px-4 text-xs",
+  sm: "h-11 gap-1.5 rounded-xl px-4 text-xs",
   md: "h-12 gap-2 rounded-2xl px-5 text-sm",
   lg: "h-[52px] gap-2 rounded-2xl px-6 text-[15px]",
 };

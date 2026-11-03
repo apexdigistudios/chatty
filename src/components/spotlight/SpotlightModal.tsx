@@ -223,7 +223,7 @@ export function SpotlightModal({ post, onClose }: SpotlightModalProps) {
           role="dialog"
           aria-modal="true"
           aria-labelledby="spotlight-title"
-          className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[28px] border-2 border-line bg-card shadow-2xl sm:rounded-[28px]"
+          className="flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[28px] border-2 border-line bg-card shadow-2xl sm:rounded-[28px]"
           initial={{ y: 30, opacity: 0, scale: 0.98 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
           exit={{ y: 24, opacity: 0, scale: 0.98 }}
@@ -247,7 +247,7 @@ export function SpotlightModal({ post, onClose }: SpotlightModalProps) {
                 type="button"
                 onClick={onClose}
                 aria-label="Close spotlight purchase"
-                className="flex size-9 shrink-0 items-center justify-center rounded-xl text-ink-muted transition-colors hover:bg-page hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+                className="flex size-11 shrink-0 items-center justify-center rounded-xl text-ink-muted transition-colors hover:bg-page hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
               >
                 <span aria-hidden>×</span>
               </button>
@@ -439,7 +439,7 @@ export function SpotlightModal({ post, onClose }: SpotlightModalProps) {
             )}
           </div>
 
-          <div className="flex items-center justify-between gap-2 border-t-2 border-line bg-card px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5 sm:pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t-2 border-line bg-card px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5 sm:pb-3">
             {step > 1 && step < 4 ? (
               <Button variant="outline" size="sm" onClick={() => setStep((current) => current - 1)} leftIcon={<ArrowLeft size={14} aria-hidden />}>
                 Back

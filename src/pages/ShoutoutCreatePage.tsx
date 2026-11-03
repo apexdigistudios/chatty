@@ -317,7 +317,7 @@ export function ShoutoutCreatePage() {
             whileTap={{ scale: 0.92 }}
             transition={springs.snappy}
             aria-label={step > 1 ? "Previous step or preview" : "Cancel"}
-            className="flex size-10 shrink-0 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink hover:border-line-deep hover:bg-page"
+            className="flex size-11 shrink-0 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink hover:border-line-deep hover:bg-page"
           >
             {step > 1 ? <ChevronLeft size={19} strokeWidth={2.7} aria-hidden /> : <X size={18} strokeWidth={2.7} aria-hidden />}
           </motion.button>
@@ -337,7 +337,7 @@ export function ShoutoutCreatePage() {
             whileTap={{ scale: 0.92 }}
             transition={springs.snappy}
             aria-label="Open envelope preview drawer"
-            className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-2xl border-2 border-line bg-card px-3 text-xs font-extrabold text-ink hover:border-brand hover:text-brand-deep"
+            className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-2xl border-2 border-line bg-card px-3 text-xs font-extrabold text-ink hover:border-brand hover:text-brand-deep"
           >
             <Eye size={15} strokeWidth={2.6} aria-hidden />
             <span className="hidden min-[380px]:inline">Preview</span>
@@ -578,7 +578,7 @@ export function ShoutoutCreatePage() {
                   description="A calm, lined writing canvas. Only you and your recipient will read this."
                 />
 
-                <div className="mt-4 flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-3xl border-2 border-line bg-card shadow-[0_4px_0_var(--border-color)]">
+                <div className="mt-4 flex min-h-80 flex-1 flex-col overflow-hidden rounded-3xl border-2 border-line bg-card shadow-[0_4px_0_var(--border-color)]">
                   <div className="flex items-center justify-between gap-2 border-b-2 border-line px-4 py-2.5">
                     <p className="text-[10px] font-black uppercase tracking-[0.14em] text-ink-muted">
                       To: {recipientName || "Recipient"} · {school?.shortName ?? "SHS"}
@@ -623,7 +623,7 @@ export function ShoutoutCreatePage() {
                           onClick={() => formatLetter(kind)}
                           aria-pressed={draftStyle === kind}
                           aria-label={`Toggle ${kind} styling`}
-                          className={cn("flex size-9 items-center justify-center rounded-xl border-2 transition-colors", draftStyle === kind ? "border-brand bg-brand-wash text-brand-deep" : "border-line text-ink-muted hover:text-ink")}
+                          className={cn("flex size-11 items-center justify-center rounded-xl border-2 transition-colors", draftStyle === kind ? "border-brand bg-brand-wash text-brand-deep" : "border-line text-ink-muted hover:text-ink")}
                         >
                           <Icon size={15} strokeWidth={2.5} aria-hidden />
                         </button>
@@ -818,7 +818,7 @@ function PresenceBanner({ presence, name, onCopyInvite }: { presence: PresenceSt
         whileHover={{ y: -2, boxShadow: "0px 6px 0px #5B21B6" }}
         whileTap={{ y: 3, boxShadow: "0px 1px 0px #5B21B6" }}
         transition={springs.snappy}
-        className="mt-3 inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#8B5CF6] px-3.5 text-[11px] font-extrabold uppercase tracking-wider text-white shadow-[0_4px_0_#5B21B6]"
+        className="mt-3 inline-flex h-11 items-center gap-1.5 rounded-xl bg-[#8B5CF6] px-3.5 text-[11px] font-extrabold uppercase tracking-wider text-white shadow-[0_4px_0_#5B21B6]"
       >
         <Link2 size={14} strokeWidth={2.7} aria-hidden />
         Copy Invite Link
@@ -877,7 +877,7 @@ function PreviewDrawer({
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Sealed envelope preview">
+        <div className="fixed inset-0 z-60 flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Sealed envelope preview">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -899,7 +899,7 @@ function PreviewDrawer({
                 <p className="text-[10px] font-black uppercase tracking-[0.14em] text-brand-deep">Sealed preview</p>
                 <h2 className="text-base font-black tracking-tight text-ink">Your digital envelope</h2>
               </div>
-              <motion.button type="button" onClick={onClose} whileTap={{ scale: 0.9, rotate: 90 }} transition={springs.snappy} aria-label="Close preview" className="flex size-9 items-center justify-center rounded-xl border-2 border-line text-ink-muted hover:text-ink">
+              <motion.button type="button" onClick={onClose} whileTap={{ scale: 0.9, rotate: 90 }} transition={springs.snappy} aria-label="Close preview" className="flex size-11 items-center justify-center rounded-xl border-2 border-line text-ink-muted hover:text-ink">
                 <X size={17} aria-hidden />
               </motion.button>
             </div>
@@ -918,7 +918,7 @@ function PreviewDrawer({
               </motion.div>
               <div className="mt-4 rounded-2xl border-2 border-line bg-page p-3.5">
                 <p className="text-[10px] font-black uppercase tracking-wider text-ink-muted">Inside the envelope</p>
-                <p className="mt-1.5 whitespace-pre-wrap break-words text-sm font-semibold leading-relaxed text-ink-soft">
+                <p className="mt-1.5 whitespace-pre-wrap wrap-break-word text-sm font-semibold leading-relaxed text-ink-soft">
                   {message.trim() || "Your letter is still empty — go back to write it."}
                 </p>
               </div>

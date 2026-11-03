@@ -60,7 +60,7 @@ export function ConfessionsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[720px] min-w-0 px-3 pt-5 sm:px-4 sm:pt-7 lg:px-5 xl:px-7">
+    <div className="mx-auto w-full max-w-[720px] min-w-0 px-4 pt-5 sm:px-6 sm:pt-7">
       <div className="relative overflow-hidden rounded-[26px] border-2 border-line bg-card p-5 shadow-[0_4px_0_var(--border-color)] sm:p-6">
         <div className="pointer-events-none absolute -right-8 -top-10 size-40 rounded-full opacity-70" style={{ background: "radial-gradient(circle, var(--brand-wash), transparent 70%)" }} aria-hidden />
         <div className="relative">
@@ -89,7 +89,7 @@ export function ConfessionsPage() {
             type="button"
             onClick={() => setFilter(item)}
             aria-pressed={filter === item}
-            className={cn("rounded-full border-2 px-3 py-1.5 text-[11px] font-extrabold transition-colors", filter === item ? "border-brand-deep bg-brand-deep text-brand-contrast" : "border-line bg-card text-ink-muted hover:border-line-deep hover:text-ink")}
+            className={cn("min-h-11 rounded-full border-2 px-3 py-2 text-[11px] font-extrabold transition-colors", filter === item ? "border-brand-deep bg-brand-deep text-brand-contrast" : "border-line bg-card text-ink-muted hover:border-line-deep hover:text-ink")}
           >
             {item}
           </button>

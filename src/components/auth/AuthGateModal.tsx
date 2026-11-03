@@ -83,7 +83,7 @@ export function AuthGateModal() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 36, scale: 0.96 }}
             transition={springs.bouncy}
-            className="relative z-10 w-full max-w-md overflow-hidden rounded-t-[30px] border-t-2 border-line bg-card p-5 text-ink shadow-2xl sm:rounded-3xl sm:border-2 sm:p-6"
+            className="relative z-10 max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-[30px] border-t-2 border-line bg-card p-5 text-ink shadow-2xl sm:rounded-3xl sm:border-2 sm:p-6"
             style={{
               paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))",
             }}
@@ -110,7 +110,7 @@ export function AuthGateModal() {
                 whileTap={{ scale: 0.9, rotate: 90 }}
                 transition={springs.snappy}
                 aria-label="Close and continue browsing"
-                className="flex size-9 shrink-0 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink-muted transition-colors hover:border-line-deep hover:text-ink"
+                className="flex size-11 shrink-0 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink-muted transition-colors hover:border-line-deep hover:text-ink"
               >
                 <X size={17} strokeWidth={2.7} aria-hidden />
               </motion.button>

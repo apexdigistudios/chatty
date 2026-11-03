@@ -247,7 +247,7 @@ export function NotificationDrawer() {
                       onClick={markAllRead}
                       disabled={totalUnread === 0}
                       aria-label="Mark all notifications as read"
-                      className="flex size-9 items-center justify-center rounded-xl border-2 border-line bg-card text-ink-muted transition-colors hover:border-brand hover:text-brand-deep disabled:opacity-40"
+                      className="flex size-11 items-center justify-center rounded-xl border-2 border-line bg-card text-ink-muted transition-colors hover:border-brand hover:text-brand-deep disabled:opacity-40"
                     >
                       <CheckCheck size={16} strokeWidth={2.6} aria-hidden />
                     </motion.button>
@@ -257,7 +257,7 @@ export function NotificationDrawer() {
                       transition={springs.snappy}
                       onClick={closeDrawer}
                       aria-label="Close notifications"
-                      className="flex size-9 items-center justify-center rounded-xl border-2 border-line bg-card text-ink-muted transition-colors hover:border-line-deep hover:text-ink"
+                      className="flex size-11 items-center justify-center rounded-xl border-2 border-line bg-card text-ink-muted transition-colors hover:border-line-deep hover:text-ink"
                     >
                       <X size={17} strokeWidth={2.7} aria-hidden />
                     </motion.button>
@@ -284,7 +284,7 @@ export function NotificationDrawer() {
                         aria-selected={selected}
                         onClick={() => setFilter(id)}
                         className={cn(
-                          "relative z-0 flex min-h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 text-[11px] font-extrabold transition-colors",
+                          "relative z-0 flex min-h-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 text-[11px] font-extrabold transition-colors",
                           selected ? "text-brand-deep" : "text-ink-muted hover:text-ink"
                         )}
                       >

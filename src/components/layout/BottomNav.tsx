@@ -32,7 +32,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Primary navigation"
-      className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-40 w-[94%] max-w-sm -translate-x-1/2 rounded-full border border-zinc-200 bg-white/90 px-4 py-2 shadow-2xl backdrop-blur-lg transition-colors duration-200 dark:border-zinc-800 dark:bg-zinc-900/90 md:hidden"
+      className="fixed bottom-3 left-1/2 z-40 w-[94%] max-w-sm -translate-x-1/2 rounded-full border border-zinc-200 bg-white/90 px-3 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-2xl backdrop-blur-lg transition-colors duration-200 dark:border-zinc-800 dark:bg-zinc-900/90 md:hidden"
     >
       <div className="grid grid-cols-5 items-center justify-items-center">
         {navigation.map(({ label, to, icon: Icon, end, create, profile: isProfile }) => (

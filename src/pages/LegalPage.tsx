@@ -50,7 +50,7 @@ const pageContent: Record<LegalPageKind, { title: string; description: string; s
 export function LegalPage({ kind }: { kind: LegalPageKind }) {
   const content = pageContent[kind];
   return (
-    <main className="mx-auto w-full max-w-[760px] min-w-0 px-3 py-6 sm:px-5 sm:py-9">
+    <main className="mx-auto w-full max-w-[760px] min-w-0 px-4 py-6 sm:px-6 sm:py-9">
       <PageHeading eyebrow="Gist me" title={content.title} description={content.description} />
       <Card className="divide-y-2 divide-line px-5 sm:px-7">
         {content.sections.map((section) => (

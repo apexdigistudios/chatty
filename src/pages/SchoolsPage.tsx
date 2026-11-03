@@ -93,7 +93,7 @@ export function SchoolsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[860px] min-w-0 px-3 pt-5 sm:px-4 sm:pt-7 lg:px-5 xl:px-7">
+    <div className="mx-auto w-full max-w-[860px] min-w-0 px-4 pt-5 sm:px-6 sm:pt-7">
       <PageHeading
         eyebrow="Find your people"
         title="School Communities"
@@ -118,7 +118,7 @@ export function SchoolsPage() {
                   <h2 className="mt-1 text-lg font-black tracking-tight text-ink">Register your SHS</h2>
                   <p className="text-xs font-semibold text-ink-muted">You become the primary moderator for every gist tagged to this school.</p>
                 </div>
-                <button type="button" onClick={() => setCreating(false)} aria-label="Close" className="flex size-9 items-center justify-center rounded-xl border-2 border-line text-ink-muted hover:text-ink"><X size={16} strokeWidth={2.6} aria-hidden /></button>
+                <button type="button" onClick={() => setCreating(false)} aria-label="Close" className="flex size-11 items-center justify-center rounded-xl border-2 border-line text-ink-muted hover:text-ink"><X size={16} strokeWidth={2.6} aria-hidden /></button>
               </div>
 
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -137,7 +137,7 @@ export function SchoolsPage() {
                 </label>
                 <label className="block cursor-pointer">
                   <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Crest (optional)</span>
-                  <span className="flex h-10 items-center gap-2 rounded-xl border-2 border-dashed border-line bg-page px-3 text-xs font-bold text-ink-muted transition-colors hover:border-brand">
+                  <span className="flex h-11 items-center gap-2 rounded-xl border-2 border-dashed border-line bg-page px-3 text-xs font-bold text-ink-muted transition-colors hover:border-brand">
                     <ImagePlus size={15} strokeWidth={2.5} className="shrink-0 text-brand-deep" aria-hidden />
                     <span className="truncate">
                       {crestFile
@@ -179,12 +179,12 @@ export function SchoolsPage() {
       <label className="flex h-12 items-center gap-3 rounded-2xl border-2 border-line bg-card px-3.5 transition-colors focus-within:border-brand focus-within:ring-4 focus-within:ring-brand-soft">
         <Search size={19} strokeWidth={2.5} className="shrink-0 text-ink-muted" aria-hidden />
         <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search school name, region or type" aria-label="Search schools" className="min-w-0 flex-1 bg-transparent text-sm font-bold text-ink outline-none placeholder:font-semibold placeholder:text-ink-faint" />
-        {query && <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="flex size-7 items-center justify-center rounded-lg text-ink-muted hover:bg-page hover:text-ink"><X size={15} strokeWidth={2.6} aria-hidden /></button>}
+        {query && <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-muted hover:bg-page hover:text-ink"><X size={15} strokeWidth={2.6} aria-hidden /></button>}
       </label>
 
       <div className="mt-4 flex flex-wrap gap-2" aria-label="Filter by region">
         {regions.map((item) => (
-          <button key={item} type="button" onClick={() => setRegion(item)} aria-pressed={region === item} className={cn("rounded-full border-2 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-colors", region === item ? "border-ink bg-ink text-card dark:border-brand-deep dark:bg-brand-deep dark:text-brand-contrast" : "border-line bg-card text-ink-muted hover:border-line-deep hover:text-ink")}>
+          <button key={item} type="button" onClick={() => setRegion(item)} aria-pressed={region === item} className={cn("min-h-11 rounded-full border-2 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-colors", region === item ? "border-ink bg-ink text-card dark:border-brand-deep dark:bg-brand-deep dark:text-brand-contrast" : "border-line bg-card text-ink-muted hover:border-line-deep hover:text-ink")}>
             {item}
           </button>
         ))}
@@ -193,7 +193,7 @@ export function SchoolsPage() {
       <div className="mt-3">
         <div className="flex flex-wrap gap-2" aria-label="Filter by type">
           {(["All", ...SCHOOL_TYPES] as Array<SchoolType | "All">).map((item) => (
-            <button key={item} type="button" onClick={() => setTypeFilter(item)} aria-pressed={typeFilter === item} className={cn("rounded-full border-2 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-colors", typeFilter === item ? "border-brand-deep bg-brand-wash text-brand-deep" : "border-line bg-card text-ink-muted hover:border-line-deep hover:text-ink")}>
+            <button key={item} type="button" onClick={() => setTypeFilter(item)} aria-pressed={typeFilter === item} className={cn("min-h-11 rounded-full border-2 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-colors", typeFilter === item ? "border-brand-deep bg-brand-wash text-brand-deep" : "border-line bg-card text-ink-muted hover:border-line-deep hover:text-ink")}>
               {item === "All" ? "All" : schoolTypeLabel(item)}
             </button>
           ))}

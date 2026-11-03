@@ -89,20 +89,20 @@ export function ExplorePage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[860px] min-w-0 px-3 pt-5 sm:px-4 sm:pt-7 lg:px-5 xl:px-7">
+    <div className="mx-auto w-full max-w-[860px] min-w-0 px-4 pt-5 sm:px-6 sm:pt-7">
       <PageHeading eyebrow="Find your people" title="Explore" description="Search live gists, students and SHS communities across Ghana." />
 
       <label className="flex h-12 items-center gap-3 rounded-2xl border-2 border-line bg-card px-3.5 transition-colors focus-within:border-brand focus-within:ring-4 focus-within:ring-brand-soft">
         <Search size={19} strokeWidth={2.5} className="shrink-0 text-ink-muted" aria-hidden />
         <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Try NSMQ, interco, PRESEC or a nickname" aria-label="Search" className="min-w-0 flex-1 bg-transparent text-sm font-bold text-ink outline-none placeholder:font-semibold placeholder:text-ink-faint" />
         {loading ? <Loader2 size={16} className="animate-spin text-ink-muted" aria-hidden /> : query && (
-          <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="flex size-7 shrink-0 items-center justify-center rounded-lg text-ink-muted hover:bg-page hover:text-ink"><X size={15} strokeWidth={2.6} aria-hidden /></button>
+          <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-muted hover:bg-page hover:text-ink"><X size={15} strokeWidth={2.6} aria-hidden /></button>
         )}
       </label>
 
       <div className="mt-4 grid grid-cols-4 gap-2" aria-label="Filter results">
         {filters.map((item) => (
-          <button key={item} type="button" onClick={() => setFilter(item)} aria-pressed={filter === item} className={cn("min-w-0 rounded-xl border-2 px-1.5 py-2 text-[11px] font-extrabold transition-colors sm:px-3 sm:text-xs", filter === item ? "border-ink bg-ink text-card dark:border-brand-deep dark:bg-brand-deep dark:text-brand-contrast" : "border-line bg-card text-ink-muted hover:border-line-deep hover:text-ink")}>
+          <button key={item} type="button" onClick={() => setFilter(item)} aria-pressed={filter === item} className={cn("min-h-11 min-w-0 rounded-xl border-2 px-1.5 py-2 text-[11px] font-extrabold transition-colors sm:px-3 sm:text-xs", filter === item ? "border-ink bg-ink text-card dark:border-brand-deep dark:bg-brand-deep dark:text-brand-contrast" : "border-line bg-card text-ink-muted hover:border-line-deep hover:text-ink")}>
             {item}
           </button>
         ))}

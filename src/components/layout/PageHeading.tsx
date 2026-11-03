@@ -9,7 +9,7 @@ interface PageHeadingProps {
 
 export function PageHeading({ title, description, eyebrow, action }: PageHeadingProps) {
   return (
-    <header className="mb-6 flex items-start justify-between gap-3">
+    <header className="mb-6 flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:justify-between">
       <div className="min-w-0">
         {eyebrow && (
           <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-brand-deep">
@@ -25,7 +25,7 @@ export function PageHeading({ title, description, eyebrow, action }: PageHeading
           </p>
         )}
       </div>
-      {action && <div className="shrink-0 pt-1">{action}</div>}
+      {action && <div className="w-full min-w-0 sm:w-auto sm:shrink-0 sm:pt-1">{action}</div>}
     </header>
   );
 }

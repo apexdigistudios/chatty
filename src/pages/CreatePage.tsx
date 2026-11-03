@@ -242,7 +242,7 @@ export function CreatePage() {
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={springs.gentle} className="flex min-h-dvh w-full flex-col bg-card text-ink">
       <header className="sticky top-0 z-30 border-b-2 border-line bg-card/95 backdrop-blur-md" style={{ paddingTop: "max(0.65rem, env(safe-area-inset-top))" }}>
         <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-2 px-3 pb-2.5 sm:px-6">
-          <motion.button type="button" onClick={cancel} whileTap={{ scale: 0.93 }} transition={springs.snappy} aria-label="Cancel" className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-2xl border-2 border-line bg-card px-3 text-xs font-extrabold text-ink hover:border-line-deep hover:bg-page">
+          <motion.button type="button" onClick={cancel} whileTap={{ scale: 0.93 }} transition={springs.snappy} aria-label="Cancel" className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-2xl border-2 border-line bg-card px-3 text-xs font-extrabold text-ink hover:border-line-deep hover:bg-page">
             <ArrowLeft size={16} strokeWidth={2.7} aria-hidden />
             <span>Cancel</span>
           </motion.button>
@@ -257,7 +257,7 @@ export function CreatePage() {
             whileHover={canPublish ? { y: -2, boxShadow: "0px 6px 0px #5B21B6" } : undefined}
             whileTap={canPublish ? { y: 3, boxShadow: "0px 1px 0px #5B21B6" } : undefined}
             transition={springs.snappy}
-            className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-2xl bg-[#8B5CF6] px-4 text-xs font-extrabold uppercase tracking-[0.07em] text-white shadow-[0_4px_0_#5B21B6] hover:bg-[#7C3AED] disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-2xl bg-[#8B5CF6] px-4 text-xs font-extrabold uppercase tracking-[0.07em] text-white shadow-[0_4px_0_#5B21B6] hover:bg-[#7C3AED] disabled:cursor-not-allowed disabled:opacity-40"
           >
             {publishing ? <Loader2 size={15} strokeWidth={2.9} className="animate-spin" aria-hidden /> : <Send size={14} strokeWidth={2.7} aria-hidden />}
             <span>{publishing ? "Sending" : "Publish"}</span>
@@ -279,7 +279,7 @@ export function CreatePage() {
                 type="button"
                 onClick={() => setSchoolOpen((open) => !open)}
                 aria-expanded={schoolOpen}
-                className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-full border-2 border-line bg-page py-0.5 pl-1 pr-2.5 text-left transition-colors hover:border-brand"
+                className="mt-1 inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full border-2 border-line bg-page py-0.5 pl-1 pr-2.5 text-left transition-colors hover:border-brand"
               >
                 <SchoolBadge schoolId={school?.id} crestUrl={school?.crestUrl} name={school?.name ?? "School"} size="xs" />
                 <span className="truncate text-[11px] font-extrabold text-ink">{school?.shortName ?? "Choose school"}</span>
@@ -293,7 +293,7 @@ export function CreatePage() {
             role="switch"
             aria-checked={isConfession}
             onClick={() => setComposerIntent(isConfession ? "gist" : "confession", school?.id ?? null)}
-            className={cn("inline-flex items-center gap-2 rounded-2xl border-2 px-3 py-2 text-xs font-extrabold transition-colors", isConfession ? "border-brand bg-brand-wash text-brand-deep" : "border-line bg-page text-ink-muted hover:border-line-deep hover:text-ink")}
+            className={cn("inline-flex min-h-11 items-center gap-2 rounded-2xl border-2 px-3 py-2 text-xs font-extrabold transition-colors", isConfession ? "border-brand bg-brand-wash text-brand-deep" : "border-line bg-page text-ink-muted hover:border-line-deep hover:text-ink")}
           >
             <Lock size={14} strokeWidth={2.6} aria-hidden />
             <span>Confession</span>
@@ -309,7 +309,7 @@ export function CreatePage() {
             <p className="min-w-0 flex-1 truncate text-[11px] font-extrabold text-brand-deep">
               Posting into {postGroup.name}
             </p>
-            <button type="button" onClick={() => setPostGroup(null)} aria-label="Remove club tag" className="flex size-6 shrink-0 items-center justify-center rounded-lg text-brand-deep hover:bg-card">
+            <button type="button" onClick={() => setPostGroup(null)} aria-label="Remove club tag" className="flex size-11 shrink-0 items-center justify-center rounded-lg text-brand-deep hover:bg-card">
               <X size={13} strokeWidth={2.8} aria-hidden />
             </button>
           </div>
@@ -433,7 +433,7 @@ export function CreatePage() {
               transition={springs.snappy}
               onClick={() => fileRef.current?.click()}
               disabled={isConfession || compressing}
-              className="inline-flex h-10 items-center gap-1.5 rounded-2xl border-2 border-line bg-page px-3 text-xs font-extrabold text-ink transition-colors hover:border-brand hover:bg-brand-wash hover:text-brand-deep disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex h-11 items-center gap-1.5 rounded-2xl border-2 border-line bg-page px-3 text-xs font-extrabold text-ink transition-colors hover:border-brand hover:bg-brand-wash hover:text-brand-deep disabled:cursor-not-allowed disabled:opacity-40"
             >
               {compressing ? (
                 <Loader2 size={16} strokeWidth={2.7} className="animate-spin text-brand-deep" aria-hidden />

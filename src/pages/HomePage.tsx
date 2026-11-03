@@ -151,7 +151,7 @@ export function HomePage() {
       : feedLoading && posts.length === 0;
 
   return (
-    <div className="mx-auto w-full max-w-[720px] min-w-0 px-3 pt-5 sm:px-4 sm:pt-7 lg:px-5 xl:px-7">
+    <div className="mx-auto w-full max-w-[720px] min-w-0 px-4 pt-5 sm:px-6 sm:pt-7">
       <header className="relative overflow-hidden rounded-[26px] border-2 border-line bg-card p-4 shadow-[0_4px_0_var(--border-color)] sm:p-5">
         <span className="pointer-events-none absolute -right-12 -top-16 size-48 rounded-full opacity-80" style={{ background: "radial-gradient(circle, var(--brand-wash), transparent 70%)" }} aria-hidden />
         <div className="relative flex items-start gap-3">
@@ -175,7 +175,7 @@ export function HomePage() {
             onClick={refresh}
             disabled={refreshing}
             aria-label="Refresh feed"
-            className="flex size-10 shrink-0 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink-muted transition-colors hover:border-brand hover:text-brand-deep disabled:opacity-60"
+            className="flex size-11 shrink-0 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink-muted transition-colors hover:border-brand hover:text-brand-deep disabled:opacity-60"
           >
             <RefreshCw size={17} strokeWidth={2.5} className={refreshing ? "animate-spin" : ""} aria-hidden />
           </motion.button>
@@ -197,11 +197,11 @@ export function HomePage() {
               <p className="min-w-0 flex-1 text-xs font-bold text-ink-muted">
                 Browsing as guest — join your SHS in 30s to post &amp; reply!
               </p>
-              <div className="flex shrink-0 items-center gap-1.5">
-                <Link to="/auth?mode=signin" className="rounded-xl border-2 border-line bg-page px-2.5 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-ink transition-colors hover:border-brand hover:text-brand-deep">
+              <div className="flex min-w-0 flex-wrap shrink-0 items-center gap-1.5">
+                <Link to="/auth?mode=signin" className="inline-flex min-h-11 items-center rounded-xl border-2 border-line bg-page px-2.5 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-ink transition-colors hover:border-brand hover:text-brand-deep">
                   Log in
                 </Link>
-                <Link to="/auth?mode=signup" className="rounded-xl bg-[#8B5CF6] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-white shadow-[0_3px_0_#5B21B6] transition-transform hover:bg-[#7C3AED] active:translate-y-0.5">
+                <Link to="/auth?mode=signup" className="inline-flex min-h-11 items-center rounded-xl bg-[#8B5CF6] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-white shadow-[0_3px_0_#5B21B6] transition-transform hover:bg-[#7C3AED] active:translate-y-0.5">
                   Get Started
                 </Link>
               </div>
@@ -225,7 +225,7 @@ export function HomePage() {
       {feedSchool && (
         <div className="mt-3 flex items-center gap-2 rounded-2xl border-2 border-brand bg-brand-wash px-3 py-2">
           <p className="min-w-0 flex-1 truncate text-xs font-extrabold text-brand-deep">Showing gists from {feedSchool.name}</p>
-          <button type="button" onClick={() => setFeedSchool(null)} aria-label="Clear school filter" className="flex size-6 shrink-0 items-center justify-center rounded-lg text-brand-deep hover:bg-card">
+          <button type="button" onClick={() => setFeedSchool(null)} aria-label="Clear school filter" className="flex size-11 shrink-0 items-center justify-center rounded-lg text-brand-deep hover:bg-card">
             <X size={13} strokeWidth={2.8} aria-hidden />
           </button>
         </div>
@@ -243,7 +243,7 @@ export function HomePage() {
                 role="tab"
                 aria-selected={selected}
                 onClick={() => setActiveTab(tab)}
-                className={`relative z-0 min-h-10 min-w-0 rounded-xl px-1 py-2 text-[10px] font-extrabold leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:text-xs ${
+                className={`relative z-0 min-h-11 min-w-0 rounded-xl px-1 py-2 text-[10px] font-extrabold leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:text-xs ${
                   selected ? "text-brand-deep" : "text-ink-muted hover:text-ink"
                 }`}
               >

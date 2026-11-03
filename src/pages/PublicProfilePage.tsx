@@ -15,6 +15,7 @@ import { fetchFeed } from "../services/postsService";
 import { fetchPublicProfile } from "../services/profilesService";
 import { springs } from "../theme/tokens";
 import type { Post, PublicProfile } from "../types/models";
+import { SafeImage } from "../components/common/SafeImage";
 
 /** Facebook-style public student profile: `/profile/:userId`. */
 export function PublicProfilePage() {
@@ -69,7 +70,7 @@ export function PublicProfilePage() {
 
   if (loading) {
     return (
-      <div className="mx-auto w-full max-w-[740px] px-3 pt-6 sm:px-4">
+      <div className="mx-auto w-full max-w-[740px] min-w-0 px-4 pt-6 sm:px-6">
         <div className="h-40 animate-pulse rounded-3xl border-2 border-line bg-card motion-reduce:animate-none" />
         <div className="mt-4 space-y-3">
           <div className="h-24 animate-pulse rounded-3xl border-2 border-line bg-card" />
@@ -81,7 +82,7 @@ export function PublicProfilePage() {
 
   if (!profile) {
     return (
-      <div className="mx-auto w-full max-w-[740px] px-3 pt-6 sm:px-4">
+      <div className="mx-auto w-full max-w-[740px] min-w-0 px-4 pt-6 sm:px-6">
         <div className="rounded-3xl border-2 border-dashed border-line bg-card px-5 py-12 text-center">
           <WifiOff size={22} className="mx-auto text-ink-muted" aria-hidden />
           <p className="mt-2 text-sm font-extrabold text-ink">{error ?? "Student not found"}</p>
@@ -98,7 +99,7 @@ export function PublicProfilePage() {
   const joined = new Date(profile.createdAt).toLocaleDateString(undefined, { month: "long", year: "numeric" });
 
   return (
-    <div className="mx-auto w-full max-w-[740px] min-w-0 px-3 pb-10 pt-5 sm:px-4 sm:pt-7 lg:px-5">
+    <div className="mx-auto w-full max-w-[740px] min-w-0 px-4 pb-10 pt-5 sm:px-6 sm:pt-7 lg:px-5">
       <button
         type="button"
         onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate("/"))}
@@ -111,7 +112,7 @@ export function PublicProfilePage() {
       <Card className="relative mt-3 overflow-hidden">
         <div className="relative h-32 w-full overflow-hidden bg-linear-to-br from-[#8B5CF6] via-[#6D28D9] to-[#0F0F11] sm:h-44 md:h-60">
           {profile.coverUrl && (
-            <img
+            <SafeImage
               src={profile.coverUrl}
               alt=""
               className="absolute inset-0 size-full object-cover"
@@ -125,7 +126,7 @@ export function PublicProfilePage() {
           </span>
         </div>
 
-        <div className="absolute left-6 top-20 z-10 rounded-full ring-4 ring-card sm:top-28 md:top-48">
+        <div className="absolute left-1/2 top-20 z-10 -translate-x-1/2 rounded-full ring-4 ring-card sm:left-6 sm:top-28 sm:translate-x-0 md:top-48">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -135,8 +136,8 @@ export function PublicProfilePage() {
           </motion.div>
         </div>
         <CardBody className="relative px-4 pb-5 pt-16 sm:px-6 sm:pt-20">
-          <div className="flex flex-wrap items-end justify-end gap-3">
-            <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <Button
                 size="sm"
                 leftIcon={<Send size={14} strokeWidth={2.6} aria-hidden />}

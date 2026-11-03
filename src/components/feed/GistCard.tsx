@@ -149,6 +149,15 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
                 {post.status}
               </Badge>
             )}
+            {post.spotlightStatus === "active" && (
+              <Badge
+                tone="brand"
+                className="shrink-0 gap-1 border border-purple-500/40 bg-purple-500/10 px-2 py-1 text-[9px] text-purple-600 dark:text-purple-400"
+              >
+                <Zap size={11} fill="currentColor" aria-hidden />
+                Spotlight
+              </Badge>
+            )}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
             <SchoolTag
@@ -176,19 +185,10 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           onClick={() => setMenuOpen((open) => !open)}
           aria-label="More gist actions"
           aria-expanded={menuOpen}
-          className="-mr-1 -mt-1 flex size-9 shrink-0 items-center justify-center rounded-xl text-ink-muted transition-colors hover:bg-page hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          className="-mr-1 -mt-1 flex size-11 shrink-0 items-center justify-center rounded-xl text-ink-muted transition-colors hover:bg-page hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
         >
           <MoreHorizontal size={18} strokeWidth={2.5} aria-hidden />
         </button>
-        {post.spotlightStatus === "active" && (
-          <Badge
-            tone="brand"
-            className="shrink-0 gap-1 border border-purple-500/40 bg-purple-500/10 px-2 py-1 text-[9px] text-purple-600 dark:text-purple-400"
-          >
-            <Zap size={11} fill="currentColor" aria-hidden />
-            Spotlight
-          </Badge>
-        )}
       </CardHeader>
 
       <CardBody className="px-4 pb-4 sm:px-5 sm:pb-5">
@@ -224,7 +224,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
                     src={item.src}
                     alt={item.alt}
                     referrerPolicy="no-referrer"
-                    containerClassName={media.length > 1 ? "aspect-square w-full" : "aspect-[4/3] w-full"}
+                    containerClassName={media.length > 1 ? "aspect-square w-full" : "aspect-video w-full"}
                     className="group-hover:scale-[1.02]"
                   />
                   <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-[#09090b]/75 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white opacity-0 backdrop-blur transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
@@ -238,7 +238,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
         ) : null}
       </CardBody>
 
-      <div className="flex flex-wrap items-center gap-1 border-t-2 border-line px-2 py-2 sm:px-3">
+      <div className="flex w-full flex-wrap items-center justify-between gap-1 border-t-2 border-line px-2 py-2 sm:px-3">
         <motion.button
           type="button"
           whileTap={{ scale: 0.88 }}
@@ -247,7 +247,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           aria-pressed={post.likedByMe}
           aria-label={`${post.likedByMe ? "Unlike" : "Like"} gist, ${post.likeCount} likes`}
           className={cn(
-            "flex min-h-10 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm",
+            "flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm",
             post.likedByMe ? "bg-danger-wash text-danger" : "text-ink-muted hover:bg-page hover:text-danger"
           )}
         >
@@ -268,7 +268,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           transition={springs.snappy}
           onClick={() => openComments(post.id)}
           aria-label={`Open comments, ${post.commentCount} comments`}
-          className="flex min-h-10 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold text-ink-muted transition-colors hover:bg-brand-wash hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm"
+          className="flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold text-ink-muted transition-colors hover:bg-brand-wash hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm"
         >
           <MessageCircle size={17} strokeWidth={2.4} aria-hidden />
           <span className="tabular-nums">{post.commentCount}</span>
@@ -279,7 +279,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           whileTap={{ scale: 0.92 }}
           transition={springs.snappy}
           onClick={share}
-          className="flex min-h-10 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold text-ink-muted transition-colors hover:bg-page hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm"
+          className="flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold text-ink-muted transition-colors hover:bg-page hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm"
         >
           <Share2 size={16} strokeWidth={2.4} aria-hidden />
           <span className="hidden sm:inline">Share</span>
@@ -293,7 +293,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           aria-pressed={saved}
           aria-label={saved ? "Remove saved gist" : "Save gist"}
           className={cn(
-            "flex min-h-10 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm",
+            "flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm",
             saved ? "bg-brand-wash text-brand-deep" : "text-ink-muted hover:bg-page hover:text-brand-deep"
           )}
         >

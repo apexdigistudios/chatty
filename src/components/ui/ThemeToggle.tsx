@@ -33,7 +33,7 @@ export function ThemeToggle({ showLabel = false, className }: ThemeToggleProps) 
       aria-label={showLabel ? `Theme preference: ${modeLabels[mode]}. Activate to change.` : nextLabel}
       title={showLabel ? `Theme: ${modeLabels[mode]}` : nextLabel}
       className={cn(
-        "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border-2 border-line bg-card px-2.5 text-ink",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border-2 border-line bg-card px-2.5 text-ink",
         "transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft",
         showLabel && "min-h-11 justify-start px-3.5 text-sm font-extrabold",
         className

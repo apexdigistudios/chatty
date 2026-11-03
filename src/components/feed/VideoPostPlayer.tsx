@@ -66,7 +66,7 @@ export function VideoPostPlayer({ src, durationSeconds }: VideoPostPlayerProps) 
     <>
       <div
         ref={containerRef}
-        className="group relative aspect-[4/5] overflow-hidden rounded-[22px] border-2 border-line bg-black shadow-[0_4px_0_var(--border-color)] sm:aspect-video"
+        className="group relative aspect-video w-full overflow-hidden rounded-[22px] border-2 border-line bg-black shadow-[0_4px_0_var(--border-color)]"
       >
         <video
           ref={videoRef}
@@ -85,7 +85,7 @@ export function VideoPostPlayer({ src, durationSeconds }: VideoPostPlayerProps) 
           onWaiting={() => setLoading(true)}
           onCanPlay={() => setLoading(false)}
           onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
-          className="size-full cursor-pointer object-cover"
+          className="size-full cursor-pointer object-contain"
           aria-label="Video gist"
         />
 
@@ -111,12 +111,12 @@ export function VideoPostPlayer({ src, durationSeconds }: VideoPostPlayerProps) 
         </motion.button>
 
         {/* Bottom control bar */}
-        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/85 to-transparent px-3 pb-2.5 pt-10">
+        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-linear-to-t from-black/85 to-transparent px-3 pb-2.5 pt-10">
           <button
             type="button"
             onClick={toggleMute}
             aria-label={muted ? "Unmute video" : "Mute video"}
-            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur"
           >
             {muted ? <VolumeX size={17} aria-hidden /> : <Volume2 size={17} aria-hidden />}
           </button>
@@ -127,7 +127,7 @@ export function VideoPostPlayer({ src, durationSeconds }: VideoPostPlayerProps) 
             type="button"
             onClick={() => setLightboxOpen(true)}
             aria-label="Open video full screen"
-            className="ml-auto flex size-9 shrink-0 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur"
+            className="ml-auto flex size-11 shrink-0 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur"
           >
             <Expand size={16} aria-hidden />
           </button>

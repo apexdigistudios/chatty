@@ -126,7 +126,7 @@ export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onSh
   };
 
   const itemClass =
-    "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-xs font-extrabold text-ink-soft transition-colors hover:bg-page";
+    "flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-extrabold text-ink-soft transition-colors hover:bg-page";
 
   return (
     <AnimatePresence>
@@ -139,7 +139,7 @@ export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onSh
           transition={springs.snappy}
           role="menu"
           aria-label={`Actions for gist by ${post.authorName}`}
-          className="absolute right-2 top-14 z-30 w-64 origin-top-right overflow-hidden rounded-2xl border-2 border-line bg-card p-2 shadow-[0_6px_0_var(--border-strong)]"
+          className="absolute right-2 top-14 z-30 w-64 max-w-[calc(100vw-1rem)] origin-top-right overflow-hidden rounded-2xl border-2 border-line bg-card p-2 shadow-[0_6px_0_var(--border-strong)]"
         >
           {view === "main" ? (
             <>

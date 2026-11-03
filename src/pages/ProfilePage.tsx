@@ -25,6 +25,7 @@ import { springs } from "../theme/tokens";
 import type { Post } from "../types/models";
 import { cn } from "../utils/cn";
 import { FeedSkeleton } from "./HomePage";
+import { SafeImage } from "../components/common/SafeImage";
 
 type ProfileTab = "My Gists" | "Liked Gists" | "Account Settings";
 const TABS: Array<{ id: ProfileTab; icon: typeof MessageCircle }> = [
@@ -166,7 +167,7 @@ export function ProfilePage() {
 
   if (authLoading || (user && !profile)) {
     return (
-      <div className="mx-auto w-full max-w-[740px] px-3 pt-6 sm:px-4">
+      <div className="mx-auto w-full max-w-[740px] min-w-0 px-4 pt-6 sm:px-6">
         <div className="h-56 animate-pulse rounded-3xl border-2 border-line bg-card motion-reduce:animate-none" />
       </div>
     );
@@ -174,7 +175,7 @@ export function ProfilePage() {
 
   if (!user || !profile) {
     return (
-      <div className="mx-auto w-full max-w-[740px] min-w-0 space-y-4 px-3 pb-10 pt-5 sm:px-4 sm:pt-7 lg:px-5 xl:px-7">
+      <div className="mx-auto w-full max-w-[740px] min-w-0 space-y-4 px-4 pb-10 pt-5 sm:px-6 sm:pt-7">
         <Card className="overflow-hidden">
           <div className="relative h-20 bg-linear-to-r from-[#8B5CF6] via-[#6D28D9] to-[#0F0F11]">
             <span className="absolute right-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white">
@@ -294,11 +295,11 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[740px] min-w-0 px-3 pb-10 pt-5 sm:px-4 sm:pt-7 lg:px-5 xl:px-7">
+    <div className="mx-auto w-full max-w-[740px] min-w-0 px-4 pb-10 pt-5 sm:px-6 sm:pt-7 lg:px-5 xl:px-7">
       <Card className="relative overflow-hidden">
         <div className="relative h-32 w-full overflow-hidden bg-linear-to-br from-[#8B5CF6] via-[#6D28D9] to-[#0F0F11] sm:h-44 md:h-60">
           {profile.coverUrl && (
-            <img
+            <SafeImage
               src={profile.coverUrl}
               alt=""
               className="absolute inset-0 size-full object-cover"
@@ -337,7 +338,7 @@ export function ProfilePage() {
           type="button"
           onClick={() => editing && avatarRef.current?.click()}
           aria-label={editing ? "Upload new avatar" : "Profile avatar"}
-          className="group absolute left-6 top-20 z-10 block rounded-full ring-4 ring-card sm:top-28 md:top-48"
+          className="group absolute left-1/2 top-20 z-10 block -translate-x-1/2 rounded-full ring-4 ring-card sm:left-6 sm:top-28 sm:translate-x-0 md:top-48"
         >
           <Avatar name={profile.username} src={editing ? draftAvatar : profile.avatarUrl} size="2xl" online />
           {editing && (
@@ -347,7 +348,7 @@ export function ProfilePage() {
           )}
         </button>
         <CardBody className="relative px-4 pb-5 pt-16 sm:px-6 sm:pt-20">
-          <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
             <input ref={avatarRef} type="file" accept="image/*" onChange={pickAvatar} className="sr-only" aria-label="Upload avatar" />
             {!editing && (
               <div className="flex flex-wrap gap-2">
@@ -357,7 +358,7 @@ export function ProfilePage() {
             )}
           </div>
 
-          <div className="mt-3">
+          <div className="mt-3 flex flex-col items-center text-center sm:items-start sm:text-left">
             <div className="flex flex-wrap items-center gap-2">
               <div className="min-w-0">
                 <h1 className="truncate text-2xl font-black tracking-tight text-ink sm:text-[26px]">@{profile.username}</h1>
@@ -433,9 +434,9 @@ export function ProfilePage() {
           </AnimatePresence>
 
           <div className="mt-4 grid grid-cols-3 divide-x-2 divide-line rounded-2xl border-2 border-line bg-page py-3 text-center">
-            <button type="button" onClick={() => setTab("My Gists")} className="hover:text-brand-deep"><p className="text-lg font-black tabular-nums text-ink">{myPosts.length}</p><p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">My gists</p></button>
-            <button type="button" onClick={() => setTab("Liked Gists")} className="hover:text-brand-deep"><p className="text-lg font-black tabular-nums text-ink">{liked.length}</p><p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Liked</p></button>
-            <div><p className="text-lg font-black tabular-nums text-ink">{myPosts.reduce((sum, post) => sum + post.likeCount, 0)}</p><p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Likes received</p></div>
+            <button type="button" onClick={() => setTab("My Gists")} className="min-h-11 px-1 hover:text-brand-deep"><p className="text-lg font-black tabular-nums text-ink">{myPosts.length}</p><p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">My gists</p></button>
+            <button type="button" onClick={() => setTab("Liked Gists")} className="min-h-11 px-1 hover:text-brand-deep"><p className="text-lg font-black tabular-nums text-ink">{liked.length}</p><p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Liked</p></button>
+            <div className="px-1"><p className="text-lg font-black tabular-nums text-ink">{myPosts.reduce((sum, post) => sum + post.likeCount, 0)}</p><p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Likes received</p></div>
           </div>
         </CardBody>
       </Card>
@@ -489,7 +490,7 @@ export function ProfilePage() {
         </div>
       </section>
 
-      <div role="tablist" aria-label="Profile sections" className="mt-5 grid grid-cols-3 gap-1 rounded-2xl border-2 border-line bg-surface-muted p-1">
+      <div role="tablist" aria-label="Profile sections" className="mt-5 grid grid-cols-1 gap-1 rounded-2xl border-2 border-line bg-surface-muted p-1 sm:grid-cols-3">
         {TABS.map(({ id, icon: Icon }) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={cn("relative z-0 flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-[11px] font-extrabold leading-tight transition-colors sm:text-xs", tab === id ? "text-brand-deep" : "text-ink-muted hover:text-ink")}>
             {tab === id && <motion.span layoutId="profile-tab" transition={springs.bouncy} className="absolute inset-0 -z-10 rounded-xl border border-line bg-card shadow-[0_2px_0_var(--border-color)]" aria-hidden />}

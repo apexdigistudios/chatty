@@ -160,7 +160,7 @@ export function CommentDrawer() {
                   whileTap={{ scale: 0.9, rotate: 90 }}
                   transition={springs.snappy}
                   aria-label="Close comments"
-                  className="flex size-9 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink-muted transition-colors hover:border-line-deep hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+                  className="flex size-11 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink-muted transition-colors hover:border-line-deep hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
                 >
                   <X size={17} strokeWidth={2.7} aria-hidden />
                 </motion.button>
@@ -215,7 +215,7 @@ export function CommentDrawer() {
                             )}
                             <span className="text-[10px] font-semibold text-ink-muted">· {timeAgo(comment.createdAt)}</span>
                           </div>
-                          <p className="mt-1.5 break-words text-[13px] font-semibold leading-relaxed text-ink-soft sm:text-sm">{comment.content}</p>
+                          <p className="mt-1.5 wrap-break-word text-[13px] font-semibold leading-relaxed text-ink-soft sm:text-sm">{comment.content}</p>
                         </div>
                         {canDelete && (
                           <button

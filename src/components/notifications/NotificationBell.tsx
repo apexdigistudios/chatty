@@ -37,7 +37,7 @@ export function NotificationBell() {
       transition={springs.snappy}
       aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
       aria-haspopup="dialog"
-      className="relative flex size-10 shrink-0 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+      className="relative flex size-11 shrink-0 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
     >
       <Bell size={19} strokeWidth={2.5} aria-hidden />
 

@@ -221,7 +221,7 @@ export function SchoolPage() {
 
   if (!school && loading) {
     return (
-      <div className="mx-auto w-full max-w-[760px] px-3 pt-6 sm:px-4">
+      <div className="mx-auto w-full max-w-[760px] min-w-0 px-4 pt-6 sm:px-6">
         <div className="h-44 animate-pulse rounded-[26px] border-2 border-line bg-card motion-reduce:animate-none" />
         <div className="mt-5"><FeedSkeleton count={2} /></div>
       </div>
@@ -230,7 +230,7 @@ export function SchoolPage() {
 
   if (!school) {
     return (
-      <div className="mx-auto w-full max-w-[760px] px-3 pt-6 sm:px-4">
+      <div className="mx-auto w-full max-w-[760px] min-w-0 px-4 pt-6 sm:px-6">
         <div className="rounded-2xl border-2 border-dashed border-line px-5 py-12 text-center">
           <p className="text-sm font-extrabold text-ink">{error ?? "Community not found"}</p>
           <Link to="/schools" className="mt-4 inline-flex items-center gap-1 text-xs font-extrabold text-brand-deep hover:underline"><ArrowLeft size={14} aria-hidden />Back to schools</Link>
@@ -246,7 +246,7 @@ export function SchoolPage() {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-[760px] min-w-0 px-3 pt-5 sm:px-4 sm:pt-7 lg:px-5">
+    <div className="mx-auto w-full max-w-[760px] min-w-0 px-4 pt-5 sm:px-6 sm:pt-7">
       <Link to="/schools" className="inline-flex items-center gap-1 text-xs font-extrabold text-ink-muted hover:text-brand-deep"><ArrowLeft size={14} strokeWidth={2.6} aria-hidden />All communities</Link>
 
       <header className="relative mt-3 overflow-hidden rounded-[26px] border-2 border-line bg-card p-4 shadow-[0_4px_0_var(--border-color)] sm:p-5">
@@ -346,7 +346,7 @@ export function SchoolPage() {
                       onClick={() => setGroupEmoji(emoji)}
                       aria-pressed={groupEmoji === emoji}
                       aria-label={`Use ${emoji}`}
-                      className={cn("flex size-9 items-center justify-center rounded-xl border-2 text-base transition-colors", groupEmoji === emoji ? "border-brand bg-brand-wash" : "border-line bg-page hover:border-line-deep")}
+                      className={cn("flex size-11 items-center justify-center rounded-xl border-2 text-base transition-colors", groupEmoji === emoji ? "border-brand bg-brand-wash" : "border-line bg-page hover:border-line-deep")}
                     >
                       {emoji}
                     </button>

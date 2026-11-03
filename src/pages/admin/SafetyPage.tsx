@@ -42,6 +42,7 @@ function actionButton(
       <Button
         key={key}
         size="sm"
+        className="w-full sm:w-auto"
         variant="outline"
         disabled={busy !== null}
         loading={isBusy}
@@ -57,6 +58,7 @@ function actionButton(
       <Button
         key={key}
         size="sm"
+        className="w-full sm:w-auto"
         variant="danger"
         disabled={busy !== null}
         loading={isBusy}
@@ -75,6 +77,7 @@ function actionButton(
     <Button
       key={key}
       size="sm"
+      className="w-full sm:w-auto"
       variant="outline"
       disabled={busy !== null}
       loading={isBusy}
@@ -147,7 +150,7 @@ export function SafetyPage() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-[900px] min-w-0 px-3 pb-10 pt-5 sm:px-4 sm:pt-7 lg:px-5">
+    <main className="mx-auto w-full max-w-[900px] min-w-0 px-4 pb-10 pt-5 sm:px-6 sm:pt-7">
       <PageHeading
         eyebrow="Global admin"
         title="Safety Management"
@@ -290,7 +293,7 @@ function FlaggedPromotionCard({
             </div>
           </div>
         )}
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
           {actionButton("remove_post", { postId: item.post_id }, busy, run, key)}
           {actionButton("suspend_creator", { creatorId: item.user_id }, busy, run, `flagged-suspend-${item.id}`)}
         </div>
@@ -318,7 +321,7 @@ function PausedGistCard({
         </div>
         <div className="mt-3 rounded-xl border border-line bg-page p-3"><PostPreview post={item.post} /></div>
         <ReportReasons reports={item.reports} />
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
           {actionButton("dismiss_reports", { postId: item.post.id }, busy, run, `dismiss-${key}`)}
           {actionButton("remove_post", { postId: item.post.id }, busy, run, `remove-${key}`)}
           {actionButton("suspend_creator", { creatorId: item.post.user_id }, busy, run, `suspend-${key}`)}
@@ -363,7 +366,7 @@ function SeriousReportCard({
         </div>
         {report.details && <p className="mt-2 rounded-xl border border-line bg-page px-3 py-2 text-xs font-semibold text-ink-soft">{report.details}</p>}
         <div className="mt-3 rounded-xl border border-line bg-page p-3"><PostPreview post={post} /></div>
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
           {actionButton("dismiss_reports", { postId: report.gist_id }, busy, run, `dismiss-${key}`)}
           {actionButton("remove_post", { postId: report.gist_id }, busy, run, `remove-${key}`)}
           {post && actionButton("suspend_creator", { creatorId: post.user_id }, busy, run, `suspend-${key}`)}

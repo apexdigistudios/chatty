@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { crestColorsFor, initialsOf } from "../../lib/media";
 import { useGistStore } from "../../store/gistStore";
 import { cn } from "../../utils/cn";
+import { SafeImage } from "../common/SafeImage";
 
 export type SchoolBadgeSize = "xs" | "sm" | "md" | "lg" | "xl" | "2xl";
 
@@ -85,18 +85,18 @@ export function SchoolBadge({ schoolId, crestUrl, name, size = "md", ring = fals
           {!loaded && (
             <span className="absolute inset-0 animate-pulse motion-reduce:animate-none" style={{ backgroundColor: colors[1] }} />
           )}
-          <motion.img
+          <SafeImage
             src={resolvedCrest as string}
             alt=""
             loading="lazy"
             decoding="async"
             referrerPolicy="no-referrer"
             onLoad={() => setLoaded(true)}
-            onError={() => setFailed(true)}
-            initial={{ opacity: 0, scale: 1.08 }}
-            animate={{ opacity: loaded ? 1 : 0, scale: 1 }}
-            transition={{ duration: 0.25 }}
-            className="relative size-full object-contain p-[8%]"
+            onUnavailable={() => setFailed(true)}
+            className={cn(
+              "relative size-full object-contain p-[8%] transition-[opacity,transform] duration-300",
+              loaded ? "scale-100 opacity-100" : "scale-[1.08] opacity-0"
+            )}
           />
         </>
       ) : (

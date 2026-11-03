@@ -524,7 +524,7 @@ export function AuthWizardPage() {
               aria-label={
                 mode === "signup" && step > 1 ? "Previous step" : "Back to public feed"
               }
-              className="flex size-10 shrink-0 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink-muted transition-colors hover:border-line-deep hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+              className="flex size-11 shrink-0 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink-muted transition-colors hover:border-line-deep hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
             >
               {mode === "signup" && step > 1 ? (
                 <ArrowLeft size={18} strokeWidth={2.7} aria-hidden />
@@ -585,7 +585,7 @@ export function AuthWizardPage() {
               whileTap={{ scale: 0.94 }}
               transition={springs.snappy}
               onClick={() => switchMode(mode === "signup" ? "signin" : "signup")}
-              className="shrink-0 rounded-2xl border-2 border-line-deep bg-card px-3 py-2 text-[11px] font-black uppercase tracking-wider text-brand-deep shadow-[0_3px_0_var(--border-strong)] transition-colors hover:bg-brand-wash"
+              className="min-h-11 shrink-0 rounded-2xl border-2 border-line-deep bg-card px-3 py-2 text-[11px] font-black uppercase tracking-wider text-brand-deep shadow-[0_3px_0_var(--border-strong)] transition-colors hover:bg-brand-wash"
             >
               {mode === "signup" ? "Log in" : "Sign up"}
             </motion.button>
@@ -704,7 +704,7 @@ export function AuthWizardPage() {
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
                     aria-label={showPassword ? "Hide password" : "Show password"}
-                    className="rounded-lg p-1 text-ink-muted hover:text-ink"
+                    className="flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-muted hover:text-ink"
                   >
                     {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                   </button>

@@ -96,7 +96,7 @@ export function ShoutoutsPage() {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-[1000px] min-w-0 px-3 pb-10 pt-5 sm:px-4 sm:pt-7 lg:px-5">
+    <div className="mx-auto w-full max-w-[1000px] min-w-0 px-4 pb-10 pt-5 sm:px-6 sm:pt-7">
       {/* Playful digital post office masthead */}
       <header className="relative overflow-hidden rounded-[26px] border-2 border-line bg-card p-4 shadow-[0_4px_0_var(--border-color)] sm:p-5">
         <span className="pointer-events-none absolute -right-12 -top-16 size-52 rounded-full opacity-80" style={{ background: "radial-gradient(circle, var(--brand-wash), transparent 70%)" }} aria-hidden />

@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Minus, Plus, RotateCcw, X } from "lucide-rea
 import type { MediaItem } from "../../lib/media";
 import { springs } from "../../theme/tokens";
 import { cn } from "../../utils/cn";
+import { SafeImage } from "../common/SafeImage";
 
 export interface ImageLightboxProps {
   images: MediaItem[];
@@ -179,13 +180,14 @@ export function ImageLightbox({ images, index, onClose }: ImageLightboxProps) {
                 scale > 1 ? "cursor-move" : "cursor-grab active:cursor-grabbing"
               )}
             >
-              <img
+              <SafeImage
                 src={image.src}
                 alt={image.alt || image.caption || "Gist image"}
                 loading="lazy"
                 decoding="async"
                 draggable={false}
                 referrerPolicy="no-referrer"
+                fallbackSrc="/logo.png"
                 className="block h-auto max-h-dvh w-screen max-w-[100vw] object-contain sm:w-auto"
               />
             </motion.div>

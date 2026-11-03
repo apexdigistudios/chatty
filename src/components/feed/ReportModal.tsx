@@ -73,7 +73,7 @@ export function ReportModal({ post, onClose }: ReportModalProps) {
           role="dialog"
           aria-modal="true"
           aria-labelledby="report-gist-title"
-          className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[28px] border-2 border-line bg-card shadow-[0_8px_0_var(--border-strong)] sm:rounded-[28px]"
+          className="flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[28px] border-2 border-line bg-card shadow-[0_8px_0_var(--border-strong)] sm:rounded-[28px]"
           initial={{ y: 28, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 20, opacity: 0 }}
@@ -87,7 +87,7 @@ export function ReportModal({ post, onClose }: ReportModalProps) {
               <h2 id="report-gist-title" className="text-sm font-black text-ink">Report this gist</h2>
               <p className="mt-0.5 truncate text-xs font-semibold text-ink-muted">@{post.authorName} · {post.schoolShort}</p>
             </div>
-            <button type="button" onClick={onClose} disabled={busy} aria-label="Close report dialog" className="flex size-9 shrink-0 items-center justify-center rounded-xl text-ink-muted hover:bg-page disabled:opacity-50">
+            <button type="button" onClick={onClose} disabled={busy} aria-label="Close report dialog" className="flex size-11 shrink-0 items-center justify-center rounded-xl text-ink-muted hover:bg-page disabled:opacity-50">
               <X size={17} aria-hidden />
             </button>
           </header>
