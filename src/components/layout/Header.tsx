@@ -14,7 +14,7 @@ export function Header() {
 
   return (
     <header
-      className="sticky top-0 z-30 border-b-2 border-line bg-card/95 px-3 py-2.5 backdrop-blur transition-colors duration-200 sm:px-4 md:py-3"
+      className="sticky top-0 z-50 border-b border-line/60 bg-white/80 px-3 py-2.5 backdrop-blur-md transition-colors duration-200 dark:border-neutral-800/50 dark:bg-neutral-950/80 sm:px-4 md:py-3"
       style={{ paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}
     >
       <div className="mx-auto flex w-full max-w-[1320px] items-center gap-3 md:gap-6">

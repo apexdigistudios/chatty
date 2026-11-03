@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import {
@@ -26,7 +26,6 @@ import type { Post } from "../../types/models";
 import { cn } from "../../utils/cn";
 import { Avatar } from "../ui/Avatar";
 import { Badge } from "../ui/Badge";
-import { Card, CardBody, CardHeader } from "../ui/Card";
 import { ImageLightbox } from "../ui/ImageLightbox";
 import { ProgressiveImage } from "../ui/ProgressiveImage";
 import { SchoolTag } from "../ui/SchoolBadge";
@@ -57,11 +56,33 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
   const [saved, setSaved] = useState(() => isPostSaved(post.id));
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [textExpanded, setTextExpanded] = useState(false);
+  const [textOverflows, setTextOverflows] = useState(false);
+  const textRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     setSaved(isPostSaved(post.id));
     return subscribeToSavedPosts(() => setSaved(isPostSaved(post.id)));
   }, [post.id]);
+
+  useEffect(() => {
+    setTextExpanded(false);
+  }, [post.id]);
+
+  useEffect(() => {
+    const element = textRef.current;
+    if (!element || textExpanded) return;
+
+    const measure = () => setTextOverflows(element.scrollHeight > element.clientHeight + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [post.content, textExpanded]);
 
   const media = post.mediaUrls.map((src, index) => ({
     src,
@@ -122,24 +143,24 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
   };
 
   return (
-    <Card
+    <article
       role="article"
       aria-label={`Gist by ${post.authorName} from ${post.schoolShort}`}
-      className="relative overflow-visible"
+      className="relative w-full overflow-visible border-b-4 border-line/60 px-4 py-3 dark:border-neutral-900/60"
     >
-      <CardHeader className="items-start gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
+      <div className="flex items-start gap-2.5 pb-2.5">
         <Link
           to={profileHref}
           aria-label={`View @${post.authorName}'s public profile`}
           className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
         >
-          <Avatar name={post.authorName} src={post.authorAvatar} size="lg" />
+          <Avatar name={post.authorName} src={post.authorAvatar} size="md" />
         </Link>
         <div className="min-w-0 flex-1 pt-0.5">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
             <Link
               to={profileHref}
-              className="max-w-full truncate text-sm font-extrabold text-ink hover:text-brand-deep hover:underline sm:text-[15px]"
+              className="max-w-full truncate text-[14px] font-extrabold leading-tight text-ink hover:text-brand-deep hover:underline"
             >
               @{post.authorName}
             </Link>
@@ -159,13 +180,13 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
               </Badge>
             )}
           </div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
             <SchoolTag
               schoolId={post.schoolId}
               crestUrl={post.schoolCrest}
               name={post.schoolShort}
               size="xs"
-              nameClassName="text-[11px] font-semibold text-ink-muted"
+              nameClassName="text-[10px] font-semibold text-ink-muted"
             />
             {post.groupName && (
               <Badge tone="brand" className="gap-1 px-2 py-0.5 text-[9px]">
@@ -174,7 +195,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
               </Badge>
             )}
             <span className="size-1 rounded-full bg-ink-faint" aria-hidden />
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-ink-muted">
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-ink-muted">
               <Clock3 size={12} strokeWidth={2.4} aria-hidden />
               {timeAgo(post.createdAt)}
             </span>
@@ -185,35 +206,61 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           onClick={() => setMenuOpen((open) => !open)}
           aria-label="More gist actions"
           aria-expanded={menuOpen}
-          className="-mr-1 -mt-1 flex size-11 shrink-0 items-center justify-center rounded-xl text-ink-muted transition-colors hover:bg-page hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          className="-mr-1 -mt-1 flex size-11 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-page hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
         >
           <MoreHorizontal size={18} strokeWidth={2.5} aria-hidden />
         </button>
-      </CardHeader>
+      </div>
 
-      <CardBody className="px-4 pb-4 sm:px-5 sm:pb-5">
-        <p className="whitespace-pre-wrap wrap-break-word text-[15px] font-semibold leading-[1.65] text-ink-soft sm:text-base">
-          {post.content}
-        </p>
+      <div>
+        <div className="relative">
+          <p
+            ref={textRef}
+            className={cn(
+              "whitespace-pre-wrap wrap-break-word text-[15px] font-medium leading-[1.45] text-ink-soft",
+              !textExpanded && "line-clamp-2 pr-20"
+            )}
+          >
+            {post.content}
+          </p>
+          {textOverflows && !textExpanded && (
+            <button
+              type="button"
+              onClick={() => setTextExpanded(true)}
+              className="absolute bottom-0 right-0 bg-page pl-1 text-[14px] font-extrabold text-ink-muted hover:text-ink"
+            >
+              … See more
+            </button>
+          )}
+        </div>
+        {textExpanded && (
+          <button
+            type="button"
+            onClick={() => setTextExpanded(false)}
+            className="mt-1 text-xs font-extrabold text-ink-muted hover:text-ink"
+          >
+            See less
+          </button>
+        )}
 
         {media.length > 0 && post.mediaType === "video" && media[0] ? (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={springs.gentle}
-            className="mt-3.5"
+            className="-mx-4 mt-3 w-[calc(100%+2rem)]"
           >
-            <VideoPostPlayer src={media[0].src} durationSeconds={post.videoDurationSeconds} />
+            <VideoPostPlayer src={media[0].src} durationSeconds={post.videoDurationSeconds} edgeToEdge />
           </motion.div>
         ) : media.length > 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={springs.gentle}
-            className={cn("mt-3.5", media.length > 1 ? "grid grid-cols-2 gap-2" : "block")}
+            className={cn("-mx-4 mt-3 w-[calc(100%+2rem)]", media.length > 1 ? "grid grid-cols-2 gap-0" : "block")}
           >
             {media.map((item, index) => (
-              <div key={item.src} className="overflow-hidden rounded-[22px] border-2 border-line bg-page shadow-[0_4px_0_var(--border-color)]">
+              <div key={item.src} className="overflow-hidden rounded-none border-0 bg-page shadow-none">
                 <button
                   type="button"
                   onClick={() => setLightboxIndex(index)}
@@ -236,9 +283,9 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
             ))}
           </motion.div>
         ) : null}
-      </CardBody>
+      </div>
 
-      <div className="flex w-full flex-wrap items-center justify-between gap-1 border-t-2 border-line px-2 py-2 sm:px-3">
+      <div className="mt-2 flex w-full flex-wrap items-center justify-between gap-1 border-t border-line/50 pt-1.5">
         <motion.button
           type="button"
           whileTap={{ scale: 0.88 }}
@@ -334,6 +381,6 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
       {post.mediaType !== "video" && media.length > 0 && (
         <ImageLightbox images={media} index={lightboxIndex} onClose={() => setLightboxIndex(null)} />
       )}
-    </Card>
+    </article>
   );
 });

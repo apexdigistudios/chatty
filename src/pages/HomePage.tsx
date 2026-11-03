@@ -151,8 +151,38 @@ export function HomePage() {
       : feedLoading && posts.length === 0;
 
   return (
-    <div className="mx-auto w-full max-w-[720px] min-w-0 px-4 pt-5 sm:px-6 sm:pt-7">
-      <header className="relative overflow-hidden rounded-[26px] border-2 border-line bg-card p-4 shadow-[0_4px_0_var(--border-color)] sm:p-5">
+    <div className="mx-auto w-full max-w-[720px] min-w-0 px-0 pt-0 sm:px-6 sm:pt-7">
+      <div className="sticky top-[3.5625rem] z-40 border-b border-line/60 bg-white/80 px-3 py-1.5 backdrop-blur-md dark:border-neutral-800/50 dark:bg-neutral-950/80 sm:top-[3.8125rem] sm:px-4 md:top-[3.9375rem]">
+        <div className="mx-auto grid w-full max-w-[720px] grid-cols-4 items-center" role="tablist" aria-label="Choose feed">
+          {tabs.map((tab) => {
+            const selected = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setActiveTab(tab)}
+                className={`relative flex min-h-11 items-center justify-center px-1 text-[10px] font-extrabold leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:text-xs ${
+                  selected ? "text-brand-deep" : "text-ink-muted hover:text-ink"
+                }`}
+              >
+                {selected && (
+                  <motion.span
+                    layoutId="feed-tab"
+                    transition={springs.bouncy}
+                    className="absolute inset-x-1 bottom-0 h-0.5 rounded-full bg-brand"
+                    aria-hidden
+                  />
+                )}
+                <span className="relative line-clamp-2">{tab}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <header className="relative mx-4 mt-4 overflow-hidden rounded-[26px] border-2 border-line bg-card p-4 shadow-[0_4px_0_var(--border-color)] sm:mx-0 sm:mt-0 sm:p-5">
         <span className="pointer-events-none absolute -right-12 -top-16 size-48 rounded-full opacity-80" style={{ background: "radial-gradient(circle, var(--brand-wash), transparent 70%)" }} aria-hidden />
         <div className="relative flex items-start gap-3">
           <SchoolBadge schoolId={headerSchool?.id} crestUrl={headerSchool?.crestUrl} name={headerSchool?.name ?? "Gist me"} size="xl" ring />
@@ -213,7 +243,7 @@ export function HomePage() {
       <button
         type="button"
         onClick={() => startComposing("gist")}
-        className="mt-5 flex min-h-[58px] w-full items-center gap-3 rounded-2xl border-2 border-line bg-card px-3.5 py-2.5 text-left shadow-[0_3px_0_var(--border-color)] transition-colors hover:border-brand focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-4"
+        className="mx-4 mt-5 flex min-h-[58px] w-[calc(100%-2rem)] items-center gap-3 rounded-2xl border-2 border-line bg-card px-3.5 py-2.5 text-left shadow-[0_3px_0_var(--border-color)] transition-colors hover:border-brand focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:mx-0 sm:w-full sm:px-4"
       >
         <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-deep text-brand-contrast shadow-[0_3px_0_var(--brand-edge)]">
           <Plus size={19} strokeWidth={3} aria-hidden />
@@ -223,7 +253,7 @@ export function HomePage() {
       </button>
 
       {feedSchool && (
-        <div className="mt-3 flex items-center gap-2 rounded-2xl border-2 border-brand bg-brand-wash px-3 py-2">
+        <div className="mx-4 mt-3 flex items-center gap-2 rounded-2xl border-2 border-brand bg-brand-wash px-3 py-2 sm:mx-0">
           <p className="min-w-0 flex-1 truncate text-xs font-extrabold text-brand-deep">Showing gists from {feedSchool.name}</p>
           <button type="button" onClick={() => setFeedSchool(null)} aria-label="Clear school filter" className="flex size-11 shrink-0 items-center justify-center rounded-lg text-brand-deep hover:bg-card">
             <X size={13} strokeWidth={2.8} aria-hidden />
@@ -231,38 +261,7 @@ export function HomePage() {
         </div>
       )}
 
-      {/* ——— Sticky frosted tab switcher ——— */}
-      <div className="sticky top-[62px] z-20 -mx-3 mt-5 border-b border-line/60 bg-white/80 px-3 py-2 backdrop-blur-md dark:bg-zinc-900/80 sm:-mx-4 sm:top-[62px] sm:px-4 md:top-[66px]">
-        <div className="grid grid-cols-4 gap-1 rounded-2xl border-2 border-line bg-surface-muted/90 p-1" role="tablist" aria-label="Choose feed">
-          {tabs.map((tab) => {
-            const selected = activeTab === tab;
-            return (
-              <button
-                key={tab}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                onClick={() => setActiveTab(tab)}
-                className={`relative z-0 min-h-11 min-w-0 rounded-xl px-1 py-2 text-[10px] font-extrabold leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:text-xs ${
-                  selected ? "text-brand-deep" : "text-ink-muted hover:text-ink"
-                }`}
-              >
-                {selected && (
-                  <motion.span
-                    layoutId="feed-tab"
-                    transition={springs.bouncy}
-                    className="absolute inset-0 -z-10 rounded-xl border border-line bg-card shadow-[0_2px_0_var(--border-color)]"
-                    aria-hidden
-                  />
-                )}
-                <span className="relative wrap-break-word">{tab}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="mb-3 mt-4 flex items-center justify-between gap-3">
+      <div className="mx-4 mb-3 mt-4 flex items-center justify-between gap-3 sm:mx-0">
         <h2 className="text-sm font-extrabold text-ink sm:text-base" aria-live="polite">
           {showingTrending ? "Smart trending" : activeTab === "All SHSs" ? "Latest gists" : activeTab}
         </h2>
@@ -281,7 +280,7 @@ export function HomePage() {
       </div>
 
       {feedError && !showingConfessions && (
-        <div className="mb-4 flex items-center gap-3 rounded-2xl border-2 border-danger-soft bg-danger-wash px-3.5 py-3">
+        <div className="mx-4 mb-4 flex items-center gap-3 rounded-2xl border-2 border-danger-soft bg-danger-wash px-3.5 py-3 sm:mx-0">
           <WifiOff size={16} className="shrink-0 text-danger-deep" aria-hidden />
           <p className="min-w-0 flex-1 text-xs font-semibold text-danger-deep">{feedError}</p>
           <Button size="sm" variant="outline" onClick={() => void loadFeed()}>Retry</Button>
@@ -300,7 +299,7 @@ export function HomePage() {
             initial="hidden"
             animate="show"
             exit={{ opacity: 0, y: -4 }}
-            className="space-y-4"
+            className="space-y-0"
           >
             {showingConfessions ? (
               confessions.length > 0 ? (

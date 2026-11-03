@@ -32,9 +32,9 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Primary navigation"
-      className="fixed bottom-3 left-1/2 z-40 w-[94%] max-w-sm -translate-x-1/2 rounded-full border border-zinc-200 bg-white/90 px-3 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-2xl backdrop-blur-lg transition-colors duration-200 dark:border-zinc-800 dark:bg-zinc-900/90 md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 w-full border-t border-zinc-200/60 bg-white/65 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur-lg transition-colors duration-200 dark:border-white/10 dark:bg-black/40 dark:shadow-[0_-8px_24px_rgba(0,0,0,0.2)] md:hidden"
     >
-      <div className="grid grid-cols-5 items-center justify-items-center">
+      <div className="mx-auto grid w-full max-w-sm grid-cols-5 items-center justify-items-center">
         {navigation.map(({ label, to, icon: Icon, end, create, profile: isProfile }) => (
           <NavLink
             key={to}
@@ -66,8 +66,8 @@ export function BottomNav() {
                   create
                     ? "bg-[#8B5CF6] text-white shadow-[0_3px_0_#5B21B6]"
                     : isActive
-                      ? "bg-[#8B5CF6]/15 text-[#7C3AED] shadow-[0_3px_0_var(--border-color)] ring-1 ring-[#8B5CF6]/25 dark:bg-[#8B5CF6]/25 dark:text-[#A78BFA]"
-                      : "text-ink-muted shadow-[0_3px_0_var(--border-color)] group-hover:bg-page group-hover:text-ink"
+                      ? "bg-[#8B5CF6]/15 text-[#7C3AED] ring-1 ring-[#8B5CF6]/25 dark:bg-[#8B5CF6]/25 dark:text-[#A78BFA]"
+                      : "text-ink-muted group-hover:bg-black/5 group-hover:text-ink dark:group-hover:bg-white/10"
                 }`}
               >
                 {isProfile && user ? (

@@ -9,10 +9,11 @@ import { VideoLightbox } from "./VideoLightbox";
 interface VideoPostPlayerProps {
   src: string;
   durationSeconds?: number | null;
+  edgeToEdge?: boolean;
 }
 
 /** TikTok-style video: muted autoplay in view, pause offscreen, custom overlays. */
-export function VideoPostPlayer({ src, durationSeconds }: VideoPostPlayerProps) {
+export function VideoPostPlayer({ src, durationSeconds, edgeToEdge = false }: VideoPostPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -66,7 +67,12 @@ export function VideoPostPlayer({ src, durationSeconds }: VideoPostPlayerProps) 
     <>
       <div
         ref={containerRef}
-        className="group relative aspect-video w-full overflow-hidden rounded-[22px] border-2 border-line bg-black shadow-[0_4px_0_var(--border-color)]"
+        className={cn(
+          "group relative aspect-video w-full overflow-hidden bg-black",
+          edgeToEdge
+            ? "rounded-none border-0 shadow-none"
+            : "rounded-[22px] border-2 border-line shadow-[0_4px_0_var(--border-color)]"
+        )}
       >
         <video
           ref={videoRef}
