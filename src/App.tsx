@@ -1,7 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AuthGateModal } from "./components/auth/AuthGateModal";
+import { PWAInstallPrompt } from "./components/common/PWAInstallPrompt";
+import { SplashScreen } from "./components/common/SplashScreen";
 import { CommentDrawer } from "./components/feed/CommentDrawer";
 import { NotificationDrawer } from "./components/notifications/NotificationDrawer";
 import { NotificationListener } from "./components/notifications/NotificationListener";
@@ -93,41 +95,33 @@ function Shell() {
   );
 }
 
-function AuthLoadingScreen() {
-  return (
-    <main
-      className="flex min-h-dvh items-center justify-center bg-page px-4 py-10"
-      role="status"
-      aria-label="Loading Gist me"
-    >
-      <div className="w-full max-w-md animate-pulse space-y-5 motion-reduce:animate-none">
-        <div className="mx-auto size-12 rounded-2xl bg-brand-wash" />
-        <div className="mx-auto h-4 w-36 rounded-full bg-line" />
-        <div className="space-y-3 rounded-3xl border-2 border-line bg-card p-5">
-          <div className="h-4 w-2/5 rounded-full bg-line" />
-          <div className="h-3 w-full rounded-full bg-line" />
-          <div className="h-3 w-4/5 rounded-full bg-line" />
-          <div className="h-24 rounded-2xl bg-page" />
-        </div>
-        <span className="sr-only">Checking your sign-in…</span>
-      </div>
-    </main>
-  );
-}
-
 function RoutedApp() {
   const { loading } = useAuth();
+  const loadFeed = useGistStore((state) => state.loadFeed);
+  const initialFeedStarted = useRef(false);
+  const [initialFeedReady, setInitialFeedReady] = useState(false);
 
-  if (loading) return <AuthLoadingScreen />;
+  useEffect(() => {
+    if (loading || initialFeedStarted.current) return;
+    initialFeedStarted.current = true;
+    void loadFeed().finally(() => setInitialFeedReady(true));
+  }, [loading, loadFeed]);
 
   return (
     <>
-      <NotificationListener />
-      <Shell />
-      <AuthGateModal />
-      <CommentDrawer />
-      <NotificationDrawer />
-      <ToastViewport />
+      {!loading && (
+        <>
+          <NotificationListener />
+          <Shell />
+          <AuthGateModal />
+          <CommentDrawer />
+          <NotificationDrawer />
+          <ToastViewport />
+        </>
+      )}
+      <AnimatePresence>
+        {(loading || !initialFeedReady) && <SplashScreen key="startup-splash" />}
+      </AnimatePresence>
     </>
   );
 }
@@ -141,6 +135,7 @@ export default function App() {
         <AuthProvider>
           <ToastProvider>
             <SEOHead />
+            <PWAInstallPrompt />
             <RoutedApp />
           </ToastProvider>
         </AuthProvider>

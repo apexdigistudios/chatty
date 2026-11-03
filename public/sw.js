@@ -1,10 +1,19 @@
 const IMAGE_CACHE = "gist-me-image-cache-v1";
 const IMAGE_META_CACHE = "gist-me-image-cache-meta-v1";
+const APP_SHELL_CACHE = "gist-me-app-shell-v1";
 const MAX_IMAGE_ENTRIES = 500;
 const MAX_IMAGE_AGE_MS = 60 * 24 * 60 * 60 * 1000;
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(self.skipWaiting());
+  event.waitUntil((async () => {
+    const shellCache = await caches.open(APP_SHELL_CACHE);
+    try {
+      await shellCache.add(new Request("/", { cache: "reload" }));
+    } catch (error) {
+      console.warn("Could not pre-cache the Gist me app shell.", error);
+    }
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener("activate", (event) => {
@@ -97,8 +106,29 @@ async function cacheFirstImage(request) {
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
-  if (request.method !== "GET" || request.destination !== "image") return;
+  if (request.method !== "GET") return;
   const url = new URL(request.url);
+
+  if (request.mode === "navigate" && url.origin === self.location.origin) {
+    event.respondWith((async () => {
+      const shellCache = await caches.open(APP_SHELL_CACHE);
+      try {
+        const response = await fetch(request);
+        if (response.ok) await shellCache.put("/", response.clone());
+        return response;
+      } catch {
+        return await shellCache.match(request) ??
+          await shellCache.match("/") ??
+          new Response("Gist me is unavailable offline. Open a page you have visited before.", {
+            status: 503,
+            headers: { "Content-Type": "text/plain; charset=utf-8" },
+          });
+      }
+    })());
+    return;
+  }
+
+  if (request.destination !== "image") return;
   if (url.protocol !== "https:" && url.hostname !== "localhost") return;
   event.respondWith(cacheFirstImage(request));
 });

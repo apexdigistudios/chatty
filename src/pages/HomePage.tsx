@@ -80,7 +80,6 @@ export function HomePage() {
   const headerSchool = feedSchool ?? mySchool;
 
   useEffect(() => {
-    if (posts.length === 0) void loadFeed();
     const channel = supabase
       .channel("feed-posts")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "posts" }, () => void loadFeed({ silent: true }))
