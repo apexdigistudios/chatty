@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowUpRight, BookOpen, Bookmark, Camera, Check, ChevronDown, EyeOff, Heart, Loader2, Lock, LogIn, LogOut, Mailbox, MessageCircle, Monitor, Moon, Pencil, Plus, Send, Settings, ShieldCheck, Sparkles, Sun, Video } from "lucide-react";
+import { ArrowUpRight, BookOpen, Bookmark, Camera, Check, ChevronDown, EyeOff, Heart, LayoutGrid, Loader2, Lock, LogIn, LogOut, Mailbox, MessageCircle, Monitor, Moon, Plus, ShieldCheck, Sparkles, Sun, Video, X } from "lucide-react";
 import { MascotCharacter } from "../components/auth/MascotCharacter";
 import { GistCard } from "../components/feed/GistCard";
 import { Avatar } from "../components/ui/Avatar";
@@ -32,12 +32,12 @@ import { fetchFollowSummary, type FollowSummary } from "../services/followsServi
 import { fetchPostsByIds } from "../services/postsService";
 import { readSavedPostIds, subscribeToSavedPosts } from "../lib/savedPosts";
 
-type ProfileTab = "Gists" | "Videos" | "Liked" | "Saved" | "Account Settings";
-const TABS: Array<{ id: Exclude<ProfileTab, "Account Settings">; icon: typeof MessageCircle }> = [
-  { id: "Gists", icon: MessageCircle },
-  { id: "Videos", icon: Video },
-  { id: "Liked", icon: Heart },
-  { id: "Saved", icon: Bookmark },
+type ProfileTab = "Gists" | "Videos" | "Liked" | "Saved";
+const TABS: Array<{ id: ProfileTab; label: string; icon: typeof MessageCircle }> = [
+  { id: "Gists", label: "Gists", icon: LayoutGrid },
+  { id: "Videos", label: "Videos", icon: Video },
+  { id: "Liked", label: "Liked gists", icon: Heart },
+  { id: "Saved", label: "Saved gists", icon: Bookmark },
 ];
 
 const GUIDELINES = [
@@ -61,6 +61,7 @@ export function ProfilePage() {
   const [saved, setSaved] = useState<Post[]>([]);
   const [followSummary, setFollowSummary] = useState<FollowSummary>({ followerCount: 0, followingCount: 0, isFollowing: false });
   const [followList, setFollowList] = useState<"followers" | "following" | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [editing, setEditing] = useState(false);
   const [draftUsername, setDraftUsername] = useState("");
@@ -119,6 +120,15 @@ export function ProfilePage() {
     void loadSaved();
     return subscribeToSavedPosts(() => void loadSaved());
   }, [loadSaved]);
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSettingsOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [settingsOpen]);
 
   const openEditor = () => {
     if (!profile) return;
@@ -366,50 +376,33 @@ export function ProfilePage() {
             </>
           )}
         </div>
-        <CardBody className="relative px-4 pb-5 pt-16 sm:px-6 sm:pt-20">
-          <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
-            <input ref={avatarRef} type="file" accept="image/*" onChange={pickAvatar} className="sr-only" aria-label="Upload avatar" />
-            {!editing && (
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" leftIcon={<Pencil size={14} strokeWidth={2.6} aria-hidden />} onClick={openEditor}>Edit Profile</Button>
-                <Button size="sm" variant="outline" leftIcon={<Send size={14} strokeWidth={2.6} aria-hidden />} onClick={() => navigate("/shoutouts")}>Shoutouts</Button>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-3">
-            <ProfileHeader
-              username={profile.username}
-              fullName={profile.fullName ?? null}
-              avatar={
+        <CardBody className="px-4 pb-5 pt-4 sm:px-6 sm:pt-5">
+          <input ref={avatarRef} type="file" accept="image/*" onChange={pickAvatar} className="sr-only" aria-label="Upload avatar" />
+          <ProfileHeader
+            username={profile.username}
+            fullName={profile.fullName ?? null}
+            avatar={
+              <button
+                type="button"
+                onClick={() => editing && avatarRef.current?.click()}
+                aria-label={editing ? "Upload new avatar" : "Profile avatar"}
+                className="group relative block rounded-full ring-4 ring-card"
+              >
+                <Avatar name={profile.username} src={editing ? draftAvatar : profile.avatarUrl} size="2xl" online />
+                {editing && (
+                  <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/55 text-white">
+                    <Camera size={22} strokeWidth={2.5} aria-hidden />
+                  </span>
+                )}
+              </button>
+            }
+            schoolBadge={
+              mySchool ? (
                 <button
                   type="button"
-                  onClick={() => editing && avatarRef.current?.click()}
-                  aria-label={editing ? "Upload new avatar" : "Profile avatar"}
-                  className="group relative block rounded-full ring-4 ring-card"
+                  onClick={() => setSettingsOpen(true)}
+                  className="inline-flex max-w-full items-center gap-2 rounded-full border-2 border-line bg-page py-1 pl-1.5 pr-3.5 text-left hover:border-brand"
                 >
-                  <Avatar name={profile.username} src={editing ? draftAvatar : profile.avatarUrl} size="2xl" online />
-                  {editing && (
-                    <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/55 text-white">
-                      <Camera size={22} strokeWidth={2.5} aria-hidden />
-                    </span>
-                  )}
-                </button>
-              }
-              bio={editing ? draftBio : profile.bio}
-              followerCount={followSummary.followerCount}
-              followingCount={followSummary.followingCount}
-              onFollowersClick={() => setFollowList("followers")}
-              onFollowingClick={() => setFollowList("following")}
-            />
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-              <Badge tone="success" className="px-2.5 py-0.5 text-[10px]">Online</Badge>
-              {profile.classForm && <Badge tone="brand" className="px-2.5 py-0.5 text-[10px]">{profile.classForm}</Badge>}
-            </div>
-            <p className="mt-1 text-center text-xs font-bold text-ink-muted sm:text-left">{user?.email}</p>
-            <div className="mt-3">
-              {mySchool ? (
-                <button type="button" onClick={() => setTab("Account Settings")} className="inline-flex max-w-full items-center gap-2 rounded-full border-2 border-line bg-page py-1 pl-1.5 pr-3.5 text-left hover:border-brand">
                   <SchoolBadge schoolId={mySchool.id} crestUrl={mySchool.crestUrl} name={mySchool.name} size="sm" ring />
                   <span className="min-w-0">
                     <span className="block truncate text-xs font-extrabold text-ink">{mySchool.name}</span>
@@ -417,9 +410,28 @@ export function ProfilePage() {
                   </span>
                 </button>
               ) : (
-                <button type="button" onClick={() => setTab("Account Settings")} className="rounded-full border-2 border-dashed border-line px-3 py-1.5 text-xs font-extrabold text-brand-deep hover:border-brand">Choose your SHS</button>
-              )}
-            </div>
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen(true)}
+                  className="rounded-full border-2 border-dashed border-line px-3 py-1.5 text-xs font-extrabold text-brand-deep hover:border-brand"
+                >
+                  Choose your SHS
+                </button>
+              )
+            }
+            bio={editing ? draftBio : profile.bio}
+            gistCount={myPosts.length}
+            followerCount={followSummary.followerCount}
+            followingCount={followSummary.followingCount}
+            onFollowersClick={() => setFollowList("followers")}
+            onFollowingClick={() => setFollowList("following")}
+            onEdit={openEditor}
+            onSettings={() => setSettingsOpen(true)}
+            onShoutouts={() => navigate("/shoutouts")}
+          />
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            <Badge tone="success" className="px-2.5 py-0.5 text-[10px]">Online</Badge>
+            {profile.classForm && <Badge tone="brand" className="px-2.5 py-0.5 text-[10px]">{profile.classForm}</Badge>}
           </div>
 
           <AnimatePresence initial={false}>
@@ -471,12 +483,6 @@ export function ProfilePage() {
             )}
           </AnimatePresence>
 
-          <div className="mt-4 grid grid-cols-4 divide-x-2 divide-line rounded-2xl border-2 border-line bg-page py-3 text-center">
-            <button type="button" onClick={() => setTab("Gists")} className="min-h-11 px-1 hover:text-brand-deep"><p className="text-lg font-black tabular-nums text-ink">{myPosts.length}</p><p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Gists</p></button>
-            <button type="button" onClick={() => setTab("Videos")} className="min-h-11 px-1 hover:text-brand-deep"><p className="text-lg font-black tabular-nums text-ink">{myPosts.filter((post) => post.mediaTypes?.includes("video") || post.mediaType === "video").length}</p><p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Videos</p></button>
-            <button type="button" onClick={() => setTab("Liked")} className="min-h-11 px-1 hover:text-brand-deep"><p className="text-lg font-black tabular-nums text-ink">{liked.length}</p><p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Liked</p></button>
-            <button type="button" onClick={() => setTab("Saved")} className="min-h-11 px-1 hover:text-brand-deep"><p className="text-lg font-black tabular-nums text-ink">{saved.length}</p><p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Saved</p></button>
-          </div>
         </CardBody>
       </Card>
 
@@ -529,23 +535,34 @@ export function ProfilePage() {
         </div>
       </section>
 
-      <div role="tablist" aria-label="Profile sections" className="mt-5 grid grid-cols-2 gap-1 rounded-2xl border-2 border-line bg-surface-muted p-1 sm:grid-cols-4">
-        {TABS.map(({ id, icon: Icon }) => (
-          <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={cn("relative z-0 flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-[11px] font-extrabold leading-tight transition-colors sm:text-xs", tab === id ? "text-brand-deep" : "text-ink-muted hover:text-ink")}>
-            {tab === id && <motion.span layoutId="profile-tab" transition={springs.bouncy} className="absolute inset-0 -z-10 rounded-xl border border-line bg-card shadow-[0_2px_0_var(--border-color)]" aria-hidden />}
-            <Icon size={14} strokeWidth={2.5} className="shrink-0" aria-hidden />
-            <span className="truncate">{id}</span>
+      <div role="tablist" aria-label="Profile sections" className="mt-5 grid grid-cols-4 border-b border-line">
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-label={label}
+            aria-selected={tab === id}
+            title={label}
+            onClick={() => setTab(id)}
+            className={cn(
+              "relative flex min-h-12 items-center justify-center text-ink-muted transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand",
+              tab === id && "text-brand-deep"
+            )}
+          >
+            <Icon size={20} strokeWidth={2.5} aria-hidden />
+            <span className="sr-only">{label}</span>
+            {tab === id && (
+              <motion.span
+                layoutId="profile-tab-indicator"
+                transition={springs.bouncy}
+                className="absolute inset-x-3 -bottom-px h-[3px] rounded-full bg-[#8B5CF6]"
+                aria-hidden
+              />
+            )}
           </button>
         ))}
       </div>
-      <button
-        type="button"
-        onClick={() => setTab("Account Settings")}
-        className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-xs font-extrabold text-ink-muted transition-colors hover:bg-page hover:text-brand-deep"
-      >
-        <Settings size={14} aria-hidden />
-        Account settings
-      </button>
 
       <div className="mt-5">
         {(tab === "Gists" || tab === "Videos") && (
@@ -556,7 +573,7 @@ export function ProfilePage() {
             </div>
             {(() => {
               const profilePosts = tab === "Videos"
-                ? myPosts.filter((post) => post.mediaTypes?.includes("video") || post.mediaType === "video")
+                ? myPosts.filter((post) => post.mediaType?.includes("video") || post.mediaType === "video")
                 : myPosts;
               return loadingPosts ? <FeedSkeleton count={2} /> : profilePosts.length > 0 ? profilePosts.map((post) => <GistCard key={post.id} post={post} onRemoved={(postId) => { setMyPosts((prev) => prev.filter((item) => item.id !== postId)); setLiked((prev) => prev.filter((item) => item.id !== postId)); setSaved((prev) => prev.filter((item) => item.id !== postId)); }} />) : (
                 <Empty title={tab === "Videos" ? "No videos yet" : "You haven't posted a gist yet"} detail={tab === "Videos" ? "Videos you share with your school will appear here." : "Share campus news, NSMQ banter or photos with your community."} action="Create first gist" onAction={() => { setComposerIntent("gist", profile.schoolId); navigate("/create"); }} />
@@ -583,8 +600,31 @@ export function ProfilePage() {
           </div>
         )}
 
-        {tab === "Account Settings" && (
-          <div className="space-y-4">
+        {settingsOpen && (
+          <div
+            className="fixed inset-0 z-100 flex items-end justify-center bg-black/55 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setSettingsOpen(false);
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="profile-settings-title"
+              className="flex max-h-[90dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl border-2 border-line bg-card shadow-2xl sm:rounded-3xl"
+            >
+              <div className="flex items-center justify-between border-b border-line px-4 py-3 sm:px-5">
+                <h2 id="profile-settings-title" className="text-base font-black text-ink">Profile settings</h2>
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen(false)}
+                  aria-label="Close profile settings"
+                  className="flex size-11 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-page hover:text-ink"
+                >
+                  <X size={19} aria-hidden />
+                </button>
+              </div>
+              <div className="space-y-4 overflow-y-auto p-4 sm:p-5">
             <Card>
               <CardBody className="p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3">
@@ -680,6 +720,8 @@ export function ProfilePage() {
             <Button variant="danger" fullWidth leftIcon={<LogOut size={16} strokeWidth={2.6} aria-hidden />} onClick={async () => { await signOut(); navigate("/"); }}>
               Sign out
             </Button>
+          </div>
+            </section>
           </div>
         )}
       </div>
