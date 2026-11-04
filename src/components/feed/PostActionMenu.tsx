@@ -25,6 +25,7 @@ import type { Post } from "../../types/models";
 import { cn } from "../../utils/cn";
 import { Avatar } from "../ui/Avatar";
 import { useToast } from "../ui/Toast";
+import { AnimatedReaction } from "../common/AnimatedReaction";
 
 interface PostActionMenuProps {
   post: Post;
@@ -161,10 +162,16 @@ export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onSh
               </div>
 
               <div className="mt-1 space-y-0.5">
-                <button type="button" onClick={save} className={itemClass} role="menuitem">
-                  {saved ? <BookmarkCheck size={16} className="text-brand-deep" aria-hidden /> : <Bookmark size={16} className="text-brand-deep" aria-hidden />}
+                <AnimatedReaction
+                  type="button"
+                  onClick={save}
+                  className={itemClass}
+                  role="menuitem"
+                  aria-label={saved ? "Remove saved gist" : "Save gist"}
+                  icon={saved ? <BookmarkCheck size={16} className="text-brand-deep" aria-hidden /> : <Bookmark size={16} className="text-brand-deep" aria-hidden />}
+                >
                   {saved ? "Saved to device" : "Save gist"}
-                </button>
+                </AnimatedReaction>
 
                 {post.mediaUrls.length > 0 && (
                   <button type="button" onClick={download} disabled={busy} className={itemClass} role="menuitem">

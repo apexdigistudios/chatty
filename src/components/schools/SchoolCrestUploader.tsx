@@ -41,7 +41,7 @@ export function SchoolCrestUploader({
       onUploaded(logoUrl);
       toast("School crest updated.", "success");
     } catch (error) {
-      toast(describeError(error, "Could not update the school crest."), "danger");
+      toast(describeError(error, "Upload failed. Please check your file size and format."), "danger");
     } finally {
       setStage(null);
       setDragging(false);

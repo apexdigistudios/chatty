@@ -36,6 +36,7 @@ import { PostActionMenu } from "./PostActionMenu";
 import { SpotlightModal } from "../spotlight/SpotlightModal";
 import { ReportModal } from "./ReportModal";
 import { ProfileHoverCard } from "../profile/ProfileHoverCard";
+import { AnimatedReaction } from "../common/AnimatedReaction";
 
 interface GistCardProps {
   post: Post;
@@ -308,28 +309,19 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
       </div>
 
       <div className="mt-2 flex w-full flex-wrap items-center justify-between gap-1 border-t border-line/50 pt-1.5">
-        <motion.button
+        <AnimatedReaction
           type="button"
-          whileTap={{ scale: 0.88 }}
-          transition={springs.snappy}
           onClick={like}
           aria-pressed={post.likedByMe}
           aria-label={`${post.likedByMe ? "Unlike" : "Like"} gist, ${post.likeCount} likes`}
+          icon={<Heart size={17} strokeWidth={2.5} fill={post.likedByMe ? "currentColor" : "none"} />}
+          count={post.likeCount}
+          iconClassName="motion-safe:transition-transform"
           className={cn(
             "flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm",
             post.likedByMe ? "bg-danger-wash text-danger" : "text-ink-muted hover:bg-page hover:text-danger"
           )}
-        >
-          <motion.span
-            animate={{ scale: post.likedByMe ? [1, 1.28, 1] : 1, rotate: post.likedByMe ? [0, -12, 0] : 0 }}
-            transition={springs.bouncy}
-            className="inline-flex"
-            aria-hidden
-          >
-            <Heart size={17} strokeWidth={2.5} fill={post.likedByMe ? "currentColor" : "none"} />
-          </motion.span>
-          <span className="tabular-nums">{post.likeCount}</span>
-        </motion.button>
+        />
 
         <motion.button
           type="button"
@@ -354,21 +346,19 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           <span className="hidden sm:inline">Share</span>
         </motion.button>
 
-        <motion.button
+        <AnimatedReaction
           type="button"
-          whileTap={{ scale: 0.88 }}
-          transition={springs.snappy}
           onClick={quickSave}
           aria-pressed={saved}
           aria-label={saved ? "Remove saved gist" : "Save gist"}
+          icon={saved ? <BookmarkCheck size={16} strokeWidth={2.4} aria-hidden /> : <Bookmark size={16} strokeWidth={2.4} aria-hidden />}
           className={cn(
             "flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm",
             saved ? "bg-brand-wash text-brand-deep" : "text-ink-muted hover:bg-page hover:text-brand-deep"
           )}
         >
-          {saved ? <BookmarkCheck size={16} strokeWidth={2.4} aria-hidden /> : <Bookmark size={16} strokeWidth={2.4} aria-hidden />}
           <span className="hidden sm:inline">{saved ? "Saved" : "Save"}</span>
-        </motion.button>
+        </AnimatedReaction>
 
         <span className="ml-auto pr-1 text-[9px] font-bold uppercase tracking-wider text-ink-faint">
           {post.groupName ? "Club gist" : "Campus gist"}

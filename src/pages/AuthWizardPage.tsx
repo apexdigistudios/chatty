@@ -329,7 +329,7 @@ export function AuthWizardPage() {
       triggerReaction("valid");
       toast(`Avatar compressed to ${formatBytes(result.compressedBytes)}!`, "success");
     } catch (error) {
-      toast(describeError(error, "Could not process that image."), "danger");
+      toast(describeError(error, "Upload failed. Please check your file size and format."), "danger");
       triggerReaction("error");
     }
   };

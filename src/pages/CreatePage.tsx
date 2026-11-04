@@ -195,7 +195,7 @@ export function CreatePage() {
         );
       }
     } catch (error) {
-      toast(describeError(error, "Could not optimize that image."), "danger");
+      toast(describeError(error, "Upload failed. Please check your file size and format."), "danger");
     } finally {
       setCompressing(false);
     }

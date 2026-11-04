@@ -145,7 +145,7 @@ export function ProfilePage() {
         "info"
       );
     } catch (error) {
-      toast(describeError(error, "Please choose a valid image file."), "danger");
+      toast(describeError(error, "Upload failed. Please check your file size and format."), "danger");
     }
   };
 
@@ -160,7 +160,7 @@ export function ProfilePage() {
       setProfile(updated);
       toast("Cover photo updated.", "success");
     } catch (error) {
-      toast(describeError(error, "Could not upload your cover photo."), "danger");
+      toast(describeError(error, "Upload failed. Please check your file size and format."), "danger");
     } finally {
       setCoverUploading(false);
     }

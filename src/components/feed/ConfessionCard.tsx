@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { EyeOff, Lock, MoreHorizontal, Share2, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { describeError } from "../../lib/supabase";
@@ -7,13 +6,13 @@ import { timeAgo } from "../../lib/time";
 import { reactionsAvailable } from "../../services/confessionsService";
 import { useAuthGateStore } from "../../store/authGateStore";
 import { useGistStore } from "../../store/gistStore";
-import { springs } from "../../theme/tokens";
 import type { Confession, ConfessionCategory, ReactionKind } from "../../types/models";
 import { cn } from "../../utils/cn";
 import { Badge, type BadgeTone } from "../ui/Badge";
 import { SchoolTag } from "../ui/SchoolBadge";
 import { useToast } from "../ui/Toast";
 import { ReportMenu } from "./ReportMenu";
+import { AnimatedReaction } from "../common/AnimatedReaction";
 
 interface ReactionMeta {
   kind: ReactionKind;
@@ -161,23 +160,21 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
               const active = confession.myReaction === kind;
               const count = confession.reactions[kind];
               return (
-                <motion.button
+                <AnimatedReaction
                   key={kind}
                   type="button"
-                  whileTap={{ scale: 0.9 }}
-                  transition={springs.snappy}
                   onClick={() => react(kind)}
                   disabled={pending}
                   aria-pressed={active}
                   aria-label={`${label} reaction, ${count}`}
+                  icon={<span className="text-base leading-none" aria-hidden>{emoji}</span>}
+                  count={count}
+                  wiggle={kind === "fire"}
                   className={cn(
                     "flex min-h-11 items-center gap-1.5 rounded-full border-2 px-2.5 text-[11px] font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft disabled:opacity-50",
                     active ? activeClass : "border-line bg-card text-ink-muted hover:border-line-deep hover:text-ink"
                   )}
-                >
-                  <span className="text-base leading-none" aria-hidden>{emoji}</span>
-                  <span className="tabular-nums">{count}</span>
-                </motion.button>
+                />
               );
             })}
           </div>
