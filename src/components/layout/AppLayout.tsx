@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
 import { Header } from "./Header";
 import { SidebarNav } from "./SidebarNav";
@@ -10,6 +11,9 @@ interface AppLayoutProps {
 
 /** Fluid mobile, tablet two-column, and large-screen three-column shell. */
 export function AppLayout({ children }: AppLayoutProps) {
+  const { pathname } = useLocation();
+  const showBottomNav = pathname === "/" || pathname === "/spotlight";
+
   return (
     <div className="min-h-dvh overflow-x-clip bg-page text-ink transition-colors duration-200">
       <Header />
@@ -17,12 +21,12 @@ export function AppLayout({ children }: AppLayoutProps) {
         <div className="hidden min-w-0 md:block">
           <SidebarNav />
         </div>
-        <main className="min-h-[calc(100dvh-4rem)] min-w-0 overflow-x-clip pb-[calc(8rem+env(safe-area-inset-bottom))] md:pb-12">
+        <main className={`min-h-[calc(100dvh-4rem)] min-w-0 overflow-x-clip ${showBottomNav ? "pb-[calc(8rem+env(safe-area-inset-bottom))]" : "pb-6"} md:pb-12`}>
           {children}
         </main>
         <TrendingSidebar />
       </div>
-      <BottomNav />
+      {showBottomNav && <BottomNav />}
     </div>
   );
 }

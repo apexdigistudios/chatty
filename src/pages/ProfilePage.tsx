@@ -18,7 +18,7 @@ import {
   formatBytes,
 } from "../lib/imageCompression";
 import { describeError } from "../lib/supabase";
-import { updateMyProfile, uploadMyAvatar, uploadMyCover } from "../services/profilesService";
+import { checkUsernameAvailable, updateMyProfile, uploadMyAvatar, uploadMyCover } from "../services/profilesService";
 import { fetchFeed, fetchLikedPosts } from "../services/postsService";
 import { useGistStore } from "../store/gistStore";
 import { springs } from "../theme/tokens";
@@ -33,6 +33,7 @@ import { fetchPostsByIds } from "../services/postsService";
 import { readSavedPostIds, subscribeToSavedPosts } from "../lib/savedPosts";
 
 type ProfileTab = "Gists" | "Videos" | "Liked" | "Saved";
+type UsernameAvailability = "idle" | "checking" | "available" | "taken" | "invalid" | "error";
 const TABS: Array<{ id: ProfileTab; label: string; icon: typeof MessageCircle }> = [
   { id: "Gists", label: "Gists", icon: LayoutGrid },
   { id: "Videos", label: "Videos", icon: Video },
@@ -65,6 +66,7 @@ export function ProfilePage() {
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [editing, setEditing] = useState(false);
   const [draftUsername, setDraftUsername] = useState("");
+  const [usernameAvailability, setUsernameAvailability] = useState<UsernameAvailability>("idle");
   const [draftBio, setDraftBio] = useState("");
   const [draftFullName, setDraftFullName] = useState("");
   const [draftClassForm, setDraftClassForm] = useState("");
@@ -130,6 +132,41 @@ export function ProfilePage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [settingsOpen]);
 
+  useEffect(() => {
+    if (!editing || !profile) {
+      setUsernameAvailability("idle");
+      return;
+    }
+
+    const username = draftUsername.trim().replace(/^@/, "");
+    if (username === profile.username) {
+      setUsernameAvailability("idle");
+      return;
+    }
+    if (!/^[A-Za-z0-9_]{3,24}$/.test(username)) {
+      setUsernameAvailability("invalid");
+      return;
+    }
+
+    let active = true;
+    setUsernameAvailability("checking");
+    const timeoutId = window.setTimeout(() => {
+      void checkUsernameAvailable(username, user?.id)
+        .then((available) => {
+          if (active) setUsernameAvailability(available ? "available" : "taken");
+        })
+        .catch((error: unknown) => {
+          console.warn("Could not check username availability.", error);
+          if (active) setUsernameAvailability("error");
+        });
+    }, 350);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [draftUsername, editing, profile, user?.id]);
+
   const openEditor = () => {
     if (!profile) return;
     setDraftUsername(profile.username);
@@ -184,6 +221,15 @@ export function ProfilePage() {
     }
     setSaving(true);
     try {
+      const cleanUsername = draftUsername.trim().replace(/^@/, "");
+      if (cleanUsername !== profile?.username) {
+        const available = await checkUsernameAvailable(cleanUsername, user?.id);
+        if (!available) {
+          toast("That nickname is already taken.", "danger");
+          setUsernameAvailability("taken");
+          return;
+        }
+      }
       const avatarUrl = avatarFile ? await uploadMyAvatar(avatarFile) : undefined;
       const updated = await updateMyProfile({
         username: draftUsername,
@@ -339,17 +385,32 @@ export function ProfilePage() {
   return (
     <div className="mx-auto w-full max-w-[740px] min-w-0 px-4 pb-10 pt-5 sm:px-6 sm:pt-7 lg:px-5 xl:px-7">
       <Card className="relative overflow-hidden">
-        <div className="relative h-32 w-full overflow-hidden bg-linear-to-br from-[#8B5CF6] via-[#6D28D9] to-[#0F0F11] sm:h-44 md:h-60">
-          {profile.coverUrl && (
-            <SafeImage
-              src={profile.coverUrl}
-              alt=""
-              className="absolute inset-0 size-full object-cover"
-              decoding="async"
-            />
-          )}
-          <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent to-black/20" aria-hidden />
+        <div className="relative h-32 w-full bg-linear-to-br from-[#8B5CF6] via-[#6D28D9] to-[#0F0F11] sm:h-44 md:h-60">
+          <div className="absolute inset-0 overflow-hidden">
+            {profile.coverUrl && (
+              <SafeImage
+                src={profile.coverUrl}
+                alt=""
+                className="absolute inset-0 size-full object-cover"
+                decoding="async"
+              />
+            )}
+            <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent to-black/20" aria-hidden />
+          </div>
           <span className="absolute right-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white">SHS Student Pass</span>
+          <button
+            type="button"
+            onClick={() => editing && avatarRef.current?.click()}
+            aria-label={editing ? "Upload new avatar" : "Profile avatar"}
+            className="absolute bottom-0 left-4 z-20 block translate-y-1/2 rounded-full border-4 border-card shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          >
+            <Avatar name={profile.username} src={editing ? draftAvatar : profile.avatarUrl} size="2xl" online />
+            {editing && (
+              <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/55 text-white">
+                <Camera size={22} strokeWidth={2.5} aria-hidden />
+              </span>
+            )}
+          </button>
           {user && profile.id === user.id && (
             <>
               <input
@@ -376,26 +437,11 @@ export function ProfilePage() {
             </>
           )}
         </div>
-        <CardBody className="px-4 pb-5 pt-4 sm:px-6 sm:pt-5">
+        <CardBody className="px-4 pb-5 pt-14 sm:px-6 sm:pt-14">
           <input ref={avatarRef} type="file" accept="image/*" onChange={pickAvatar} className="sr-only" aria-label="Upload avatar" />
           <ProfileHeader
             username={profile.username}
             fullName={profile.fullName ?? null}
-            avatar={
-              <button
-                type="button"
-                onClick={() => editing && avatarRef.current?.click()}
-                aria-label={editing ? "Upload new avatar" : "Profile avatar"}
-                className="group relative block rounded-full ring-4 ring-card"
-              >
-                <Avatar name={profile.username} src={editing ? draftAvatar : profile.avatarUrl} size="2xl" online />
-                {editing && (
-                  <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/55 text-white">
-                    <Camera size={22} strokeWidth={2.5} aria-hidden />
-                  </span>
-                )}
-              </button>
-            }
             schoolBadge={
               mySchool ? (
                 <button
@@ -442,6 +488,23 @@ export function ProfilePage() {
                   <label className="block">
                     <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Nickname</span>
                     <input value={draftUsername} onChange={(event) => setDraftUsername(event.target.value.slice(0, 24))} maxLength={24} className="h-10 w-full rounded-xl border-2 border-line bg-card px-3 text-xs font-extrabold text-ink outline-none focus:border-brand" />
+                    {usernameAvailability !== "idle" && (
+                      <span
+                        role="status"
+                        className={cn(
+                          "mt-1 block text-[11px] font-bold",
+                          usernameAvailability === "available" && "text-success",
+                          (usernameAvailability === "checking" || usernameAvailability === "error" || usernameAvailability === "invalid") && "text-ink-muted",
+                          usernameAvailability === "taken" && "text-danger"
+                        )}
+                      >
+                        {usernameAvailability === "checking" && "Checking username…"}
+                        {usernameAvailability === "available" && "Username is available."}
+                        {usernameAvailability === "taken" && "That nickname is already taken."}
+                        {usernameAvailability === "invalid" && "Use 3–24 letters, numbers or underscores."}
+                        {usernameAvailability === "error" && "Couldn’t check username availability."}
+                      </span>
+                    )}
                   </label>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <label className="block">

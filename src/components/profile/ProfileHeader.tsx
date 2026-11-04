@@ -4,7 +4,6 @@ import { Pencil, Settings, Users } from "lucide-react";
 interface ProfileHeaderProps {
   username: string;
   fullName: string | null;
-  avatar: ReactNode;
   schoolBadge: ReactNode;
   bio: string;
   gistCount: number;
@@ -20,7 +19,6 @@ interface ProfileHeaderProps {
 export function ProfileHeader({
   username,
   fullName,
-  avatar,
   schoolBadge,
   bio,
   gistCount,
@@ -34,7 +32,6 @@ export function ProfileHeader({
 }: ProfileHeaderProps) {
   return (
     <div className="flex min-w-0 flex-col items-center text-center">
-      <div className="pt-1">{avatar}</div>
       <h1 className="mt-3 max-w-full truncate text-2xl font-black tracking-tight text-ink sm:text-[28px]">
         {fullName || `@${username}`}
       </h1>

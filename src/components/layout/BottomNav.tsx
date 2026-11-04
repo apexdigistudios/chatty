@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Compass, GraduationCap, Home, PlusCircle, User } from "lucide-react";
+import { GraduationCap, Home, PlusCircle, User, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -19,7 +19,7 @@ interface NavigationItem {
 
 const navigation: NavigationItem[] = [
   { label: "Home", to: "/", icon: Home, end: true },
-  { label: "Explore", to: "/explore", icon: Compass },
+  { label: "Spotlight", to: "/spotlight", icon: Zap },
   { label: "Create", to: "/create", icon: PlusCircle, create: true },
   { label: "Schools", to: "/schools", icon: GraduationCap },
   { label: "Your profile", to: "/profile", icon: User, profile: true },

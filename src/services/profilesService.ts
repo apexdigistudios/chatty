@@ -103,17 +103,21 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
  * Checks in real time whether a nickname is unclaimed in `public.profiles`
  * (case-insensitive). Works for unauthenticated visitors during onboarding.
  */
-export async function checkUsernameAvailable(username: string): Promise<boolean> {
+export async function checkUsernameAvailable(
+  username: string,
+  excludeUserId?: string
+): Promise<boolean> {
   const clean = username.trim().replace(/^@/, "");
   if (!/^[A-Za-z0-9_]{3,24}$/.test(clean)) return false;
 
+  const pattern = clean.replace(/[\\%_]/g, "\\$&");
   const { data, error } = await supabase
     .from("profiles")
     .select("id")
-    .ilike("username", clean)
+    .ilike("username", pattern)
     .limit(1);
   if (error) throw new Error(error.message);
-  return (data ?? []).length === 0;
+  return !(data ?? []).some((profile) => profile.id !== excludeUserId);
 }
 
 /**
@@ -219,7 +223,31 @@ export interface ProfilePatch {
 export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
   const userId = await requireUserId();
   const update: Partial<ProfileRow> = {};
-  if (patch.username !== undefined) update.username = patch.username.trim().replace(/^@/, "");
+  if (patch.username !== undefined) {
+    const username = patch.username.trim().replace(/^@/, "");
+    const { data: current, error: currentError } = await supabase
+      .from("profiles")
+      .select("username, username_last_changed_at")
+      .eq("id", userId)
+      .single<{ username: string; username_last_changed_at: string | null }>();
+    if (currentError) {
+      if (currentError.code === "42703" || currentError.code === "PGRST204") {
+        throw new Error("Username change rules need the profile_username_rules.sql migration.");
+      }
+      throw new Error(currentError.message);
+    }
+
+    if (username !== current.username) {
+      const lastChangedAt = current.username_last_changed_at
+        ? Date.parse(current.username_last_changed_at)
+        : null;
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+      if (lastChangedAt !== null && Date.now() - lastChangedAt < sevenDaysMs) {
+        throw new Error("You can only change your username once every 7 days.");
+      }
+      update.username = username;
+    }
+  }
   if (patch.bio !== undefined) update.bio = patch.bio.trim();
   if (patch.avatarUrl !== undefined) update.avatar_url = patch.avatarUrl;
   if (patch.coverUrl !== undefined) {
@@ -249,6 +277,9 @@ export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
     .single<ProfileRow>();
   if (error) {
     if (error.code === "23505") throw new Error("That nickname is already taken.");
+    if (error.message.includes("You can only change your username once every 7 days.")) {
+      throw new Error("You can only change your username once every 7 days.");
+    }
     throw new Error(error.message);
   }
   return mapProfile(data);

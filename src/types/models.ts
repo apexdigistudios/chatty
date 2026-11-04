@@ -36,6 +36,7 @@ export const MAX_POST_LENGTH = 300;
 export interface ProfileRow {
   id: string;
   username: string;
+  username_last_changed_at?: string | null;
   school_id: string | null;
   avatar_url: string | null;
   cover_url?: string | null;
