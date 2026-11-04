@@ -24,6 +24,7 @@ export type ComposerType = "gist" | "confession";
 const PAGE_SIZE = 10;
 let feedLoadRequestId = 0;
 let followingLoadRequestId = 0;
+let feedRotationSeed = Math.random();
 
 const commentThreadKey = (target: CommentThreadTarget) => `${target.type}:${target.id}`;
 
@@ -180,9 +181,11 @@ export const useGistStore = create<GistState>()((set, get) => ({
     const schoolId = get().feedSchoolId;
     const existingPostIds = new Set(get().posts.map((post) => post.id));
     const requestId = ++feedLoadRequestId;
+    if (!silent) feedRotationSeed = Math.random();
+    const rotationSeed = feedRotationSeed;
     if (!silent) set({ feedLoading: true, feedError: null });
     try {
-      const posts = await fetchRankedFeed({ schoolId, limit: PAGE_SIZE });
+      const posts = await fetchRankedFeed({ schoolId, limit: PAGE_SIZE, rotationSeed });
       // Ignore stale responses if the school filter changed mid-flight.
       if (get().feedSchoolId !== schoolId || requestId !== feedLoadRequestId) return;
       set((state) => {
@@ -208,7 +211,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
     const schoolId = get().feedSchoolId;
     if (!silent) set({ followingLoading: true, feedError: null });
     try {
-      const posts = await fetchRankedFeed({ limit: PAGE_SIZE, followingOnly: true, schoolId });
+      const posts = await fetchRankedFeed({ limit: PAGE_SIZE, followingOnly: true, schoolId, rotationSeed: feedRotationSeed });
       if (requestId !== followingLoadRequestId || get().feedSchoolId !== schoolId) return;
       set({
         followingPosts: posts,
@@ -231,6 +234,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
         schoolId: feedSchoolId,
         limit: PAGE_SIZE,
         offset: posts.length,
+        rotationSeed: feedRotationSeed,
       });
       if (get().feedSchoolId !== feedSchoolId) return;
       set((state) => {
@@ -256,6 +260,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
         offset: followingPosts.length,
         followingOnly: true,
         schoolId: feedSchoolId,
+        rotationSeed: feedRotationSeed,
       });
       if (get().feedSchoolId !== feedSchoolId) return;
       set((state) => {

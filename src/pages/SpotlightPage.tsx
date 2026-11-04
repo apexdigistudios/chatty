@@ -4,7 +4,6 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { describeError } from "../lib/supabase";
 import { timeAgo } from "../lib/time";
-import { fetchFeedRankingContext, rankFeedPosts, scoreFeedPost } from "../services/feedAlgo";
 import { recordPostShare } from "../services/followsService";
 import { fetchApprovedConfessions, toggleReaction } from "../services/confessionsService";
 import { fetchFeed, toggleLike } from "../services/postsService";
@@ -13,21 +12,14 @@ import { useGistStore } from "../store/gistStore";
 import type { Confession, Post } from "../types/models";
 import { useToast } from "../components/ui/Toast";
 import { Avatar } from "../components/ui/Avatar";
+import { rotateBySeed } from "../lib/feedRotation";
 
 type SpotlightItem =
-  | { kind: "post"; key: string; videoUrl: string; post: Post; score: number }
-  | { kind: "confession"; key: string; videoUrl: string; confession: Confession; score: number };
+  | { kind: "post"; key: string; videoUrl: string; post: Post }
+  | { kind: "confession"; key: string; videoUrl: string; confession: Confession };
 
 function extractTags(text: string): string[] {
   return [...new Set([...text.matchAll(/#([A-Za-z0-9_]{1,50})/g)].map((match) => match[1]!.toLowerCase()))];
-}
-
-function scoreConfession(confession: Confession, schoolId: string | null, now: number): number {
-  const ageInHours = Math.max(0, now - Date.parse(confession.publishedAt ?? confession.createdAt)) / 3_600_000;
-  const engagement = Object.values(confession.reactions).reduce((total, count) => total + count, 0);
-  return engagement * 10 +
-    (schoolId !== null && confession.schoolId === schoolId ? 30 : 0) -
-    ageInHours * 0.35;
 }
 
 export function SpotlightPage() {
@@ -48,22 +40,20 @@ export function SpotlightPage() {
     else setLoading(true);
     setError(null);
     try {
-      const [context, feed, confessions] = await Promise.all([
-        fetchFeedRankingContext(),
+      const [feed, confessions] = await Promise.all([
         fetchFeed({ limit: 100 }),
         fetchApprovedConfessions(100),
       ]);
-      const now = Date.now();
-      const rankedPosts = rankFeedPosts(feed, context)
+      const videoPosts = feed
         .filter((post) => post.mediaTypes?.includes("video") || post.mediaType === "video")
         .flatMap((post) =>
           post.mediaUrls.flatMap((videoUrl, index) =>
             post.mediaTypes?.[index] === "video" || (index === 0 && post.mediaType === "video")
-              ? [{ kind: "post" as const, key: `post:${post.id}:${index}`, videoUrl, post, score: scoreFeedPost(post, context) }]
+              ? [{ kind: "post" as const, key: `post:${post.id}:${index}`, videoUrl, post }]
               : []
           )
         );
-      const rankedConfessions = confessions.flatMap((confession) =>
+      const videoConfessions = confessions.flatMap((confession) =>
         confession.mediaUrls?.flatMap((videoUrl, index) =>
           confession.mediaTypes?.[index] === "video"
             ? [{
@@ -71,13 +61,16 @@ export function SpotlightPage() {
                 key: `confession:${confession.id}:${index}`,
                 videoUrl,
                 confession,
-                score: scoreConfession(confession, context.schoolId, now),
               }]
             : []
         ) ?? []
       );
-      const nextItems = [...rankedPosts, ...rankedConfessions].sort((a, b) => b.score - a.score);
-      setItems(nextItems);
+      const chronologicalItems = [...videoPosts, ...videoConfessions].sort((left, right) => {
+        const leftCreatedAt = left.kind === "post" ? left.post.createdAt : left.confession.publishedAt ?? left.confession.createdAt;
+        const rightCreatedAt = right.kind === "post" ? right.post.createdAt : right.confession.publishedAt ?? right.confession.createdAt;
+        return Date.parse(rightCreatedAt) - Date.parse(leftCreatedAt);
+      });
+      setItems(rotateBySeed(chronologicalItems, Math.random()));
     } catch (cause) {
       setError(describeError(cause, "Could not load Spotlight videos."));
     } finally {
@@ -132,8 +125,8 @@ export function SpotlightPage() {
   };
 
   return (
-    <div className="relative -mb-[calc(8rem+env(safe-area-inset-bottom))] h-[calc(100dvh-4rem)] overflow-hidden bg-neutral-950 text-white md:-mb-12">
-      <section className="relative mx-auto h-full w-full bg-neutral-950 md:max-w-[520px] md:shadow-[0_0_48px_rgba(0,0,0,0.55)]">
+    <div className="relative flex h-[calc(100dvh-4rem)] w-full overflow-hidden bg-neutral-950 text-white">
+      <section className="relative h-full min-w-0 flex-1 bg-neutral-950">
       <header className="pointer-events-none absolute inset-x-0 top-0 z-30 px-3 pb-5 pt-[max(0.7rem,env(safe-area-inset-top))]">
         <div className="pointer-events-auto flex items-center justify-between">
           <Link
@@ -248,8 +241,8 @@ export function SpotlightPage() {
       )}
       </section>
       {!loading && !error && items.length > 0 && (
-        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[min(5rem,15vw)] items-center justify-center lg:flex">
-          <div className="pointer-events-auto flex flex-col gap-2">
+        <div className="hidden w-16 shrink-0 items-center justify-center lg:flex">
+          <div className="flex flex-col gap-2">
             <button type="button" onClick={() => scrollSlide(-1)} aria-label="Previous Spotlight video" className="flex size-11 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-lg backdrop-blur transition hover:bg-black/80">
               <ArrowUp size={20} aria-hidden />
             </button>
@@ -334,7 +327,7 @@ function SpotlightSlide({
     : post?.likeCount ?? 0;
 
   return (
-    <article className="relative h-dvh w-full snap-start snap-always overflow-hidden bg-neutral-950">
+    <article className="relative h-full w-full snap-start snap-always overflow-hidden bg-neutral-950">
       <video
         ref={videoRef}
         src={item.videoUrl}
@@ -350,7 +343,7 @@ function SpotlightSlide({
         }}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
-        className="absolute inset-0 size-full object-cover md:object-contain"
+        className="absolute inset-0 size-full object-contain"
         aria-label={`Spotlight video by ${author}`}
       />
       <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/90 via-transparent to-black/20" aria-hidden />

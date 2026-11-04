@@ -1,5 +1,6 @@
 import { currentUserId, supabase } from "../lib/supabase";
 import { isBrowserOffline, readOfflineValue } from "../lib/offlineCache";
+import { rotateBySeed } from "../lib/feedRotation";
 import type { Post, Profile } from "../types/models";
 import { fetchFollowingIds } from "./followsService";
 import { fetchFeed } from "./postsService";
@@ -35,6 +36,7 @@ export function rankFeedPosts(posts: Post[], context: FeedRankingContext): Post[
 export interface RankedFeedOptions {
   limit: number;
   offset?: number;
+  rotationSeed?: number;
   followingOnly?: boolean;
   schoolId?: string | null;
   tag?: string;
@@ -67,6 +69,7 @@ export async function fetchRankedFeed({
   followingOnly = false,
   schoolId,
   tag,
+  rotationSeed,
 }: RankedFeedOptions): Promise<Post[]> {
   const context = await fetchFeedRankingContext();
   if (followingOnly && context.followingIds.size === 0) return [];
@@ -83,5 +86,9 @@ export async function fetchRankedFeed({
     if (!isBrowserOffline() || followingOnly) throw error;
     candidates = await fetchFeed({ limit: 10, schoolId: schoolId ?? undefined, tag });
   }
-  return rankFeedPosts(candidates, context).slice(offset, offset + limit);
+  const rankedCandidates = rankFeedPosts(candidates, context);
+  const rotatedCandidates = rotationSeed === undefined
+    ? rankedCandidates
+    : rotateBySeed(rankedCandidates, rotationSeed);
+  return rotatedCandidates.slice(offset, offset + limit);
 }

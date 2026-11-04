@@ -12,6 +12,7 @@ import { supabase } from "../lib/supabase";
 import { useAuthGateStore } from "../store/authGateStore";
 import { useGistStore } from "../store/gistStore";
 import { springs } from "../theme/tokens";
+import { rotateBySeed } from "../lib/feedRotation";
 
 const tabs = ["All SHSs", "Following", "My School", "Confessions"] as const;
 type FeedTab = (typeof tabs)[number] | "Trending";
@@ -81,6 +82,7 @@ export function HomePage() {
     pathname === "/trending" ? "Trending" : "All SHSs"
   );
   const [refreshing, setRefreshing] = useState(false);
+  const [rotationSeed, setRotationSeed] = useState(() => Math.random());
 
   const feedSchool = schools.find((school) => school.id === feedSchoolId) ?? null;
   const mySchool = schools.find((school) => school.id === profile?.schoolId) ?? null;
@@ -112,13 +114,17 @@ export function HomePage() {
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([
-      loadFeed(),
-      activeTab === "Following" ? loadFollowingFeed() : Promise.resolve(),
-      ["All SHSs", "My School", "Confessions"].includes(activeTab) ? loadConfessions() : Promise.resolve(),
-      activeTab === "Trending" ? loadTrending() : Promise.resolve(),
-    ]);
-    setRefreshing(false);
+    setRotationSeed(Math.random());
+    try {
+      await Promise.all([
+        loadFeed(),
+        activeTab === "Following" ? loadFollowingFeed() : Promise.resolve(),
+        ["All SHSs", "My School", "Confessions"].includes(activeTab) ? loadConfessions() : Promise.resolve(),
+        activeTab === "Trending" ? loadTrending() : Promise.resolve(),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
   }, [activeTab, loadFeed, loadFollowingFeed, loadConfessions, loadTrending]);
 
   const visiblePosts = useMemo(() => {
@@ -154,8 +160,9 @@ export function HomePage() {
         });
       }
     }
-    return items.sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
-  }, [activeTab, confessions, feedSchoolId, profile?.schoolId, visiblePosts]);
+    items.sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
+    return rotateBySeed(items, rotationSeed);
+  }, [activeTab, confessions, feedSchoolId, profile?.schoolId, rotationSeed, visiblePosts]);
 
   const startComposing = (type: "gist" | "confession") => {
     if (!user) {
