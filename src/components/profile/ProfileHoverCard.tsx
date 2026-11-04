@@ -12,6 +12,7 @@ import { FollowButton } from "./FollowButton";
 interface ProfileHoverCardProps {
   userId: string;
   username: string;
+  fullName?: string | null;
   avatarUrl: string | null;
   schoolName: string;
   isSeed?: boolean;
@@ -23,6 +24,7 @@ const EMPTY_SUMMARY: FollowSummary = { followerCount: 0, followingCount: 0, isFo
 export function ProfileHoverCard({
   userId,
   username,
+  fullName,
   avatarUrl,
   schoolName,
   isSeed = false,
@@ -117,21 +119,16 @@ export function ProfileHoverCard({
                 to={`/profile/${userId}`}
                 className="block truncate text-sm font-black text-ink hover:text-brand-deep hover:underline"
               >
-                @{username}
+                {fullName || `@${username}`}
               </Link>
+              {fullName && <span className="block truncate text-[10px] font-semibold text-ink-muted">@{username}</span>}
               <span className="mt-0.5 block truncate text-xs font-semibold text-ink-muted">{schoolName}</span>
             </span>
           </span>
-          {isSeed ? (
-            <span className="mt-3 inline-flex rounded-full border border-warning-soft bg-warning-wash px-2.5 py-1 text-[10px] font-extrabold text-warning-deep">
-              Synthetic demo profile
-            </span>
-          ) : (
-            <span className="mt-3 flex items-center gap-1.5 text-xs font-bold text-ink-muted">
-              <Users size={13} aria-hidden />
-              {summary.followerCount} followers · {summary.followingCount} following
-            </span>
-          )}
+          <span className="mt-3 flex items-center gap-1.5 text-xs font-bold text-ink-muted">
+            <Users size={13} aria-hidden />
+            {summary.followerCount} followers · {summary.followingCount} following
+          </span>
           {!isSeed && user?.id !== userId && (
             <span className="mt-3 block">
               <FollowButton following={summary.isFollowing} loading={loading || busy} onToggle={() => void toggleFollow()} />

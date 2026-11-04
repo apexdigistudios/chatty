@@ -219,7 +219,7 @@ export function PublicProfilePage() {
             </div>
             <Badge tone="neutral" className="px-2 py-0.5 text-[9px]">
               <Sparkles size={10} strokeWidth={2.6} aria-hidden />
-              {profile.isSeed ? "Synthetic demo" : "Student"}
+              Student
             </Badge>
           </div>
 

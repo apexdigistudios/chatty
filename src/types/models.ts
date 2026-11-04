@@ -97,6 +97,7 @@ export interface Post {
   authorId: string;
   isSeed?: boolean;
   authorName: string;
+  authorFullName?: string | null;
   authorAvatar: string | null;
   authorSchoolId: string | null;
   schoolId: string | null;

@@ -92,7 +92,7 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
   return (
     <article
       role="article"
-      aria-label={`${confession.isSeed && !confession.seedUsername ? "Anonymous" : confession.seedUsername ? `Synthetic confession by @${confession.seedUsername}` : "Anonymous confession"}${school ? `, ${school.shortName}` : ""}`}
+      aria-label={`${confession.seedUsername ? `Confession by @${confession.seedUsername}` : "Anonymous confession"}${school ? `, ${school.shortName}` : ""}`}
       className="relative overflow-visible border-b-4 border-line/60 px-4 py-4 dark:border-neutral-900/60"
     >
       <div>
@@ -106,9 +106,11 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
           )}
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <p className="text-sm font-extrabold text-ink">{confession.seedUsername ? `@${confession.seedUsername}` : "Anonymous"}</p>
+              <p className="text-sm font-extrabold text-ink">
+                {confession.seedUsername ? confession.seedFullName || `@${confession.seedUsername}` : "Anonymous"}
+              </p>
               {confession.seedUsername ? (
-                <Badge tone="warning" className="px-2 py-0.5 text-[9px]">Synthetic demo</Badge>
+                confession.seedFullName && <span className="text-[11px] font-semibold text-ink-muted">@{confession.seedUsername}</span>
               ) : (
                 <Badge tone="neutral" className="px-2 py-0.5 text-[9px]">
                   <Lock size={10} strokeWidth={2.6} aria-hidden />

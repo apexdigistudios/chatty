@@ -221,7 +221,7 @@ export async function fetchPublicProfile(userId: string): Promise<PublicProfile 
           username: seedProfile.username,
           avatarUrl: seedProfile.avatar_url,
           coverUrl: null,
-          bio: "Synthetic demo profile",
+          bio: "",
           fullName: seedProfile.full_name,
           classForm: null,
           schoolId: seedProfile.school_id,

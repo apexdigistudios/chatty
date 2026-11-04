@@ -230,6 +230,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
         <ProfileHoverCard
           userId={post.authorId}
           username={post.authorName}
+          fullName={post.authorFullName ?? null}
           avatarUrl={post.authorAvatar}
           schoolName={post.schoolShort}
           isSeed={post.isSeed}
@@ -248,17 +249,15 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
               to={profileHref}
               className="max-w-full truncate text-[14px] font-extrabold leading-tight text-ink hover:text-brand-deep hover:underline"
             >
-              @{post.authorName}
+              {post.authorFullName || `@${post.authorName}`}
             </Link>
+            {post.authorFullName && (
+              <span className="truncate text-[10px] font-semibold text-ink-muted">@{post.authorName}</span>
+            )}
             {post.status !== "active" && (
               <Badge tone={post.status === "flagged" ? "warning" : "danger"} className="px-2 py-0.5 text-[9px]">
                 <ShieldAlert size={10} strokeWidth={2.6} aria-hidden />
                 {post.status}
-              </Badge>
-            )}
-            {post.isSeed && (
-              <Badge tone="warning" className="px-2 py-0.5 text-[9px]">
-                Synthetic demo
               </Badge>
             )}
             {post.spotlightStatus === "active" && (

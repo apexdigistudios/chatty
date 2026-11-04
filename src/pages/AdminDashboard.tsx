@@ -207,10 +207,16 @@ export function AdminDashboard() {
     if (!editing) return;
     setBusy(true);
     try {
-      await updateSeedProfile(editing);
-      setProfiles((current) => current.map((profile) => profile.id === editing.id ? editing : profile));
+      const updatedProfile = {
+        ...editing,
+        username: editing.username.trim(),
+        fullName: editing.fullName.trim(),
+        avatarUrl: editing.avatarUrl?.trim() || null,
+      };
+      await updateSeedProfile(updatedProfile);
+      setProfiles((current) => current.map((profile) => profile.id === updatedProfile.id ? updatedProfile : profile));
       setEditing(null);
-      toast("Synthetic profile updated.", "success");
+      toast("Profile updated.", "success");
     } catch (error) {
       toast(describeError(error, "Could not update that profile."), "danger");
     } finally {
@@ -315,18 +321,29 @@ export function AdminDashboard() {
   const purge = async () => {
     if (purgeConfirmation !== "PURGE") return;
     setBusy(true);
-    try {
-      await clearAllSeedData();
+    const clearPurgedUi = () => {
       setProfiles([]);
+      setEditing(null);
+      setAuthorId("");
+      setAuthorSearch("");
+      setSchoolId("");
+      setContent("");
+      setMediaFiles([]);
+      setIsConfession(false);
+      setIsAnonymous(true);
       setPurgeOpen(false);
       setPurgeConfirmation("");
+    };
+    try {
+      await clearAllSeedData();
+      clearPurgedUi();
       toast("All synthetic profiles and their posts have been purged.", "success");
     } catch (error) {
-      toast(describeError(error, "Could not finish the seed data purge."), "danger");
       if (error instanceof Error && error.message.includes("records were deleted")) {
-        setProfiles([]);
-        setPurgeOpen(false);
+        clearPurgedUi();
         toast("Synthetic records were purged, but some stored media could not be removed.", "danger");
+      } else {
+        toast(describeError(error, "Could not finish the seed data purge."), "danger");
       }
     } finally {
       setBusy(false);
@@ -418,7 +435,7 @@ export function AdminDashboard() {
                           </div>
                           <p className="truncate text-[11px] font-semibold text-ink-muted">{profile.fullName} · {school?.shortName ?? "School"}</p>
                         </div>
-                        <Button size="sm" variant="outline" leftIcon={<UserRoundPen size={13} aria-hidden />} onClick={() => setEditing(profile)}>Edit</Button>
+                        <Button size="sm" variant="outline" leftIcon={<UserRoundPen size={13} aria-hidden />} onClick={() => setEditing({ ...profile })}>Edit Profile</Button>
                         <Button size="sm" variant="danger" disabled={busy} aria-label={`Delete @${profile.username}`} onClick={() => void removeProfile(profile)}><Trash2 size={14} aria-hidden /></Button>
                       </CardBody>
                     </Card>
@@ -563,9 +580,9 @@ export function AdminDashboard() {
               <button type="button" onClick={() => setEditing(null)} aria-label="Close edit dialog" className="flex size-10 items-center justify-center rounded-xl text-ink-muted hover:bg-page"><X size={17} aria-hidden /></button>
             </div>
             <form onSubmit={(event) => void saveProfile(event)} className="space-y-3">
-              <label className="block text-xs font-bold text-ink">Username<input value={editing.username} onChange={(event) => setEditing({ ...editing, username: event.target.value })} required minLength={3} maxLength={24} className="mt-1.5 h-11 w-full rounded-xl border-2 border-line bg-card px-3 text-sm text-ink outline-none focus:border-brand" /></label>
+              <label className="block text-xs font-bold text-ink">Username<input value={editing.username} onChange={(event) => setEditing({ ...editing, username: event.target.value })} required minLength={3} maxLength={24} pattern="[A-Za-z0-9_]{3,24}" title="Use 3–24 letters, numbers, or underscores." autoComplete="off" className="mt-1.5 h-11 w-full rounded-xl border-2 border-line bg-card px-3 text-sm text-ink outline-none focus:border-brand" /></label>
               <label className="block text-xs font-bold text-ink">Full name<input value={editing.fullName} onChange={(event) => setEditing({ ...editing, fullName: event.target.value })} required maxLength={80} className="mt-1.5 h-11 w-full rounded-xl border-2 border-line bg-card px-3 text-sm text-ink outline-none focus:border-brand" /></label>
-              <label className="block text-xs font-bold text-ink">Avatar URL<input value={editing.avatarUrl ?? ""} onChange={(event) => setEditing({ ...editing, avatarUrl: event.target.value || null })} className="mt-1.5 h-11 w-full rounded-xl border-2 border-line bg-card px-3 text-sm text-ink outline-none focus:border-brand" /></label>
+              <label className="block text-xs font-bold text-ink">Avatar URL<input type="url" value={editing.avatarUrl ?? ""} onChange={(event) => setEditing({ ...editing, avatarUrl: event.target.value || null })} placeholder="https://…" className="mt-1.5 h-11 w-full rounded-xl border-2 border-line bg-card px-3 text-sm text-ink outline-none focus:border-brand" /></label>
               <label className="block text-xs font-bold text-ink">School<select value={editing.schoolId} onChange={(event) => setEditing({ ...editing, schoolId: event.target.value })} required className="mt-1.5 h-11 w-full rounded-xl border-2 border-line bg-card px-3 text-sm text-ink outline-none focus:border-brand">{schools.map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}</select></label>
               <Button type="submit" loading={busy} fullWidth>Save profile</Button>
             </form>

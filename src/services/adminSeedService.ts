@@ -49,9 +49,9 @@ export async function createSeedProfiles(profiles: Array<{
 export async function updateSeedProfile(profile: AdminSeedProfile): Promise<void> {
   const { error } = await supabase.rpc("admin_update_seed_profile", {
     p_seed_profile_id: profile.id,
-    p_username: profile.username,
-    p_full_name: profile.fullName,
-    p_avatar_url: profile.avatarUrl,
+    p_username: profile.username.trim(),
+    p_full_name: profile.fullName.trim(),
+    p_avatar_url: profile.avatarUrl?.trim() || null,
     p_school_id: profile.schoolId,
   });
   if (error) throw new Error(error.message);

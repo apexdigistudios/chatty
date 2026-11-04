@@ -12,13 +12,16 @@ import type { Comment, MediaType, Post, PostStatus } from "../types/models";
 import { fetchBlockedUserIds } from "./blocksService";
 import { uploadPostMedia } from "./storageService";
 
+const AUTHOR_SELECT = "author:profiles(id, username, avatar_url, school_id)";
+const AUTHOR_IDENTITY_SELECT = "author:profiles(id, username, full_name, avatar_url, school_id)";
+
 const BASE_POST_SELECT = `id, user_id, school_id, content, media_url, post_type, status, created_at,
-  author:profiles(id, username, avatar_url, school_id),
+  ${AUTHOR_SELECT},
   school:schools(id, name, crest_url:logo_url),
   likes(count), comments(count)`;
 
 const GROUP_POST_SELECT = `id, user_id, school_id, group_id, content, media_url, post_type, status, created_at,
-  author:profiles(id, username, avatar_url, school_id),
+  ${AUTHOR_SELECT},
   school:schools(id, name, crest_url:logo_url),
   group:school_groups(id, name, emoji),
   likes(count), comments(count)`;
@@ -30,6 +33,19 @@ const SPOTLIGHT_FEED_SLOTS = 3;
 let spotlightPromotionsTableAvailable: boolean | null = null;
 
 export const POST_SELECT = BASE_POST_SELECT;
+
+let postAuthorIdentitySupportPromise: Promise<boolean> | null = null;
+function supportsPostAuthorIdentity(): Promise<boolean> {
+  if (!postAuthorIdentitySupportPromise) {
+    postAuthorIdentitySupportPromise = (async () => {
+      const { error } = await supabase.from("profiles").select("full_name").limit(1);
+      if (error && (error.code === "42703" || error.code === "PGRST204")) return false;
+      if (error) throw new Error(error.message);
+      return true;
+    })();
+  }
+  return postAuthorIdentitySupportPromise;
+}
 
 /**
  * Step 9 adds `posts.group_id` + `school_groups`. Until migration-step9.sql is
@@ -143,15 +159,20 @@ function supportsSeedEngagement(): Promise<boolean> {
 }
 
 async function selectForGroups(): Promise<string> {
-  const [groups, video, hidden, shares, seededEngagement] = await Promise.all([
+  const [groups, video, hidden, shares, seededEngagement, authorIdentity] = await Promise.all([
     supportsSchoolGroups(),
     supportsVideoMetadata(),
     supportsPostVisibility(),
     supportsPostShares(),
     supportsSeedEngagement(),
+    supportsPostAuthorIdentity(),
   ]);
   const seedProfiles = await supportsSeedProfiles();
-  return `${groups ? GROUP_POST_SELECT : BASE_POST_SELECT}${seedProfiles ? SEED_AUTHOR_SELECT : ""}${video ? ", media_type, video_duration_seconds" : ""}${hidden ? ", is_hidden" : ""}${shares ? ", post_shares(count)" : ""}${seededEngagement ? ", seed_likes_count, seed_comments_count" : ""}`;
+  const baseSelect = groups ? GROUP_POST_SELECT : BASE_POST_SELECT;
+  const select = authorIdentity
+    ? baseSelect.replace(AUTHOR_SELECT, AUTHOR_IDENTITY_SELECT)
+    : baseSelect;
+  return `${select}${seedProfiles ? SEED_AUTHOR_SELECT : ""}${video ? ", media_type, video_duration_seconds" : ""}${hidden ? ", is_hidden" : ""}${shares ? ", post_shares(count)" : ""}${seededEngagement ? ", seed_likes_count, seed_comments_count" : ""}`;
 }
 
 export interface RawPost {
@@ -168,7 +189,7 @@ export interface RawPost {
   status: PostStatus;
   is_hidden?: boolean;
   created_at: string;
-  author: { id: string; username: string; avatar_url: string | null; school_id?: string | null } | null;
+  author: { id: string; username: string; full_name?: string | null; avatar_url: string | null; school_id?: string | null } | null;
   seed_author?: { id: string; username: string; full_name: string; avatar_url: string | null; school_id: string } | null;
   school: { id: string; name: string; crest_url: string | null } | null;
   group?: { id: string; name: string; emoji: string } | null;
@@ -205,6 +226,7 @@ export function mapPost(row: RawPost, liked: boolean): Post {
     authorId: seedAuthor?.id ?? row.user_id,
     isSeed: Boolean(seedAuthor),
     authorName: seedAuthor?.username ?? row.author?.username ?? "student",
+    authorFullName: seedAuthor?.full_name ?? row.author?.full_name ?? null,
     authorAvatar: seedAuthor?.avatar_url ?? row.author?.avatar_url ?? null,
     authorSchoolId: seedAuthor?.school_id ?? row.author?.school_id ?? row.school_id,
     schoolId: row.school_id,

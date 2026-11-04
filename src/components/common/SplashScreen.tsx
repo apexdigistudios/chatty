@@ -5,7 +5,7 @@ export function SplashScreen() {
     <motion.main
       role="status"
       aria-label="Loading Gist me"
-      className="fixed inset-0 z-[100] flex h-[100vh] h-[100dvh] items-center justify-center bg-neutral-950 text-white"
+      className="fixed inset-0 z-100 flex h-screen items-center justify-center bg-neutral-950 text-white"
       initial={{ opacity: 1 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.5, ease: "easeOut" } }}

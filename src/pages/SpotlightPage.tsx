@@ -298,7 +298,10 @@ function SpotlightSlide({
   const confession = item.kind === "confession" ? item.confession : null;
   const post = item.kind === "post" ? item.post : null;
   const caption = post?.content ?? confession?.content ?? "";
-  const author = post ? `@${post.authorName}` : confession?.seedUsername ? `@${confession.seedUsername}` : "Anonymous";
+  const author = post
+    ? post.authorFullName || `@${post.authorName}`
+    : confession?.seedFullName || (confession?.seedUsername ? `@${confession.seedUsername}` : "Anonymous");
+  const username = post?.authorName ?? confession?.seedUsername ?? null;
   const tags = extractTags(caption);
 
   useEffect(() => {
@@ -350,7 +353,7 @@ function SpotlightSlide({
       <div className="absolute bottom-[calc(1.25rem+env(safe-area-inset-bottom))] left-4 right-19 z-10 space-y-2 text-white">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-black">{author}</span>
-          {post?.isSeed && <span className="rounded-full bg-amber-400/90 px-2 py-0.5 text-[9px] font-black uppercase text-black">Demo</span>}
+          {username && author !== `@${username}` && <span className="text-[11px] font-semibold text-white/75">@{username}</span>}
           {confession && <span className="text-[11px] font-bold text-white/75">· Anonymous confession</span>}
         </div>
         <p className="text-[11px] font-semibold text-white/75">{schoolName} · {timeAgo(post?.createdAt ?? confession?.publishedAt ?? confession?.createdAt ?? "")}</p>
