@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { motion } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, EyeOff, Filter, FlipHorizontal, Globe2, Hash, ImagePlus, Loader2, Send, ShieldAlert, Smile, Sparkles, Volume2, VolumeX, Zap, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, EyeOff, Filter, FlipHorizontal, Globe2, Hash, ImagePlus, Loader2, Send, ShieldAlert, Smile, Volume2, VolumeX, Zap, X } from "lucide-react";
 import { Avatar } from "../components/ui/Avatar";
 import { ImageLightbox } from "../components/ui/ImageLightbox";
 import { ProgressiveImage } from "../components/ui/ProgressiveImage";
-import { VideoAttachmentEditor, type VideoAttachmentDraft } from "../components/feed/VideoAttachmentEditor";
+import { VideoAttachmentEditor } from "../components/feed/VideoAttachmentEditor";
 import { SchoolBadge } from "../components/ui/SchoolBadge";
 import { useToast } from "../components/ui/Toast";
 import { fetchGroup } from "../services/groupsService";
@@ -286,20 +286,6 @@ export function CreatePage() {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const replaceVideoDraft = (index: number, draft: VideoAttachmentDraft) => {
-    const previousUrl = attachments[index]?.previewUrl;
-    if (previousUrl) {
-      URL.revokeObjectURL(previousUrl);
-      previewUrls.current.delete(previousUrl);
-    }
-    previewUrls.current.add(draft.previewUrl);
-    setAttachments((prev) => prev.map((item, i) =>
-      i === index
-        ? { ...item, file: draft.file, previewUrl: draft.previewUrl, duration: draft.duration, width: draft.width, height: draft.height, compressedBytes: draft.file.size }
-        : item
-    ));
-  };
-
   const insertEmoji = (emoji: string) => {
     const textarea = textRef.current;
     const start = textarea?.selectionStart ?? content.length;
@@ -379,47 +365,47 @@ export function CreatePage() {
         aria-label="Record or capture a video"
       />
 
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_35%,#27213b_0%,#09090b_62%)]" aria-hidden />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_50%_35%,#27213b_0%,#09090b_62%)]" aria-hidden />
       {step === 1 ? (
         <>
-          <header className="absolute inset-x-0 top-0 z-30 flex items-center justify-between gap-3 px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <header className="absolute inset-x-0 top-0 z-40 flex items-center justify-between gap-3 px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
             <button type="button" onClick={cancel} aria-label="Close creator" className="flex size-11 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md">
               <X size={21} strokeWidth={2.7} aria-hidden />
             </button>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setCategoryPickerOpen((open) => !open)}
-                aria-expanded={categoryPickerOpen}
-                className="inline-flex min-h-10 items-center gap-2 rounded-full border border-white/15 bg-black/45 px-4 text-xs font-extrabold text-white backdrop-blur-md"
-              >
-                {isConfession ? confessionCategory : "Original sound"}
-                <ChevronDown size={14} aria-hidden />
-              </button>
-              {categoryPickerOpen && (
-                <div className="absolute right-0 top-full z-40 mt-2 min-w-52 rounded-2xl border border-white/15 bg-neutral-900/95 p-1.5 shadow-2xl backdrop-blur-xl">
-                  {CONFESSION_CATEGORIES.map((category) => (
-                    <button
-                      key={category}
-                      type="button"
-                      onClick={() => {
-                        setConfessionCategory(category);
-                        setCategoryPickerOpen(false);
-                      }}
-                      className="block min-h-10 w-full rounded-xl px-3 text-left text-xs font-bold text-white hover:bg-white/10"
-                    >
-                      {category}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <span className="flex size-11 items-center justify-center text-white/75" aria-label="Studio effects">
-              <Sparkles size={18} aria-hidden />
-            </span>
+            <p className="text-sm font-black text-white">{isConfession ? "New confession" : "Create gist"}</p>
+            {isConfession ? (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setCategoryPickerOpen((open) => !open)}
+                  aria-expanded={categoryPickerOpen}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-black/45 px-3 text-[10px] font-extrabold text-white backdrop-blur-md"
+                >
+                  {confessionCategory}
+                  <ChevronDown size={14} aria-hidden />
+                </button>
+                {categoryPickerOpen && (
+                  <div className="absolute right-0 top-full z-50 mt-2 min-w-52 rounded-2xl border border-white/15 bg-neutral-900/95 p-1.5 shadow-2xl backdrop-blur-xl">
+                    {CONFESSION_CATEGORIES.map((category) => (
+                      <button
+                        key={category}
+                        type="button"
+                        onClick={() => {
+                          setConfessionCategory(category);
+                          setCategoryPickerOpen(false);
+                        }}
+                        className="block min-h-11 w-full rounded-xl px-3 text-left text-xs font-bold text-white hover:bg-white/10"
+                      >
+                        {category}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : <span className="size-11" aria-hidden />}
           </header>
 
-          <main className="absolute inset-0 flex items-center justify-center">
+          <main className="absolute inset-0 z-10 flex items-center justify-center">
             {activeAttachment ? (
               <div className="absolute inset-0 flex items-center justify-center">
                 {activeAttachment.kind === "video" ? (
@@ -482,7 +468,7 @@ export function CreatePage() {
               </div>
             )}
 
-            <div className="absolute right-3 top-[34%] z-20 flex flex-col items-center gap-4">
+            <div className="absolute right-2 top-[18%] z-20 flex max-h-[calc(100dvh-20rem)] flex-col items-center gap-1 overflow-y-auto rounded-full bg-black/20 px-1 py-1 backdrop-blur-sm sm:right-4 sm:top-[25%] sm:gap-3">
               <button type="button" onClick={() => setPreviewFlipped((flipped) => !flipped)} className="flex min-h-11 flex-col items-center gap-1 text-[9px] font-bold text-white drop-shadow">
                 <span className="flex size-10 items-center justify-center rounded-full bg-black/45 backdrop-blur"><FlipHorizontal size={18} aria-hidden /></span>Flip
               </button>
@@ -525,7 +511,7 @@ export function CreatePage() {
             </div>
           </main>
 
-          <footer className="absolute inset-x-0 bottom-0 z-30 bg-linear-to-t from-black/95 via-black/75 to-transparent px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-8">
+          <footer className="absolute inset-x-0 bottom-0 z-40 bg-linear-to-t from-black/95 via-black/75 to-transparent px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-8">
             <div className="mx-auto flex w-full max-w-lg items-end justify-between gap-3">
               <button
                 type="button"
@@ -559,7 +545,7 @@ export function CreatePage() {
         </>
       ) : (
         <>
-          <div className="absolute inset-0 opacity-35">
+          <div className="pointer-events-none absolute inset-0 z-0 opacity-35">
             {activeAttachment?.kind === "video" ? (
               <video src={activeAttachment.previewUrl} autoPlay muted loop playsInline className="size-full object-cover blur-xl" />
             ) : activeAttachment ? (
@@ -567,7 +553,7 @@ export function CreatePage() {
             ) : null}
             <span className="absolute inset-0 bg-black/65" />
           </div>
-          <header className="absolute inset-x-0 top-0 z-30 flex items-center justify-between px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <header className="absolute inset-x-0 top-0 z-40 flex items-center justify-between px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
             <button type="button" onClick={() => setStep(1)} aria-label="Back to media studio" className="flex size-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur"><ArrowLeft size={19} aria-hidden /></button>
             <p className="text-sm font-black text-white">Post details</p>
             <span className="w-11" />
@@ -577,7 +563,7 @@ export function CreatePage() {
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             transition={springs.gentle}
-            className="absolute inset-x-0 bottom-0 z-20 flex max-h-[88dvh] flex-col overflow-hidden rounded-t-[28px] border-t border-white/10 bg-neutral-950/95 shadow-2xl backdrop-blur-2xl"
+            className="absolute inset-x-0 bottom-0 z-30 flex max-h-[88dvh] flex-col overflow-hidden rounded-t-[28px] border-t border-white/10 bg-neutral-950/95 shadow-2xl backdrop-blur-2xl"
             style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
           >
             <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-white/25" />
@@ -690,7 +676,6 @@ export function CreatePage() {
                       <VideoAttachmentEditor
                         key={`${item.previewUrl}-${index}`}
                         draft={{ file: item.file, previewUrl: item.previewUrl, duration: item.duration ?? 0, width: item.width, height: item.height }}
-                        onReplace={(draft) => replaceVideoDraft(index, draft)}
                         onRemove={() => removeAttachment(index)}
                       />
                     ) : (
@@ -728,7 +713,7 @@ export function CreatePage() {
             </footer>
           </motion.section>
           {emojiPickerOpen && (
-            <div role="group" aria-label="Choose an emoji" className="absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-4 right-4 z-40 grid grid-cols-6 gap-1 rounded-2xl border border-white/10 bg-neutral-900 p-2 shadow-2xl">
+            <div role="group" aria-label="Choose an emoji" className="absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-4 right-4 z-50 grid grid-cols-6 gap-1 rounded-2xl border border-white/10 bg-neutral-900 p-2 shadow-2xl">
               {COMPOSER_EMOJIS.map((emoji) => (
                 <button key={emoji} type="button" onClick={() => insertEmoji(emoji)} aria-label={`Insert ${emoji}`} className="flex size-11 items-center justify-center rounded-xl text-xl hover:bg-white/10">{emoji}</button>
               ))}

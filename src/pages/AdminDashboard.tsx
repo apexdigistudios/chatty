@@ -2,15 +2,19 @@ import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "
 import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
+  Eye,
   Check,
   ChevronDown,
   FileImage,
+  Heart,
   Loader2,
+  MessageCircle,
   Plus,
   Search,
   ShieldCheck,
   Trash2,
   Upload,
+  Users,
   UserRoundPen,
   X,
 } from "lucide-react";
@@ -28,20 +32,32 @@ import {
   createSeedPost,
   createSeedProfiles,
   deleteSeedProfile,
+  fetchSeedEngagementItems,
   fetchSeedProfiles,
   removeSeedMedia,
   updateSeedProfile,
+  type SeedEngagementItem,
   type SeedMedia,
 } from "../services/adminSeedService";
 import { isVideoFile, uploadPostMedia } from "../services/storageService";
+import {
+  addSeedConfessionComments,
+  addSeedConfessionLikes,
+  addSeedConfessionViews,
+  addSeedPostComments,
+  addSeedPostLikes,
+  addSeedPostViews,
+  addSeedProfileFollowers,
+} from "../services/postsService";
 import { useGistStore } from "../store/gistStore";
 import type { AdminSeedProfile } from "../types/models";
 
-type DashboardTab = "profiles" | "publisher" | "purge";
+type DashboardTab = "profiles" | "publisher" | "engagement" | "purge";
 
 const TABS: Array<{ id: DashboardTab; label: string }> = [
   { id: "profiles", label: "Cosplay users" },
   { id: "publisher", label: "Post studio" },
+  { id: "engagement", label: "Engagement" },
   { id: "purge", label: "System clean-up" },
 ];
 
@@ -75,8 +91,12 @@ export function AdminDashboard() {
   const [accessChecking, setAccessChecking] = useState(true);
   const [tab, setTab] = useState<DashboardTab>("profiles");
   const [profiles, setProfiles] = useState<AdminSeedProfile[]>([]);
+  const [engagementItems, setEngagementItems] = useState<SeedEngagementItem[]>([]);
+  const [engagementLoading, setEngagementLoading] = useState(false);
   const [profilesLoading, setProfilesLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [followerIncrement, setFollowerIncrement] = useState("10");
+  const [engagementIncrement, setEngagementIncrement] = useState("10");
   const [search, setSearch] = useState("");
   const [jsonInput, setJsonInput] = useState("");
   const [editing, setEditing] = useState<AdminSeedProfile | null>(null);
@@ -144,6 +164,81 @@ export function AdminDashboard() {
     // Load once after the server confirms the admin role.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverAuthorized]);
+
+  useEffect(() => {
+    if (!serverAuthorized || tab !== "engagement") return;
+    let active = true;
+    setEngagementLoading(true);
+    void fetchSeedEngagementItems()
+      .then((items) => {
+        if (active) setEngagementItems(items);
+      })
+      .catch((error: unknown) => {
+        if (active) toast(describeError(error, "Could not load seed engagement items."), "danger");
+      })
+      .finally(() => {
+        if (active) setEngagementLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [serverAuthorized, tab, toast]);
+
+  const boostProfileFollowers = async (profile: AdminSeedProfile) => {
+    const count = Number(followerIncrement);
+    if (!Number.isSafeInteger(count) || count < 1 || count > 100000) {
+      toast("Enter a whole number between 1 and 100000.", "danger");
+      return;
+    }
+    setBusy(true);
+    try {
+      const updatedCount = await addSeedProfileFollowers(profile.id, count);
+      setProfiles((current) => current.map((item) =>
+        item.id === profile.id ? { ...item, seedFollowersCount: updatedCount } : item
+      ));
+      toast(`Added ${count} seed followers to @${profile.username}.`, "success");
+    } catch (error) {
+      toast(describeError(error, "Could not add seed followers."), "danger");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const boostEngagement = async (item: SeedEngagementItem, metric: "likes" | "comments" | "views", increment: number) => {
+    if (!Number.isSafeInteger(increment) || increment < 1 || increment > 100000) {
+      toast("Enter a whole number between 1 and 100000.", "danger");
+      return;
+    }
+    setBusy(true);
+    try {
+      const next = item.kind === "post"
+        ? metric === "likes"
+          ? await addSeedPostLikes(item.id, increment)
+          : metric === "comments"
+            ? await addSeedPostComments(item.id, increment)
+            : await addSeedPostViews(item.id, increment)
+        : metric === "likes"
+          ? await addSeedConfessionLikes(item.id, increment)
+          : metric === "comments"
+            ? await addSeedConfessionComments(item.id, increment)
+            : await addSeedConfessionViews(item.id, increment);
+      setEngagementItems((current) => current.map((entry) =>
+        entry.id !== item.id || entry.kind !== item.kind
+          ? entry
+          : {
+              ...entry,
+              ...(metric === "likes" ? { likesCount: next } : {}),
+              ...(metric === "comments" ? { commentsCount: next } : {}),
+              ...(metric === "views" ? { viewsCount: next } : {}),
+            }
+      ));
+      toast(`Added ${increment} seed ${metric} to @${item.username}'s ${item.kind}.`, "success");
+    } catch (error) {
+      toast(describeError(error, `Could not add seed ${metric}.`), "danger");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const filteredProfiles = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -361,7 +456,7 @@ export function AdminDashboard() {
         action={<Badge tone="brand"><ShieldCheck size={12} aria-hidden />Admin only</Badge>}
       />
 
-      <div role="tablist" aria-label="Synthetic content tools" className="mb-5 grid grid-cols-3 gap-2 rounded-2xl border-2 border-line bg-page p-1.5">
+      <div role="tablist" aria-label="Synthetic content tools" className="mb-5 grid grid-cols-2 gap-2 rounded-2xl border-2 border-line bg-page p-1.5 sm:grid-cols-4">
         {TABS.map((item) => (
           <button
             key={item.id}
@@ -437,6 +532,24 @@ export function AdminDashboard() {
                         </div>
                         <Button size="sm" variant="outline" leftIcon={<UserRoundPen size={13} aria-hidden />} onClick={() => setEditing({ ...profile })}>Edit Profile</Button>
                         <Button size="sm" variant="danger" disabled={busy} aria-label={`Delete @${profile.username}`} onClick={() => void removeProfile(profile)}><Trash2 size={14} aria-hidden /></Button>
+                        <div className="flex w-full flex-wrap items-center gap-2 border-t border-line pt-2">
+                          <span className="mr-auto text-[10px] font-bold text-ink-muted">
+                            Seed followers: {profile.seedFollowersCount ?? 0}
+                          </span>
+                          <label className="sr-only" htmlFor={`followers-${profile.id}`}>Follower increment for @{profile.username}</label>
+                          <input
+                            id={`followers-${profile.id}`}
+                            type="number"
+                            min={1}
+                            max={100000}
+                            value={followerIncrement}
+                            onChange={(event) => setFollowerIncrement(event.target.value)}
+                            className="h-9 w-20 rounded-lg border-2 border-line bg-card px-2 text-xs font-bold text-ink outline-none focus:border-brand"
+                          />
+                          <Button size="sm" variant="outline" disabled={busy} leftIcon={<Users size={13} aria-hidden />} onClick={() => void boostProfileFollowers(profile)}>
+                            Add followers
+                          </Button>
+                        </div>
                       </CardBody>
                     </Card>
                   );
@@ -569,6 +682,62 @@ export function AdminDashboard() {
               <Button variant="danger" className="mt-5" leftIcon={<Trash2 size={15} aria-hidden />} onClick={() => setPurgeOpen(true)}>Purge all seed data</Button>
             </CardBody>
           </Card>
+        </section>
+      )}
+
+      {tab === "engagement" && (
+        <section id="seed-panel-engagement" role="tabpanel" aria-labelledby="seed-tab-engagement" className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="mr-auto">
+              <h2 className="text-sm font-extrabold text-ink">Seed engagement manager</h2>
+              <p className="mt-1 text-[11px] font-semibold text-ink-muted">Add aggregate likes, comments, and views to seeded posts and confessions.</p>
+            </div>
+            <label htmlFor="seed-engagement-increment" className="sr-only">Custom engagement increment</label>
+            <input
+              id="seed-engagement-increment"
+              type="number"
+              min={1}
+              max={100000}
+              value={engagementIncrement}
+              onChange={(event) => setEngagementIncrement(event.target.value)}
+              className="h-10 w-24 rounded-xl border-2 border-line bg-card px-2 text-xs font-bold text-ink outline-none focus:border-brand"
+            />
+          </div>
+          {engagementLoading ? (
+            <div className="flex justify-center py-10"><Loader2 size={22} className="animate-spin text-brand" aria-label="Loading seeded posts and confessions" /></div>
+          ) : engagementItems.length === 0 ? (
+            <div className="rounded-2xl border-2 border-dashed border-line px-5 py-10 text-center text-xs font-semibold text-ink-muted">No seeded posts or confessions to manage.</div>
+          ) : engagementItems.map((item) => (
+            <Card key={`${item.kind}-${item.id}`}>
+              <CardBody className="space-y-3 py-3">
+                <div className="flex items-start gap-3">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-wash text-brand-deep">
+                    {item.kind === "confession" ? <Eye size={16} aria-hidden /> : <FileImage size={16} aria-hidden />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2 text-[10px] font-extrabold text-ink">
+                      <span>@{item.username}</span>
+                      <Badge tone={item.kind === "confession" ? "warning" : "neutral"}>{item.kind}</Badge>
+                      <span className="font-semibold text-ink-muted">{new Date(item.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-xs font-semibold text-ink-soft">{item.content || "Media-only post"}</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-ink-muted">
+                  <span className="inline-flex items-center gap-1"><Heart size={12} aria-hidden /> {item.likesCount}</span>
+                  <span className="inline-flex items-center gap-1"><MessageCircle size={12} aria-hidden /> {item.commentsCount}</span>
+                  <span className="inline-flex items-center gap-1"><Eye size={12} aria-hidden /> {item.viewsCount}</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => void boostEngagement(item, "likes", 10)}>+10 Seed Likes</Button>
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => void boostEngagement(item, "likes", 50)}>+50 Seed Likes</Button>
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => void boostEngagement(item, "views", 100)}>+100 Seed Views</Button>
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => void boostEngagement(item, "comments", 1)}>+1 Seed Comment</Button>
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => void boostEngagement(item, "likes", Number(engagementIncrement))}>Add custom likes</Button>
+                </div>
+              </CardBody>
+            </Card>
+          ))}
         </section>
       )}
 

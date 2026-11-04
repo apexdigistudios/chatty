@@ -8,6 +8,31 @@ interface RawSeedProfile {
   avatar_url: string | null;
   school_id: string;
   created_at: string;
+  seed_followers_count?: number;
+}
+
+export interface SeedEngagementItem {
+  id: string;
+  kind: "post" | "confession";
+  seedProfileId: string;
+  username: string;
+  content: string;
+  createdAt: string;
+  likesCount: number;
+  commentsCount: number;
+  viewsCount: number;
+}
+
+interface RawSeedEngagementItem {
+  item_id: string;
+  item_kind: "post" | "confession";
+  seed_profile_id: string;
+  username: string;
+  content: string;
+  created_at: string;
+  seed_likes_count: number;
+  seed_comments_count: number;
+  seed_views_count: number;
 }
 
 export interface SeedMedia {
@@ -24,6 +49,7 @@ function mapSeedProfile(row: RawSeedProfile): AdminSeedProfile {
     avatarUrl: row.avatar_url,
     schoolId: row.school_id,
     createdAt: row.created_at,
+    seedFollowersCount: row.seed_followers_count ?? 0,
   };
 }
 
@@ -31,6 +57,22 @@ export async function fetchSeedProfiles(): Promise<AdminSeedProfile[]> {
   const { data, error } = await supabase.rpc("admin_list_seed_profiles");
   if (error) throw new Error(error.message);
   return ((data ?? []) as RawSeedProfile[]).map(mapSeedProfile);
+}
+
+export async function fetchSeedEngagementItems(): Promise<SeedEngagementItem[]> {
+  const { data, error } = await supabase.rpc("admin_list_seed_engagement");
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as RawSeedEngagementItem[]).map((row) => ({
+    id: row.item_id,
+    kind: row.item_kind,
+    seedProfileId: row.seed_profile_id,
+    username: row.username,
+    content: row.content,
+    createdAt: row.created_at,
+    likesCount: row.seed_likes_count,
+    commentsCount: row.seed_comments_count,
+    viewsCount: row.seed_views_count,
+  }));
 }
 
 export async function createSeedProfiles(profiles: Array<{

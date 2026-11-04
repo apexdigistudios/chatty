@@ -5,10 +5,13 @@ import {
   Bookmark,
   BookmarkCheck,
   Clock3,
+  Eye,
   Heart,
   MessageCircle,
   MoreHorizontal,
+  Plus,
   Share2,
+  ShieldCheck,
   ShieldAlert,
   Users,
   ZoomIn,
@@ -20,6 +23,7 @@ import { cachePublicMedia } from "../../lib/offlineCache";
 import { describeError } from "../../lib/supabase";
 import { timeAgo } from "../../lib/time";
 import { recordPostShare } from "../../services/followsService";
+import { addSeedPostComments, addSeedPostLikes, addSeedPostViews } from "../../services/postsService";
 import { useAuthGateStore } from "../../store/authGateStore";
 import { useGistStore } from "../../store/gistStore";
 import { springs } from "../../theme/tokens";
@@ -72,7 +76,7 @@ interface GistCardProps {
 /** Public SHS gist card bound to live Supabase rows. */
 export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProps) {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isGlobalAdmin } = useAuth();
   const canModerate = useCanModerate();
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
   const toggleLike = useGistStore((state) => state.toggleLike);
@@ -88,6 +92,10 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
   const [textOverflows, setTextOverflows] = useState(false);
   const [seededLikeCount, setSeededLikeCount] = useState(post.likeCount);
   const [seededCommentCount, setSeededCommentCount] = useState(post.commentCount);
+  const [seededViewCount, setSeededViewCount] = useState(post.viewCount ?? 0);
+  const [adminToolsOpen, setAdminToolsOpen] = useState(false);
+  const [adminIncrement, setAdminIncrement] = useState("10");
+  const [adminBusy, setAdminBusy] = useState(false);
   const articleRef = useRef<HTMLElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
 
@@ -219,6 +227,32 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
     useGistStore.getState().patchPost(post.id, updatedCounts);
   };
 
+  const boostFromCard = async (metric: "likes" | "comments" | "views", increment: number) => {
+    if (!Number.isSafeInteger(increment) || increment < 1 || increment > 100000) {
+      toast("Enter a whole number between 1 and 100000.", "danger");
+      return;
+    }
+    setAdminBusy(true);
+    try {
+      const count = metric === "likes"
+        ? await addSeedPostLikes(post.id, increment)
+        : metric === "comments"
+          ? await addSeedPostComments(post.id, increment)
+          : await addSeedPostViews(post.id, increment);
+      if (metric === "likes") handleSeeded({ likesCount: Math.max(post.likeCount, count) });
+      if (metric === "comments") handleSeeded({ commentsCount: Math.max(post.commentCount, count) });
+      if (metric === "views") {
+        setSeededViewCount(count);
+        useGistStore.getState().patchPost(post.id, { viewCount: count });
+      }
+      toast(`Added ${increment} seed ${metric}.`, "success");
+    } catch (error) {
+      toast(describeError(error, `Could not add seed ${metric}.`), "danger");
+    } finally {
+      setAdminBusy(false);
+    }
+  };
+
   return (
     <article
       ref={articleRef}
@@ -288,16 +322,50 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
             </span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setMenuOpen((open) => !open)}
-          aria-label="More gist actions"
-          aria-expanded={menuOpen}
-          className="-mr-1 -mt-1 flex size-11 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-page hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
-        >
-          <MoreHorizontal size={18} strokeWidth={2.5} aria-hidden />
-        </button>
+        <div className="-mr-1 -mt-1 flex shrink-0 items-center gap-1">
+          {isGlobalAdmin && post.isSeed && (
+            <button
+              type="button"
+              onClick={() => setAdminToolsOpen((open) => !open)}
+              aria-label="Admin tools for seeded gist"
+              aria-expanded={adminToolsOpen}
+              className="flex min-h-11 items-center gap-1 rounded-full bg-brand-wash px-2.5 text-[10px] font-black text-brand-deep hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+            >
+              <ShieldCheck size={15} aria-hidden />
+              <span className="hidden sm:inline">Admin Tools</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label="More gist actions"
+            aria-expanded={menuOpen}
+            className="flex size-11 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-page hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          >
+            <MoreHorizontal size={18} strokeWidth={2.5} aria-hidden />
+          </button>
+        </div>
       </div>
+
+      {isGlobalAdmin && post.isSeed && adminToolsOpen && (
+        <div className="absolute right-3 top-14 z-50 w-[min(19rem,calc(100%-1.5rem))] rounded-2xl border-2 border-brand-soft bg-card p-3 shadow-2xl">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="flex items-center gap-1.5 text-xs font-black text-ink"><ShieldCheck size={14} className="text-brand-deep" aria-hidden /> Admin Tools</p>
+            <button type="button" onClick={() => setAdminToolsOpen(false)} aria-label="Close admin tools" className="flex size-8 items-center justify-center rounded-lg text-ink-muted hover:bg-page"><MoreHorizontal size={15} aria-hidden /></button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" disabled={adminBusy} onClick={() => void boostFromCard("likes", 10)} className="flex min-h-10 items-center justify-center gap-1 rounded-xl border border-line px-2 text-[10px] font-extrabold text-ink hover:border-brand disabled:opacity-50"><Heart size={12} aria-hidden /> +10 likes</button>
+            <button type="button" disabled={adminBusy} onClick={() => void boostFromCard("likes", 50)} className="flex min-h-10 items-center justify-center gap-1 rounded-xl border border-line px-2 text-[10px] font-extrabold text-ink hover:border-brand disabled:opacity-50"><Heart size={12} aria-hidden /> +50 likes</button>
+            <button type="button" disabled={adminBusy} onClick={() => void boostFromCard("views", 100)} className="flex min-h-10 items-center justify-center gap-1 rounded-xl border border-line px-2 text-[10px] font-extrabold text-ink hover:border-brand disabled:opacity-50"><Eye size={12} aria-hidden /> +100 views</button>
+            <button type="button" disabled={adminBusy} onClick={() => void boostFromCard("comments", 1)} className="flex min-h-10 items-center justify-center gap-1 rounded-xl border border-line px-2 text-[10px] font-extrabold text-ink hover:border-brand disabled:opacity-50"><MessageCircle size={12} aria-hidden /> +1 comment</button>
+          </div>
+          <div className="mt-2 flex gap-2">
+            <input type="number" min={1} max={100000} value={adminIncrement} onChange={(event) => setAdminIncrement(event.target.value)} aria-label="Custom seed likes increment" className="h-10 min-w-0 flex-1 rounded-xl border border-line bg-page px-2 text-xs font-bold text-ink outline-none focus:border-brand" />
+            <button type="button" disabled={adminBusy} onClick={() => void boostFromCard("likes", Number(adminIncrement))} className="flex min-h-10 items-center gap-1 rounded-xl bg-brand px-3 text-[10px] font-black text-white disabled:opacity-50"><Plus size={13} aria-hidden /> Add likes</button>
+          </div>
+          <p className="mt-2 flex items-center gap-1 text-[9px] font-semibold text-ink-muted"><Eye size={11} aria-hidden /> Seed views: {seededViewCount}</p>
+        </div>
+      )}
 
       <div>
         <div className="relative">

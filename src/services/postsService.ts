@@ -14,6 +14,7 @@ import { uploadPostMedia } from "./storageService";
 
 const AUTHOR_SELECT = "author:profiles(id, username, avatar_url, school_id)";
 const AUTHOR_IDENTITY_SELECT = "author:profiles(id, username, full_name, avatar_url, school_id)";
+const VIDEO_DURATION_SELECT = "video_duration_seconds";
 
 const BASE_POST_SELECT = `id, user_id, school_id, content, media_url, post_type, status, created_at,
   ${AUTHOR_SELECT},
@@ -46,6 +47,24 @@ function supportsPostAuthorIdentity(): Promise<boolean> {
   }
   return postAuthorIdentitySupportPromise;
 }
+
+function supportsColumn(table: "posts" | "post_media", column: string): Promise<boolean> {
+  const key = `${table}.${column}`;
+  const checks = columnSupportPromises;
+  let check = checks.get(key);
+  if (!check) {
+    check = (async () => {
+      const { error } = await supabase.from(table).select(column).limit(1);
+      if (error && (error.code === "42703" || error.code === "PGRST204")) return false;
+      if (error) throw new Error(error.message);
+      return true;
+    })();
+    checks.set(key, check);
+  }
+  return check;
+}
+
+const columnSupportPromises = new Map<string, Promise<boolean>>();
 
 /**
  * Step 9 adds `posts.group_id` + `school_groups`. Until migration-step9.sql is
@@ -85,22 +104,6 @@ function supportsSeedProfiles(): Promise<boolean> {
     })();
   }
   return seedProfilesSupportPromise;
-}
-
-let videoSupportPromise: Promise<boolean> | null = null;
-function supportsVideoMetadata(): Promise<boolean> {
-  if (!videoSupportPromise) {
-    videoSupportPromise = (async () => {
-      try {
-        const { error } = await supabase.from("posts").select("media_type").limit(1);
-        if (error && (error.code === "42703" || error.code === "PGRST204")) return false;
-        return true;
-      } catch {
-        return false;
-      }
-    })();
-  }
-  return videoSupportPromise;
 }
 
 let hiddenPostSupportPromise: Promise<boolean> | null = null;
@@ -159,20 +162,22 @@ function supportsSeedEngagement(): Promise<boolean> {
 }
 
 async function selectForGroups(): Promise<string> {
-  const [groups, video, hidden, shares, seededEngagement, authorIdentity] = await Promise.all([
+  const [groups, video, videoDuration, hidden, shares, seededEngagement, authorIdentity, seededViews] = await Promise.all([
     supportsSchoolGroups(),
-    supportsVideoMetadata(),
+    supportsColumn("posts", "media_type"),
+    supportsColumn("posts", "video_duration_seconds"),
     supportsPostVisibility(),
     supportsPostShares(),
     supportsSeedEngagement(),
     supportsPostAuthorIdentity(),
+    supportsColumn("posts", "seed_views_count"),
   ]);
   const seedProfiles = await supportsSeedProfiles();
   const baseSelect = groups ? GROUP_POST_SELECT : BASE_POST_SELECT;
   const select = authorIdentity
     ? baseSelect.replace(AUTHOR_SELECT, AUTHOR_IDENTITY_SELECT)
     : baseSelect;
-  return `${select}${seedProfiles ? SEED_AUTHOR_SELECT : ""}${video ? ", media_type, video_duration_seconds" : ""}${hidden ? ", is_hidden" : ""}${shares ? ", post_shares(count)" : ""}${seededEngagement ? ", seed_likes_count, seed_comments_count" : ""}`;
+  return `${select}${seedProfiles ? SEED_AUTHOR_SELECT : ""}${video ? ", media_type" : ""}${videoDuration ? `, ${VIDEO_DURATION_SELECT}` : ""}${hidden ? ", is_hidden" : ""}${shares ? ", post_shares(count)" : ""}${seededEngagement ? ", seed_likes_count, seed_comments_count" : ""}${seededViews ? ", seed_views_count" : ""}`;
 }
 
 export interface RawPost {
@@ -198,13 +203,14 @@ export interface RawPost {
   post_shares?: { count: number }[];
   seed_likes_count?: number;
   seed_comments_count?: number;
+  seed_views_count?: number;
 }
 
 interface RawPostMedia {
   post_id: string;
   media_url: string;
-  media_type: MediaType;
-  video_duration_seconds: number | null;
+  media_type?: MediaType;
+  video_duration_seconds?: number | null;
   sort_order: number;
 }
 
@@ -254,6 +260,7 @@ export function mapPost(row: RawPost, liked: boolean): Post {
     likeCount: Math.max(countOf(row.likes), row.seed_likes_count ?? 0),
     likedByMe: liked,
     commentCount: Math.max(countOf(row.comments), row.seed_comments_count ?? 0),
+    viewCount: row.seed_views_count ?? 0,
     shareCount: countOf(row.post_shares),
   };
 }
@@ -274,9 +281,20 @@ export async function hydrateLikes(rows: RawPost[]): Promise<Post[]> {
   const posts = rows.map((row) => mapPost(row, likedIds.has(row.id)));
   if (!(await supportsPostMedia())) return posts;
 
+  const [mediaTypeSupported, mediaDurationSupported] = await Promise.all([
+    supportsColumn("post_media", "media_type"),
+    supportsColumn("post_media", "video_duration_seconds"),
+  ]);
+  const mediaSelect = [
+    "post_id",
+    "media_url",
+    ...(mediaTypeSupported ? ["media_type"] : []),
+    ...(mediaDurationSupported ? ["video_duration_seconds"] : []),
+    "sort_order",
+  ].join(", ");
   const { data: mediaRows, error: mediaError } = await supabase
     .from("post_media")
-    .select("post_id, media_url, media_type, video_duration_seconds, sort_order")
+    .select(mediaSelect)
     .in("post_id", rows.map((row) => row.id))
     .order("sort_order", { ascending: true })
     .returns<RawPostMedia[]>();
@@ -293,10 +311,10 @@ export async function hydrateLikes(rows: RawPost[]): Promise<Post[]> {
     return {
       ...post,
       mediaUrls: items.map((item) => item.media_url),
-      mediaTypes: items.map((item) => item.media_type),
-      videoDurations: items.map((item) => item.video_duration_seconds),
-      mediaType: items[0]!.media_type,
-      videoDurationSeconds: items[0]!.video_duration_seconds,
+      mediaTypes: items.map((item) => item.media_type ?? (/\.(mp4|webm|mov|m4v|ogv)(?:$|[?#])/i.test(item.media_url) ? "video" : "image")),
+      videoDurations: items.map((item) => item.video_duration_seconds ?? null),
+      mediaType: items[0]!.media_type ?? (/\.(mp4|webm|mov|m4v|ogv)(?:$|[?#])/i.test(items[0]!.media_url) ? "video" : "image"),
+      videoDurationSeconds: items[0]!.video_duration_seconds ?? null,
     };
   });
 }
@@ -767,7 +785,11 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
   }
   const media = await Promise.all(files.map((file) => uploadPostMedia(file)));
   const firstMedia = media[0] ?? null;
-  const [supportsGroups, supportsVideo] = await Promise.all([supportsSchoolGroups(), supportsVideoMetadata()]);
+  const [supportsGroups, supportsVideo, supportsVideoDuration] = await Promise.all([
+    supportsSchoolGroups(),
+    supportsColumn("posts", "media_type"),
+    supportsColumn("posts", "video_duration_seconds"),
+  ]);
 
   const payload: Record<string, unknown> = {
     user_id: userId,
@@ -780,8 +802,11 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
   };
   if (firstMedia && supportsVideo) {
     payload.media_type = firstMedia.mediaType;
-    if (firstMedia.mediaType === "video") {
-      payload.video_duration_seconds = input.videoDurations?.[0] ?? null;
+    if (firstMedia.mediaType === "video" && supportsVideoDuration) {
+      const duration = input.videoDurations?.[0];
+      payload.video_duration_seconds = duration != null && Number.isFinite(duration)
+        ? Math.max(0, Math.round(duration))
+        : null;
     }
   }
 
@@ -789,12 +814,24 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
   const { data, error } = await supabase.from("posts").insert(payload).select(select).single<RawPost>();
   if (error) throw new Error(error.message);
   if (media.length > 0 && (await supportsPostMedia())) {
+    const [postMediaType, postMediaDuration] = await Promise.all([
+      supportsColumn("post_media", "media_type"),
+      supportsColumn("post_media", "video_duration_seconds"),
+    ]);
     const { error: mediaError } = await supabase.from("post_media").insert(
       media.map((item, index) => ({
         post_id: data.id,
         media_url: item.url,
-        media_type: item.mediaType,
-        video_duration_seconds: item.mediaType === "video" ? input.videoDurations?.[index] ?? null : null,
+        ...(postMediaType ? { media_type: item.mediaType } : {}),
+        ...(postMediaDuration
+          ? {
+              video_duration_seconds: item.mediaType === "video"
+                ? (input.videoDurations?.[index] != null && Number.isFinite(input.videoDurations[index])
+                  ? Math.max(0, Math.round(input.videoDurations[index]!))
+                  : null)
+                : null,
+            }
+          : {}),
         sort_order: index,
       }))
     );
@@ -936,6 +973,35 @@ export async function seedPostEngagement(
   });
   if (error) throw new Error(error.message);
 }
+
+async function addSeedCounter(
+  rpc: string,
+  parameter: "p_post_id" | "p_confession_id" | "p_seed_profile_id",
+  id: string,
+  count: number
+): Promise<number> {
+  if (!Number.isSafeInteger(count) || count < 1 || count > 100000) {
+    throw new Error("Enter a whole number between 1 and 100000.");
+  }
+  const { data, error } = await supabase.rpc(rpc, { [parameter]: id, p_count: count });
+  if (error) throw new Error(error.message);
+  return Number(data);
+}
+
+export const addSeedPostLikes = (postId: string, count: number) =>
+  addSeedCounter("admin_add_seed_likes", "p_post_id", postId, count);
+export const addSeedPostComments = (postId: string, count: number) =>
+  addSeedCounter("admin_add_seed_comments", "p_post_id", postId, count);
+export const addSeedPostViews = (postId: string, count: number) =>
+  addSeedCounter("admin_increment_views", "p_post_id", postId, count);
+export const addSeedConfessionLikes = (id: string, count: number) =>
+  addSeedCounter("admin_add_seed_confession_likes", "p_confession_id", id, count);
+export const addSeedConfessionComments = (id: string, count: number) =>
+  addSeedCounter("admin_add_seed_confession_comments", "p_confession_id", id, count);
+export const addSeedConfessionViews = (id: string, count: number) =>
+  addSeedCounter("admin_increment_confession_views", "p_confession_id", id, count);
+export const addSeedProfileFollowers = (id: string, count: number) =>
+  addSeedCounter("admin_add_seed_followers", "p_seed_profile_id", id, count);
 
 export async function addComment(postId: string, content: string): Promise<Comment> {
   const userId = await requireUserId();

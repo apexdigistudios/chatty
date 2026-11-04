@@ -123,6 +123,7 @@ export interface Post {
   likeCount: number;
   likedByMe: boolean;
   commentCount: number;
+  viewCount?: number;
   shareCount?: number;
 }
 
@@ -164,6 +165,7 @@ export interface AdminSeedProfile {
   avatarUrl: string | null;
   schoolId: string;
   createdAt: string;
+  seedFollowersCount?: number;
 }
 
 /* ───────────── Digital Shoutout Postal System ───────────── */
