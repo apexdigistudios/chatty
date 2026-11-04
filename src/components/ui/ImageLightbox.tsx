@@ -194,7 +194,7 @@ export function ImageLightbox({ images, index, onClose }: ImageLightboxProps) {
 
           {(image.caption || image.alt) && (
             <div
-              className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-4 pt-12 text-center sm:px-8"
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-linear-to-t from-black/90 via-black/55 to-transparent px-4 pt-12 text-center sm:px-8"
               style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
             >
               {image.caption && <p className="mx-auto max-w-2xl text-sm font-extrabold leading-snug text-white sm:text-base">{image.caption}</p>}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowUpRight, Hash, Loader2, MapPin, Search, Users, X } from "lucide-react";
 import { PageHeading } from "../components/layout/PageHeading";
 import { Avatar } from "../components/ui/Avatar";
@@ -22,11 +22,13 @@ const filters: ExploreFilter[] = ["All", "Gists", "People", "Schools"];
 /** Explore — server-side search across posts and profiles, client filter over schools. */
 export function ExplorePage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tag = (searchParams.get("tag") ?? "").replace(/^#/, "").trim().toLowerCase();
   const schools = useGistStore((state) => state.schools);
   const loadSchools = useGistStore((state) => state.loadSchools);
   const setFeedSchool = useGistStore((state) => state.setFeedSchool);
 
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(() => tag ? `#${tag}` : "");
   const [debounced, setDebounced] = useState("");
   const [filter, setFilter] = useState<ExploreFilter>("All");
   const [gists, setGists] = useState<Post[]>([]);
@@ -40,6 +42,10 @@ export function ExplorePage() {
   }, [schools.length, loadSchools]);
 
   useEffect(() => {
+    if (tag) setQuery(`#${tag}`);
+  }, [tag]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => setDebounced(query.trim()), 300);
     return () => window.clearTimeout(timer);
   }, [query]);
@@ -49,8 +55,10 @@ export function ExplorePage() {
     setLoading(true);
     setError(null);
     Promise.all([
-      debounced ? fetchFeed({ search: debounced, limit: 20 }) : fetchPopularGists(),
-      debounced ? searchProfiles(debounced) : fetchPopularProfiles(),
+      tag
+        ? fetchFeed({ tag, limit: 30 })
+        : debounced ? fetchFeed({ search: debounced, limit: 20 }) : fetchPopularGists(),
+      debounced && !tag ? searchProfiles(debounced) : fetchPopularProfiles(),
     ])
       .then(([nextGists, nextPeople]) => {
         if (!active) return;
@@ -62,7 +70,7 @@ export function ExplorePage() {
     return () => {
       active = false;
     };
-  }, [debounced]);
+  }, [debounced, tag]);
 
   const schoolHits = useMemo(() => {
     const q = debounced.toLowerCase();
@@ -81,13 +89,16 @@ export function ExplorePage() {
 
   return (
     <div className="mx-auto w-full max-w-[860px] min-w-0 px-4 pt-5 sm:px-6 sm:pt-7">
-      <PageHeading eyebrow="Find your people" title="Explore" description="Search live gists, students and SHS communities across Ghana." />
+      <PageHeading eyebrow="Find your people" title={tag ? `#${tag}` : "Explore"} description={tag ? `Gists tagged #${tag}.` : "Search live gists, students and SHS communities across Ghana."} />
 
       <label className="flex h-12 items-center gap-3 rounded-2xl border-2 border-line bg-card px-3.5 transition-colors focus-within:border-brand focus-within:ring-4 focus-within:ring-brand-soft">
         <Search size={19} strokeWidth={2.5} className="shrink-0 text-ink-muted" aria-hidden />
-        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Try NSMQ, interco, PRESEC or a nickname" aria-label="Search" className="min-w-0 flex-1 bg-transparent text-sm font-bold text-ink outline-none placeholder:font-semibold placeholder:text-ink-faint" />
+        <input type="search" value={query} onChange={(event) => {
+          setQuery(event.target.value);
+          if (tag) setSearchParams({});
+        }} placeholder="Try NSMQ, #interco, PRESEC or a nickname" aria-label="Search" className="min-w-0 flex-1 bg-transparent text-sm font-bold text-ink outline-none placeholder:font-semibold placeholder:text-ink-faint" />
         {loading ? <Loader2 size={16} className="animate-spin text-ink-muted" aria-hidden /> : query && (
-          <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-muted hover:bg-page hover:text-ink"><X size={15} strokeWidth={2.6} aria-hidden /></button>
+          <button type="button" onClick={() => { setQuery(""); if (tag) setSearchParams({}); }} aria-label="Clear search" className="flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-muted hover:bg-page hover:text-ink"><X size={15} strokeWidth={2.6} aria-hidden /></button>
         )}
       </label>
 
@@ -111,7 +122,7 @@ export function ExplorePage() {
           {showGists && gists.length > 0 && (
             <section aria-labelledby="gists-heading">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 id="gists-heading" className="text-sm font-extrabold text-ink sm:text-base">{debounced ? "Gists matching your search" : "Popular gists (100+ likes)"}</h2>
+                <h2 id="gists-heading" className="text-sm font-extrabold text-ink sm:text-base">{tag ? `Gists tagged #${tag}` : debounced ? "Gists matching your search" : "Popular gists (100+ likes)"}</h2>
                 <Badge tone="brand">{gists.length}</Badge>
               </div>
               <div className="divide-y-2 divide-line overflow-hidden rounded-2xl border-2 border-line bg-card">

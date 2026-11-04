@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Compass, EyeOff, GraduationCap, Home, LogOut, Mailbox, PlusCircle, ShieldAlert, ShieldCheck, Sparkles, User, type LucideIcon } from "lucide-react";
+import { EyeOff, GraduationCap, Home, LogOut, Mailbox, PlusCircle, Search, ShieldAlert, ShieldCheck, Sparkles, User, Zap, type LucideIcon } from "lucide-react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useAuthGateStore } from "../../store/authGateStore";
@@ -22,7 +22,8 @@ interface SidebarItem {
 
 const primary: SidebarItem[] = [
   { label: "Home", to: "/", icon: Home, end: true },
-  { label: "Explore", to: "/explore", icon: Compass },
+  { label: "Spotlight", to: "/spotlight", icon: Zap },
+  { label: "Search", to: "/explore", icon: Search },
   { label: "Create a Gist", to: "/create", icon: PlusCircle, featured: true },
   { label: "Schools", to: "/schools", icon: GraduationCap },
   { label: "Confessions", to: "/confessions", icon: EyeOff, badge: "Secret" },

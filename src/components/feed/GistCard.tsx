@@ -39,6 +39,31 @@ import { ReportModal } from "./ReportModal";
 import { ProfileHoverCard } from "../profile/ProfileHoverCard";
 import { AnimatedReaction } from "../common/AnimatedReaction";
 
+function renderHashtags(content: string) {
+  const parts: Array<{ value: string; tag: string | null }> = [];
+  let cursor = 0;
+  for (const match of content.matchAll(/#([A-Za-z0-9_]{1,50})/g)) {
+    const index = match.index ?? 0;
+    if (index > cursor) parts.push({ value: content.slice(cursor, index), tag: null });
+    parts.push({ value: match[0], tag: match[1]!.toLowerCase() });
+    cursor = index + match[0].length;
+  }
+  if (cursor < content.length) parts.push({ value: content.slice(cursor), tag: null });
+  return parts.map((part, index) =>
+    part.tag ? (
+      <Link
+        key={`${part.tag}-${index}`}
+        to={`/explore?tag=${encodeURIComponent(part.tag)}`}
+        className="cursor-pointer font-bold text-brand-deep hover:underline"
+      >
+        {part.value}
+      </Link>
+    ) : (
+      <span key={index}>{part.value}</span>
+    )
+  );
+}
+
 interface GistCardProps {
   post: Post;
   /** Called after a post is removed (author delete or moderator removal). */
@@ -288,7 +313,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
               !textExpanded && "line-clamp-2 pr-20"
             )}
           >
-            {post.content}
+            {renderHashtags(post.content)}
           </p>
           {textOverflows && !textExpanded && (
             <button

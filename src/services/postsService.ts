@@ -287,6 +287,7 @@ export interface FeedQuery {
   /** Include flagged/removed rows (RLS still decides visibility). */
   includeModerated?: boolean;
   search?: string;
+  tag?: string;
   /** Excludes active promoted posts but does not place them in the result. */
   includeSpotlight?: boolean;
   limit?: number;
@@ -311,10 +312,11 @@ async function fetchFeedOnline(query: FeedQuery): Promise<Post[]> {
   ]);
   const blocked = new Set(blockedUserIds);
   const select = await selectForGroups();
+  const tag = query.tag?.trim().replace(/^#/, "").toLowerCase();
 
   let promotedPosts: Post[] = [];
   let promotedPostIds: string[] = [];
-  if (!query.authorId && !query.authorIds && !query.groupId && spotlightPromotionsTableAvailable !== false) {
+  if (!query.authorId && !query.authorIds && !query.groupId && !query.tag && spotlightPromotionsTableAvailable !== false) {
     let viewerSchoolId = query.schoolId ?? null;
     if (!viewerSchoolId && userId) {
       const { data: viewer, error: viewerError } = await supabase
@@ -372,7 +374,8 @@ async function fetchFeedOnline(query: FeedQuery): Promise<Post[]> {
         }
         const eligibleRows = (rows ?? []).filter((row) =>
           !blocked.has(row.user_id) &&
-          (!query.search?.trim() || row.content.toLowerCase().includes(query.search.trim().toLowerCase()))
+          (!query.search?.trim() || row.content.toLowerCase().includes(query.search.trim().toLowerCase())) &&
+          (!query.tag || extractHashtags(row.content).includes(query.tag.trim().replace(/^#/, "").toLowerCase()))
         );
         const mappedPromoted = await hydrateLikes(eligibleRows);
         const activePromotedPosts = mappedPromoted
@@ -422,6 +425,11 @@ async function fetchFeedOnline(query: FeedQuery): Promise<Post[]> {
   }
   if (query.authorIds) request = request.in("user_id", query.authorIds);
   if (query.search?.trim()) request = request.ilike("content", `%${query.search.trim()}%`);
+  if (tag) {
+    const hashtagsSupported = await supportsPostHashtags();
+    if (hashtagsSupported) request = request.contains("hashtags", [tag]);
+    else request = request.ilike("content", `%#${tag}%`);
+  }
   if (blockedUserIds.length > 0) {
     request = request.not(
       "user_id",
@@ -439,8 +447,26 @@ async function fetchFeedOnline(query: FeedQuery): Promise<Post[]> {
 
   const { data, error } = await request.returns<RawPost[]>();
   if (error) throw new Error(error.message);
-  const organicPosts = await hydrateLikes(data ?? []);
+  let organicPosts = await hydrateLikes(data ?? []);
+  if (tag) organicPosts = organicPosts.filter((post) => extractHashtags(post.content).includes(tag));
   return sortPostsNewestFirst([...promotedPosts, ...organicPosts]);
+}
+
+let postHashtagsSupportPromise: Promise<boolean> | null = null;
+function supportsPostHashtags(): Promise<boolean> {
+  if (!postHashtagsSupportPromise) {
+    postHashtagsSupportPromise = (async () => {
+      const { error } = await supabase.from("posts").select("hashtags").limit(1);
+      if (error && (error.code === "42703" || error.code === "PGRST204")) return false;
+      if (error) throw new Error(error.message);
+      return true;
+    })();
+  }
+  return postHashtagsSupportPromise;
+}
+
+function extractHashtags(content: string): string[] {
+  return [...content.matchAll(/#([A-Za-z0-9_]{1,50})/g)].map((match) => match[1]!.toLowerCase());
 }
 
 function feedCacheKey(query: FeedQuery, userId: string | null): string {
@@ -451,6 +477,7 @@ function feedCacheKey(query: FeedQuery, userId: string | null): string {
     authorIds: query.authorIds ? [...query.authorIds].sort() : undefined,
     includeModerated: query.includeModerated ?? false,
     search: query.search?.trim() ?? "",
+    tag: query.tag?.trim().replace(/^#/, "").toLowerCase() ?? "",
     includeSpotlight: query.includeSpotlight ?? true,
     limit: query.limit ?? 10,
     offset: query.offset ?? 0,
@@ -483,6 +510,7 @@ export async function fetchFeed(query: FeedQuery = {}): Promise<Post[]> {
         (!query.authorId || post.authorId === query.authorId) &&
         (!query.authorIds || query.authorIds.includes(post.authorId)) &&
         (!query.search?.trim() || post.content.toLowerCase().includes(query.search.trim().toLowerCase())) &&
+        (!query.tag || extractHashtags(post.content).includes(query.tag.trim().replace(/^#/, "").toLowerCase())) &&
         (query.includeModerated || post.status === "active")
       );
       return sortPostsNewestFirst(refreshCachedSpotlights(filtered)).slice(query.offset ?? 0, (query.offset ?? 0) + (query.limit ?? 10));
@@ -505,6 +533,7 @@ export async function fetchFeed(query: FeedQuery = {}): Promise<Post[]> {
       !query.authorId &&
       !query.authorIds &&
       !query.search
+      && !query.tag
     ) {
       try {
         await writeLatestOfflineFeed(userId, posts);
@@ -525,6 +554,7 @@ export async function fetchFeed(query: FeedQuery = {}): Promise<Post[]> {
         (!query.authorId || post.authorId === query.authorId) &&
         (!query.authorIds || query.authorIds.includes(post.authorId)) &&
         (!query.search?.trim() || post.content.toLowerCase().includes(query.search.trim().toLowerCase())) &&
+        (!query.tag || extractHashtags(post.content).includes(query.tag.trim().replace(/^#/, "").toLowerCase())) &&
         (query.includeModerated || post.status === "active")
       );
       return sortPostsNewestFirst(refreshCachedSpotlights(filtered)).slice(
