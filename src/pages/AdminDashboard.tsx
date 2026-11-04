@@ -21,7 +21,7 @@ import { Card, CardBody } from "../components/ui/Card";
 import { PageHeading } from "../components/layout/PageHeading";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../context/AuthContext";
-import { isAuthorizedAdminEmail } from "../lib/adminAccess";
+import { isUserGlobalAdmin } from "../lib/adminAccess";
 import { describeError, supabase } from "../lib/supabase";
 import {
   clearAllSeedData,
@@ -94,7 +94,7 @@ export function AdminDashboard() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user || !isAuthorizedAdminEmail(user.email)) {
+    if (!user || !isUserGlobalAdmin(user.email)) {
       navigate("/", { replace: true });
       setAccessChecking(false);
       return;

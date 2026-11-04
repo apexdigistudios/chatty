@@ -18,7 +18,7 @@ import {
   formatBytes,
 } from "../lib/imageCompression";
 import { describeError } from "../lib/supabase";
-import { isAuthorizedAdminEmail } from "../lib/adminAccess";
+import { isUserGlobalAdmin } from "../lib/adminAccess";
 import { checkUsernameAvailable, updateMyProfile, uploadMyAvatar, uploadMyCover } from "../services/profilesService";
 import { fetchFeed, fetchLikedPosts } from "../services/postsService";
 import { useGistStore } from "../store/gistStore";
@@ -599,7 +599,7 @@ export function ProfilePage() {
         </div>
       </section>
 
-      {isAuthorizedAdminEmail(user?.email) && (
+      {isUserGlobalAdmin(user?.email) && (
         <div className="mt-4">
           <Link
             to="/vvip"

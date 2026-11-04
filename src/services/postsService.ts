@@ -7,7 +7,7 @@ import {
   writeOfflineValue,
 } from "../lib/offlineCache";
 import { countOf, currentUserId, requireUserId, supabase } from "../lib/supabase";
-import { isAuthorizedAdminEmail } from "../lib/adminAccess";
+import { isUserGlobalAdmin } from "../lib/adminAccess";
 import type { Comment, MediaType, Post, PostStatus } from "../types/models";
 import { fetchBlockedUserIds } from "./blocksService";
 import { uploadPostMedia } from "./storageService";
@@ -709,7 +709,7 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
   if (!input.schoolId) {
     const { data: authData, error: authError } = await supabase.auth.getUser();
     if (authError) throw new Error("Could not verify your account. Please try again.");
-    let hasGlobalAdminAccess = isAuthorizedAdminEmail(authData.user?.email);
+    let hasGlobalAdminAccess = isUserGlobalAdmin(authData.user?.email);
     if (!hasGlobalAdminAccess) {
       const { data: isGlobalAdmin, error: adminCheckError } = await supabase.rpc("is_global_admin", {});
       if (adminCheckError) {
