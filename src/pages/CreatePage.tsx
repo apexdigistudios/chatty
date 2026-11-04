@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, EyeOff, ImagePlus, Loader2, Lock, Send, ShieldAlert, X, ZoomIn } from "lucide-react";
+import { EyeOff, ImagePlus, Loader2, Lock, Send, ShieldAlert, Smile, X, ZoomIn } from "lucide-react";
 import { Avatar } from "../components/ui/Avatar";
 import { ImageLightbox } from "../components/ui/ImageLightbox";
 import { ProgressiveImage } from "../components/ui/ProgressiveImage";
@@ -24,6 +24,7 @@ import { cn } from "../utils/cn";
 
 const MAX_IMAGES = 5;
 const MAX_VIDEOS = 3;
+const COMPOSER_EMOJIS = ["😀", "😂", "😍", "🥹", "🔥", "👏", "🎉", "💜", "👀", "🙏", "🤔", "😮"];
 
 interface Attachment {
   kind: "image" | "video";
@@ -57,6 +58,7 @@ export function CreatePage() {
   const [compressing, setCompressing] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
@@ -66,8 +68,13 @@ export function CreatePage() {
   const schoolId = profile?.schoolId ?? null;
   const school = useMemo(() => schoolId ? schools.find((item) => item.id === schoolId) ?? null : null, [schoolId, schools]);
   const remaining = MAX_POST_LENGTH - content.length;
+  const hasText = content.trim().length > 0;
+  const hasMedia = attachments.length > 0;
   const canPublish =
-    content.trim().length > 0 && Boolean(schoolId) && !publishing && !compressing;
+    (isConfession ? hasText : hasText || hasMedia) &&
+    Boolean(schoolId) &&
+    !publishing &&
+    !compressing;
 
   // Optional club context passed from /schools/:id?tab=groups → "Post to <club>".
   useEffect(() => {
@@ -128,12 +135,16 @@ export function CreatePage() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !publishing && lightboxIndex === null) {
+        if (emojiPickerOpen) {
+          setEmojiPickerOpen(false);
+          return;
+        }
         cancel();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [cancel, lightboxIndex, publishing]);
+  }, [cancel, emojiPickerOpen, lightboxIndex, publishing]);
 
   const pickFiles = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
@@ -224,9 +235,29 @@ export function CreatePage() {
     ));
   };
 
+  const insertEmoji = (emoji: string) => {
+    const textarea = textRef.current;
+    const start = textarea?.selectionStart ?? content.length;
+    const end = textarea?.selectionEnd ?? content.length;
+    const next = `${content.slice(0, start)}${emoji}${content.slice(end)}`.slice(0, MAX_POST_LENGTH);
+    setContent(next);
+    setEmojiPickerOpen(false);
+    requestAnimationFrame(() => {
+      if (!textarea) return;
+      textarea.focus();
+      const cursor = Math.min(start + emoji.length, next.length);
+      textarea.setSelectionRange(cursor, cursor);
+    });
+  };
+
   const publish = async () => {
     const text = content.trim();
-    if (!text || !schoolId || publishing) return;
+    if ((!text && (isConfession || attachments.length === 0)) || !schoolId || publishing || compressing) {
+      if (!text && (isConfession || attachments.length === 0)) {
+        toast("Please add text, an image, or a video to publish.", "danger");
+      }
+      return;
+    }
     setPublishing(true);
     try {
       if (isConfession) {
@@ -258,14 +289,13 @@ export function CreatePage() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={springs.gentle} className="flex min-h-dvh w-full flex-col bg-card text-ink">
-      <header className="sticky top-0 z-30 border-b-2 border-line bg-card/95 backdrop-blur-md" style={{ paddingTop: "max(0.65rem, env(safe-area-inset-top))" }}>
+      <header className="sticky top-0 z-30 border-b border-line bg-card/95 backdrop-blur-md" style={{ paddingTop: "max(0.65rem, env(safe-area-inset-top))" }}>
         <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-2 px-3 pb-2.5 sm:px-6">
-          <motion.button type="button" onClick={cancel} whileTap={{ scale: 0.93 }} transition={springs.snappy} aria-label="Cancel" className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-2xl border-2 border-line bg-card px-3 text-xs font-extrabold text-ink hover:border-line-deep hover:bg-page">
-            <ArrowLeft size={16} strokeWidth={2.7} aria-hidden />
-            <span>Cancel</span>
+          <motion.button type="button" onClick={cancel} whileTap={{ scale: 0.93 }} transition={springs.snappy} aria-label="Close composer" className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-page hover:text-ink">
+            <X size={20} strokeWidth={2.6} aria-hidden />
           </motion.button>
           <div className="min-w-0 flex-1 text-center">
-            <h1 className="truncate text-base font-black tracking-tight text-ink sm:text-lg">{isConfession ? "New Confession" : "Create Gist"}</h1>
+            <h1 className="truncate text-base font-black tracking-tight text-ink sm:text-lg">Create Gist</h1>
             <p className="truncate text-[10px] font-extrabold uppercase tracking-[0.14em] text-brand-deep">{isConfession ? "Anonymous · moderated" : `Public · ${school?.shortName ?? "no SHS linked"}`}</p>
           </div>
           <motion.button
@@ -275,10 +305,10 @@ export function CreatePage() {
             whileHover={canPublish ? { y: -2, boxShadow: "0px 6px 0px #5B21B6" } : undefined}
             whileTap={canPublish ? { y: 3, boxShadow: "0px 1px 0px #5B21B6" } : undefined}
             transition={springs.snappy}
-            className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-2xl bg-[#8B5CF6] px-4 text-xs font-extrabold uppercase tracking-[0.07em] text-white shadow-[0_4px_0_#5B21B6] hover:bg-[#7C3AED] disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-2xl bg-[#8B5CF6] px-4 text-xs font-extrabold uppercase tracking-[0.07em] text-white shadow-[0_4px_0_#5B21B6] hover:bg-[#7C3AED] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
           >
             {publishing ? <Loader2 size={15} strokeWidth={2.9} className="animate-spin" aria-hidden /> : <Send size={14} strokeWidth={2.7} aria-hidden />}
-            <span>{publishing ? "Sending" : "Publish"}</span>
+            <span>{publishing ? "Posting" : "Post"}</span>
           </motion.button>
         </div>
       </header>
@@ -292,27 +322,15 @@ export function CreatePage() {
               <Avatar name={profile?.username ?? "you"} src={profile?.avatarUrl} size="lg" ring online />
             )}
             <div className="min-w-0">
-              <span className="block truncate text-sm font-black text-ink sm:text-[15px]">{isConfession ? "Anonymous Student" : `@${profile?.username ?? "student"}`}</span>
-              <span className="mt-1 inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full border-2 border-line bg-page py-0.5 pl-1 pr-2.5 text-left">
+              <span className="block truncate text-sm font-black text-ink sm:text-[15px]">{isConfession ? "Anonymous Student" : profile?.fullName || `@${profile?.username ?? "student"}`}</span>
+              {!isConfession && profile?.fullName && <span className="block truncate text-[11px] font-semibold text-ink-muted">@{profile.username}</span>}
+              <span className="mt-1 inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full border border-line bg-page py-0.5 pl-1 pr-2.5 text-left">
                 <SchoolBadge schoolId={school?.id} crestUrl={school?.crestUrl} name={school?.name ?? "School"} size="xs" />
                 <span className="truncate text-[11px] font-extrabold text-ink">{school?.shortName ?? "No school linked"}</span>
               </span>
             </div>
           </div>
 
-          <button
-            type="button"
-            role="switch"
-            aria-checked={isConfession}
-            onClick={() => setComposerIntent(isConfession ? "gist" : "confession", school?.id ?? null)}
-            className={cn("inline-flex min-h-11 items-center gap-2 rounded-2xl border-2 px-3 py-2 text-xs font-extrabold transition-colors", isConfession ? "border-brand bg-brand-wash text-brand-deep" : "border-line bg-page text-ink-muted hover:border-line-deep hover:text-ink")}
-          >
-            <Lock size={14} strokeWidth={2.6} aria-hidden />
-            <span>Confession</span>
-            <span className={cn("relative inline-flex h-5 w-9 items-center rounded-full p-0.5 transition-colors", isConfession ? "bg-[#8B5CF6]" : "bg-line")} aria-hidden>
-              <motion.span layout transition={springs.snappy} className={cn("size-4 rounded-full bg-white shadow-xs", isConfession ? "ml-auto" : "ml-0")} />
-            </span>
-          </button>
         </div>
 
         {postGroup && !isConfession && (
@@ -347,7 +365,7 @@ export function CreatePage() {
             onChange={(event) => setContent(event.target.value.slice(0, MAX_POST_LENGTH))}
             maxLength={MAX_POST_LENGTH}
             rows={4}
-            placeholder={isConfession ? "Share your anonymous confession… Nobody will see your nickname or avatar." : "What's the gist on campus? NSMQ prep, inter-co banter, dining hall stories…"}
+            placeholder={isConfession ? "Share your anonymous confession… Nobody will see your nickname or avatar." : "What's the gist on campus?..."}
             aria-label="Gist content"
             className="w-full resize-none overflow-hidden bg-transparent text-[17px] font-semibold leading-relaxed text-ink outline-none placeholder:text-ink-faint sm:text-lg"
           />
@@ -399,9 +417,24 @@ export function CreatePage() {
         </div>
       </main>
 
-      <footer className="sticky bottom-0 z-20 border-t-2 border-line bg-card/95 backdrop-blur-md" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
-        <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-2 px-3 pt-2.5 sm:px-6">
-          <div className="flex items-center gap-2">
+      <footer className="sticky bottom-0 z-20 border-t border-line bg-card/95 backdrop-blur-md" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+        <div className="relative mx-auto flex w-full max-w-2xl flex-wrap items-center justify-between gap-2 px-3 pt-2.5 sm:px-6">
+          {emojiPickerOpen && (
+            <div role="group" aria-label="Choose an emoji" className="absolute bottom-full left-3 z-30 mb-2 grid grid-cols-6 gap-1 rounded-2xl border-2 border-line bg-card p-2 shadow-xl sm:left-6">
+              {COMPOSER_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => insertEmoji(emoji)}
+                  aria-label={`Insert ${emoji}`}
+                  className="flex size-11 items-center justify-center rounded-xl text-xl transition-colors hover:bg-brand-wash focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <input ref={fileRef} type="file" multiple accept="image/*,video/mp4,video/webm,video/quicktime" onChange={pickFiles} className="sr-only" aria-label="Upload up to 5 images and 3 videos" />
             <motion.button
               type="button"
@@ -409,15 +442,43 @@ export function CreatePage() {
               transition={springs.snappy}
               onClick={() => fileRef.current?.click()}
               disabled={isConfession || compressing}
-              className="inline-flex h-11 items-center gap-1.5 rounded-2xl border-2 border-line bg-page px-3 text-xs font-extrabold text-ink transition-colors hover:border-brand hover:bg-brand-wash hover:text-brand-deep disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-line bg-page px-2.5 text-xs font-extrabold text-ink transition-colors hover:border-brand hover:bg-brand-wash hover:text-brand-deep disabled:cursor-not-allowed disabled:opacity-40 sm:px-3"
             >
               {compressing ? (
                 <Loader2 size={16} strokeWidth={2.7} className="animate-spin text-brand-deep" aria-hidden />
               ) : (
                 <ImagePlus size={16} strokeWidth={2.5} className="text-brand-deep" aria-hidden />
               )}
-              <span>{compressing ? "Optimizing…" : "Attach media"}</span>
+              <span>{compressing ? "Optimizing…" : "Photo/Video"}</span>
             </motion.button>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isConfession}
+              onClick={() => {
+                setComposerIntent(isConfession ? "gist" : "confession", school?.id ?? null);
+                setEmojiPickerOpen(false);
+              }}
+              className={cn(
+                "inline-flex h-11 items-center gap-1.5 rounded-xl border px-2.5 text-[11px] font-extrabold transition-colors sm:px-3",
+                isConfession ? "border-brand bg-brand-wash text-brand-deep" : "border-line bg-page text-ink-muted hover:border-brand hover:text-brand-deep"
+              )}
+            >
+              <Lock size={14} aria-hidden />
+              <span>Confession</span>
+            </button>
+            <button
+              type="button"
+              aria-expanded={emojiPickerOpen}
+              aria-label={emojiPickerOpen ? "Close emoji picker" : "Open emoji picker"}
+              onClick={() => setEmojiPickerOpen((open) => !open)}
+              className={cn(
+                "flex size-11 items-center justify-center rounded-xl border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
+                emojiPickerOpen ? "border-brand bg-brand-wash text-brand-deep" : "border-line bg-page text-ink-muted hover:border-brand hover:text-brand-deep"
+              )}
+            >
+              <Smile size={18} aria-hidden />
+            </button>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <span className={cn("text-xs font-extrabold tabular-nums", remaining <= 25 ? "text-danger" : "text-ink-muted")} aria-live="polite">{content.length}/{MAX_POST_LENGTH}</span>

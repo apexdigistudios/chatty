@@ -54,7 +54,10 @@ create table if not exists public.posts (
   user_id     uuid not null references public.profiles (id) on delete cascade,
   school_id   uuid not null references public.schools (id) on delete cascade,
   confession_id uuid,                              -- optional link when a confession is promoted to a post
-  content     text not null check (char_length(content) between 1 and 300),
+  content     text not null check (
+    char_length(content) between 1 and 300
+    or (char_length(content) = 0 and media_url is not null)
+  ),
   media_url   text,
   post_type   text not null default 'public' check (post_type in ('public','confession')),
   status      text not null default 'active' check (status in ('active','flagged','removed')),

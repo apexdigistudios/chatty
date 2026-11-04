@@ -643,7 +643,20 @@ export interface CreatePostInput {
 export async function createPost(input: CreatePostInput): Promise<Post> {
   const userId = await requireUserId();
   const files = input.files ?? [];
-  const imageCount = files.filter((file) => !file.type.startsWith("video/")).length;
+  const content = input.content.trim();
+  if (!content && files.length === 0) {
+    throw new Error("Please add text, an image, or a video to publish.");
+  }
+  if (content.length > 300) {
+    throw new Error("Gist text must be 300 characters or fewer.");
+  }
+  const unsupportedFile = files.find((file) =>
+    !file.type.startsWith("image/") && !file.type.startsWith("video/")
+  );
+  if (unsupportedFile) {
+    throw new Error("Upload failed. Please check your file size and format.");
+  }
+  const imageCount = files.filter((file) => file.type.startsWith("image/")).length;
   const videoCount = files.length - imageCount;
   if (imageCount > 5 || videoCount > 3) {
     throw new Error("A gist can include up to 5 images and 3 videos.");
@@ -658,7 +671,7 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
   const payload: Record<string, unknown> = {
     user_id: userId,
     school_id: input.schoolId,
-    content: input.content.trim(),
+    content,
     media_url: firstMedia?.url ?? null,
     post_type: "public",
     status: "active",
