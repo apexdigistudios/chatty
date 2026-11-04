@@ -62,7 +62,16 @@ export async function fetchSeedProfiles(): Promise<AdminSeedProfile[]> {
 export async function fetchSeedEngagementItems(): Promise<SeedEngagementItem[]> {
   const { data, error } = await supabase.rpc("admin_list_seed_engagement");
   if (error) throw new Error(error.message);
-  return ((data ?? []) as RawSeedEngagementItem[]).map((row) => ({
+  return mapSeedEngagementItems(data);
+}
+
+export function mapSeedEngagementItems(data: unknown): SeedEngagementItem[] {
+  if (data === null || data === undefined) return [];
+  if (!Array.isArray(data)) throw new Error("Unexpected seed engagement response.");
+  if (!data.every(isRawSeedEngagementItem)) {
+    throw new Error("Seed engagement response contains invalid items.");
+  }
+  return data.map((row) => ({
     id: row.item_id,
     kind: row.item_kind,
     seedProfileId: row.seed_profile_id,
@@ -73,6 +82,20 @@ export async function fetchSeedEngagementItems(): Promise<SeedEngagementItem[]> 
     commentsCount: row.seed_comments_count,
     viewsCount: row.seed_views_count,
   }));
+}
+
+function isRawSeedEngagementItem(value: unknown): value is RawSeedEngagementItem {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return (row.item_kind === "post" || row.item_kind === "confession") &&
+    typeof row.item_id === "string" &&
+    typeof row.seed_profile_id === "string" &&
+    typeof row.username === "string" &&
+    typeof row.content === "string" &&
+    typeof row.created_at === "string" &&
+    typeof row.seed_likes_count === "number" &&
+    typeof row.seed_comments_count === "number" &&
+    typeof row.seed_views_count === "number";
 }
 
 export async function createSeedProfiles(profiles: Array<{

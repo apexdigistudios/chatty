@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   Users,
+  Zap,
   ZoomIn,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -241,7 +242,11 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
         : metric === "comments"
           ? await addSeedPostComments(post.id, increment)
           : await addSeedPostViews(post.id, increment);
-      if (metric === "likes") handleSeeded({ likesCount: Math.max(post.likeCount, count) });
+      if (metric === "likes") {
+        const nextLikeCount = Math.max(displayLikeCount + increment, post.likeCount, count);
+        setSeededLikeCount(nextLikeCount);
+        useGistStore.getState().patchPost(post.id, { likeCount: nextLikeCount });
+      }
       if (metric === "comments") handleSeeded({ commentsCount: Math.max(post.commentCount, count) });
       if (metric === "views") {
         setSeededViewCount(count);
@@ -460,6 +465,18 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
             post.likedByMe ? "bg-danger-wash text-danger" : "text-ink-muted hover:bg-page hover:text-danger"
           )}
         />
+        {canBoostSeeds && post.isSeed && (
+          <button
+            type="button"
+            disabled={adminBusy}
+            onClick={() => void boostFromCard("likes", 10)}
+            aria-label="Boost seed likes by 10"
+            className="flex min-h-11 items-center gap-1 rounded-xl px-2.5 text-[10px] font-extrabold text-brand-deep transition-colors hover:bg-brand-wash focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft disabled:opacity-50 sm:px-3 sm:text-xs"
+          >
+            <Zap size={14} fill="currentColor" aria-hidden />
+            <span>Boost Seed Likes (+10)</span>
+          </button>
+        )}
 
         <motion.button
           type="button"

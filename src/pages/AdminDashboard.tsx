@@ -32,8 +32,8 @@ import {
   createSeedPost,
   createSeedProfiles,
   deleteSeedProfile,
-  fetchSeedEngagementItems,
   fetchSeedProfiles,
+  mapSeedEngagementItems,
   removeSeedMedia,
   updateSeedProfile,
   type SeedEngagementItem,
@@ -168,17 +168,20 @@ export function AdminDashboard() {
   useEffect(() => {
     if (!serverAuthorized || tab !== "engagement") return;
     let active = true;
+    setEngagementItems([]);
     setEngagementLoading(true);
-    void fetchSeedEngagementItems()
-      .then((items) => {
+    void (async () => {
+      try {
+        const { data, error } = await supabase.rpc("admin_list_seed_engagement");
+        if (error) throw new Error(error.message);
+        const items = mapSeedEngagementItems(data);
         if (active) setEngagementItems(items);
-      })
-      .catch((error: unknown) => {
+      } catch (error: unknown) {
         if (active) toast(describeError(error, "Could not load seed engagement items."), "danger");
-      })
-      .finally(() => {
+      } finally {
         if (active) setEngagementLoading(false);
-      });
+      }
+    })();
     return () => {
       active = false;
     };
@@ -706,7 +709,7 @@ export function AdminDashboard() {
           {engagementLoading ? (
             <div className="flex justify-center py-10"><Loader2 size={22} className="animate-spin text-brand" aria-label="Loading seeded posts and confessions" /></div>
           ) : engagementItems.length === 0 ? (
-            <div className="rounded-2xl border-2 border-dashed border-line px-5 py-10 text-center text-xs font-semibold text-ink-muted">No seeded posts or confessions to manage.</div>
+            <div className="rounded-2xl border-2 border-dashed border-line px-5 py-10 text-center text-xs font-semibold text-ink-muted">No seed posts or confessions yet. Publish synthetic content to manage its engagement here.</div>
           ) : engagementItems.map((item) => (
             <Card key={`${item.kind}-${item.id}`}>
               <CardBody className="space-y-3 py-3">
