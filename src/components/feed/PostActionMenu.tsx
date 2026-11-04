@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bookmark,
@@ -8,6 +8,7 @@ import {
   Flag,
   Link2,
   Loader2,
+  SlidersHorizontal,
   Share2,
   ShieldCheck,
   Trash2,
@@ -19,7 +20,7 @@ import { downloadMedia } from "../../lib/download";
 import { isPostSaved, toggleSavedPost } from "../../lib/savedPosts";
 import { describeError } from "../../lib/supabase";
 import { recordPostShare } from "../../services/followsService";
-import { permanentlyDeletePost } from "../../services/postsService";
+import { permanentlyDeletePost, seedPostEngagement } from "../../services/postsService";
 import { springs } from "../../theme/tokens";
 import type { Post } from "../../types/models";
 import { cn } from "../../utils/cn";
@@ -37,6 +38,7 @@ interface PostActionMenuProps {
   onShare: () => Promise<void> | void;
   onPromote?: () => void;
   onReport?: () => void;
+  onSeeded?: (counts: { likesCount?: number; commentsCount?: number }) => void;
 }
 
 /**
@@ -44,21 +46,25 @@ interface PostActionMenuProps {
  * everyone (guests included). Delete is rendered only when `canDelete` and
  * performs a permanent Supabase delete when the author or a moderator confirms.
  */
-export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onShare, onPromote, onReport }: PostActionMenuProps) {
+export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onShare, onPromote, onReport, onSeeded }: PostActionMenuProps) {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isGlobalAdmin } = useAuth();
   const menuRef = useRef<HTMLDivElement>(null);
 
   const [saved, setSaved] = useState(() => isPostSaved(post.id));
-  const [view, setView] = useState<"main" | "confirm-delete">("main");
+  const [view, setView] = useState<"main" | "confirm-delete" | "seed-engagement">("main");
   const [busy, setBusy] = useState(false);
+  const [likesCountInput, setLikesCountInput] = useState(String(post.likeCount));
+  const [commentsCountInput, setCommentsCountInput] = useState(String(post.commentCount));
 
   useEffect(() => {
     if (open) {
       setSaved(isPostSaved(post.id));
       setView("main");
+      setLikesCountInput(String(post.likeCount));
+      setCommentsCountInput(String(post.commentCount));
     }
-  }, [open, post.id]);
+  }, [open, post.id, post.likeCount, post.commentCount]);
 
   useEffect(() => {
     if (!open) return;
@@ -122,6 +128,38 @@ export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onSh
       await permanentlyDeletePost(post.id);
       toast("Post permanently deleted.", "success");
       onDeleted?.(post.id);
+      onClose();
+    } catch (error) {
+      toast(describeError(error), "danger");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const seedEngagement = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const likesCount = likesCountInput.trim() === "" ? null : Number(likesCountInput);
+    const commentsCount = commentsCountInput.trim() === "" ? null : Number(commentsCountInput);
+    if (
+      (likesCount !== null && (!Number.isSafeInteger(likesCount) || likesCount < 0)) ||
+      (commentsCount !== null && (!Number.isSafeInteger(commentsCount) || commentsCount < 0))
+    ) {
+      toast("Enter whole numbers of zero or more.", "danger");
+      return;
+    }
+    if (likesCount === null && commentsCount === null) {
+      toast("Enter at least one count to update.", "danger");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await seedPostEngagement(post.id, likesCount, commentsCount);
+      onSeeded?.({
+        ...(likesCount !== null ? { likesCount } : {}),
+        ...(commentsCount !== null ? { commentsCount } : {}),
+      });
+      toast("Post engagement updated.", "success");
       onClose();
     } catch (error) {
       toast(describeError(error), "danger");
@@ -232,6 +270,21 @@ export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onSh
                     </button>
                   </>
                 )}
+
+                {isGlobalAdmin && (
+                  <>
+                    <div className="my-1 border-t-2 border-line" />
+                    <button
+                      type="button"
+                      onClick={() => setView("seed-engagement")}
+                      className={itemClass}
+                      role="menuitem"
+                    >
+                      <SlidersHorizontal size={16} className="text-brand-deep" aria-hidden />
+                      Seed engagement
+                    </button>
+                  </>
+                )}
               </div>
 
               <p className="mt-1 flex items-center gap-1 border-t border-line px-2 pb-0.5 pt-2 text-[9px] font-bold uppercase tracking-wider text-ink-faint">
@@ -239,7 +292,7 @@ export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onSh
                 {canDelete ? "Author / moderator controls" : "Guest-friendly actions"}
               </p>
             </>
-          ) : (
+          ) : view === "confirm-delete" ? (
             <div className="p-1.5">
               <div className="flex items-center gap-2 pb-2">
                 <span className="flex size-8 items-center justify-center rounded-xl bg-danger-wash text-danger">
@@ -272,6 +325,50 @@ export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onSh
                 </button>
               </div>
             </div>
+          ) : (
+            <form onSubmit={seedEngagement} className="space-y-3 p-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-extrabold text-ink">Seed engagement</p>
+                <button type="button" onClick={() => setView("main")} aria-label="Back to post actions" className="flex size-8 items-center justify-center rounded-lg text-ink-muted hover:bg-page">
+                  <X size={15} aria-hidden />
+                </button>
+              </div>
+              <label className="block">
+                <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Likes count</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="numeric"
+                  value={likesCountInput}
+                  onChange={(event) => setLikesCountInput(event.target.value)}
+                  className="h-10 w-full rounded-xl border-2 border-line bg-page px-3 text-xs font-bold text-ink outline-none focus:border-brand"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Comments count</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="numeric"
+                  value={commentsCountInput}
+                  onChange={(event) => setCommentsCountInput(event.target.value)}
+                  className="h-10 w-full rounded-xl border-2 border-line bg-page px-3 text-xs font-bold text-ink outline-none focus:border-brand"
+                />
+              </label>
+              <p className="text-[10px] font-semibold leading-relaxed text-ink-muted">
+                Counts act as minimums; real reactions and comments are preserved.
+              </p>
+              <button
+                type="submit"
+                disabled={busy}
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#8B5CF6] px-3 text-xs font-extrabold text-white shadow-[0_3px_0_#5B21B6] disabled:cursor-wait disabled:opacity-70"
+              >
+                {busy && <Loader2 size={14} className="animate-spin" aria-hidden />}
+                Save counts
+              </button>
+            </form>
           )}
         </motion.div>
       )}

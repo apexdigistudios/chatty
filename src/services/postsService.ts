@@ -103,14 +103,31 @@ function supportsPostMedia(): Promise<boolean> {
   return postMediaSupportPromise;
 }
 
+let seedEngagementSupportPromise: Promise<boolean> | null = null;
+function supportsSeedEngagement(): Promise<boolean> {
+  if (!seedEngagementSupportPromise) {
+    seedEngagementSupportPromise = (async () => {
+      const { error } = await supabase
+        .from("posts")
+        .select("seed_likes_count, seed_comments_count")
+        .limit(1);
+      if (error && (error.code === "42703" || error.code === "PGRST204")) return false;
+      if (error) throw new Error(error.message);
+      return true;
+    })();
+  }
+  return seedEngagementSupportPromise;
+}
+
 async function selectForGroups(): Promise<string> {
-  const [groups, video, hidden, shares] = await Promise.all([
+  const [groups, video, hidden, shares, seededEngagement] = await Promise.all([
     supportsSchoolGroups(),
     supportsVideoMetadata(),
     supportsPostVisibility(),
     supportsPostShares(),
+    supportsSeedEngagement(),
   ]);
-  return `${groups ? GROUP_POST_SELECT : BASE_POST_SELECT}${video ? ", media_type, video_duration_seconds" : ""}${hidden ? ", is_hidden" : ""}${shares ? ", post_shares(count)" : ""}`;
+  return `${groups ? GROUP_POST_SELECT : BASE_POST_SELECT}${video ? ", media_type, video_duration_seconds" : ""}${hidden ? ", is_hidden" : ""}${shares ? ", post_shares(count)" : ""}${seededEngagement ? ", seed_likes_count, seed_comments_count" : ""}`;
 }
 
 export interface RawPost {
@@ -132,6 +149,8 @@ export interface RawPost {
   likes: { count: number }[];
   comments: { count: number }[];
   post_shares?: { count: number }[];
+  seed_likes_count?: number;
+  seed_comments_count?: number;
 }
 
 interface RawPostMedia {
@@ -182,9 +201,9 @@ export function mapPost(row: RawPost, liked: boolean): Post {
     spotlightStatus: null,
     spotlightExpiresAt: null,
     spotlightTargetSchoolIds: null,
-    likeCount: countOf(row.likes),
+    likeCount: Math.max(countOf(row.likes), row.seed_likes_count ?? 0),
     likedByMe: liked,
-    commentCount: countOf(row.comments),
+    commentCount: Math.max(countOf(row.comments), row.seed_comments_count ?? 0),
     shareCount: countOf(row.post_shares),
   };
 }
@@ -789,6 +808,19 @@ export async function fetchComments(postId: string): Promise<Comment[]> {
     .returns<RawComment[]>();
   if (error) throw new Error(error.message);
   return (data ?? []).map(mapComment);
+}
+
+export async function seedPostEngagement(
+  postId: string,
+  likesCount: number | null,
+  commentsCount: number | null
+): Promise<void> {
+  const { error } = await supabase.rpc("admin_seed_engagement", {
+    p_post_id: postId,
+    p_likes_count: likesCount,
+    p_comments_count: commentsCount,
+  });
+  if (error) throw new Error(error.message);
 }
 
 export async function addComment(postId: string, content: string): Promise<Comment> {

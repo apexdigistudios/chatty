@@ -62,6 +62,8 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
   const [reportOpen, setReportOpen] = useState(false);
   const [textExpanded, setTextExpanded] = useState(false);
   const [textOverflows, setTextOverflows] = useState(false);
+  const [seededLikeCount, setSeededLikeCount] = useState(post.likeCount);
+  const [seededCommentCount, setSeededCommentCount] = useState(post.commentCount);
   const articleRef = useRef<HTMLElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
 
@@ -175,6 +177,22 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
   const handleDeleted = (postId: string) => {
     removePostLocally(postId);
     onRemoved?.(postId);
+  };
+
+  const displayLikeCount = Math.max(post.likeCount, seededLikeCount);
+  const displayCommentCount = Math.max(post.commentCount, seededCommentCount);
+  const handleSeeded = (counts: { likesCount?: number; commentsCount?: number }) => {
+    const updatedCounts = {
+      ...(counts.likesCount !== undefined
+        ? { likeCount: Math.max(post.likeCount, counts.likesCount) }
+        : {}),
+      ...(counts.commentsCount !== undefined
+        ? { commentCount: Math.max(post.commentCount, counts.commentsCount) }
+        : {}),
+    };
+    if (updatedCounts.likeCount !== undefined) setSeededLikeCount(updatedCounts.likeCount);
+    if (updatedCounts.commentCount !== undefined) setSeededCommentCount(updatedCounts.commentCount);
+    useGistStore.getState().patchPost(post.id, updatedCounts);
   };
 
   return (
@@ -337,9 +355,9 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           type="button"
           onClick={like}
           aria-pressed={post.likedByMe}
-          aria-label={`${post.likedByMe ? "Unlike" : "Like"} gist, ${post.likeCount} likes`}
+          aria-label={`${post.likedByMe ? "Unlike" : "Like"} gist, ${displayLikeCount} likes`}
           icon={<Heart size={17} strokeWidth={2.5} fill={post.likedByMe ? "currentColor" : "none"} />}
-          count={post.likeCount}
+          count={displayLikeCount}
           iconClassName="motion-safe:transition-transform"
           className={cn(
             "flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm",
@@ -352,11 +370,11 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           whileTap={{ scale: 0.92 }}
           transition={springs.snappy}
           onClick={() => openComments(post.id)}
-          aria-label={`Open comments, ${post.commentCount} comments`}
+          aria-label={`Open comments, ${displayCommentCount} comments`}
           className="flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold text-ink-muted transition-colors hover:bg-brand-wash hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm"
         >
           <MessageCircle size={17} strokeWidth={2.4} aria-hidden />
-          <span className="tabular-nums">{post.commentCount}</span>
+          <span className="tabular-nums">{displayCommentCount}</span>
         </motion.button>
 
         <motion.button
@@ -397,6 +415,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
         onDeleted={handleDeleted}
         onShare={share}
         onPromote={() => setSpotlightOpen(true)}
+        onSeeded={handleSeeded}
         onReport={() => {
           if (!user) {
             openAuthGate({
