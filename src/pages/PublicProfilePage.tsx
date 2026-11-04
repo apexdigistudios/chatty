@@ -55,10 +55,14 @@ export function PublicProfilePage() {
       ]);
       setProfile(nextProfile);
       setPosts(nextPosts);
-      try {
-        setFollowSummary(await fetchFollowSummary(userId, user?.id));
-      } catch (followError) {
-        toast(describeError(followError, "Could not load follow counts."), "danger");
+      if (nextProfile?.isSeed) {
+        setFollowSummary({ followerCount: 0, followingCount: 0, isFollowing: false });
+      } else {
+        try {
+          setFollowSummary(await fetchFollowSummary(userId, user?.id));
+        } catch (followError) {
+          toast(describeError(followError, "Could not load follow counts."), "danger");
+        }
       }
       if (!nextProfile) setError("This student profile does not exist.");
     } catch (err) {
@@ -66,7 +70,7 @@ export function PublicProfilePage() {
     } finally {
       setLoading(false);
     }
-  }, [userId, user?.id]);
+  }, [userId, user?.id, toast]);
 
   useEffect(() => {
     void load();
@@ -84,7 +88,7 @@ export function PublicProfilePage() {
   };
 
   const toggleFollow = async () => {
-    if (!profile || followBusy) return;
+    if (!profile || profile.isSeed || followBusy) return;
     if (!user) {
       openAuthGate({
         title: "Follow your SHS community",
@@ -188,20 +192,20 @@ export function PublicProfilePage() {
         <CardBody className="relative px-4 pb-5 pt-16 sm:px-6 sm:pt-20">
           <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                {profile.id !== user?.id && (
+                {!profile.isSeed && profile.id !== user?.id && (
                   <FollowButton
                     following={followSummary.isFollowing}
                     loading={followBusy}
                     onToggle={() => void toggleFollow()}
                   />
                 )}
-                <Button
+                {!profile.isSeed && <Button
                 size="sm"
                 leftIcon={<Send size={14} strokeWidth={2.6} aria-hidden />}
                 onClick={() => navigate(`/shoutouts/create?to=${profile.id}`)}
               >
                 Send Paper Plane Shoutout
-              </Button>
+              </Button>}
               <Button size="sm" variant="outline" leftIcon={<Share2 size={14} strokeWidth={2.5} aria-hidden />} onClick={shareProfile}>
                 Share profile
               </Button>
@@ -215,7 +219,7 @@ export function PublicProfilePage() {
             </div>
             <Badge tone="neutral" className="px-2 py-0.5 text-[9px]">
               <Sparkles size={10} strokeWidth={2.6} aria-hidden />
-              Student
+              {profile.isSeed ? "Synthetic demo" : "Student"}
             </Badge>
           </div>
 

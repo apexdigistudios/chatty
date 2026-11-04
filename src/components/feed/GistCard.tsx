@@ -208,6 +208,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           username={post.authorName}
           avatarUrl={post.authorAvatar}
           schoolName={post.schoolShort}
+          isSeed={post.isSeed}
         >
           <Link
             to={profileHref}
@@ -229,6 +230,11 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
               <Badge tone={post.status === "flagged" ? "warning" : "danger"} className="px-2 py-0.5 text-[9px]">
                 <ShieldAlert size={10} strokeWidth={2.6} aria-hidden />
                 {post.status}
+              </Badge>
+            )}
+            {post.isSeed && (
+              <Badge tone="warning" className="px-2 py-0.5 text-[9px]">
+                Synthetic demo
               </Badge>
             )}
             {post.spotlightStatus === "active" && (

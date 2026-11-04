@@ -13,6 +13,8 @@ import { SchoolTag } from "../ui/SchoolBadge";
 import { useToast } from "../ui/Toast";
 import { ReportMenu } from "./ReportMenu";
 import { AnimatedReaction } from "../common/AnimatedReaction";
+import { Avatar } from "../ui/Avatar";
+import { SafeImage } from "../common/SafeImage";
 
 interface ReactionMeta {
   kind: ReactionKind;
@@ -90,21 +92,29 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
   return (
     <article
       role="article"
-      aria-label={`Anonymous confession${school ? `, ${school.shortName}` : ""}`}
+      aria-label={`${confession.isSeed && !confession.seedUsername ? "Anonymous" : confession.seedUsername ? `Synthetic confession by @${confession.seedUsername}` : "Anonymous confession"}${school ? `, ${school.shortName}` : ""}`}
       className="relative overflow-visible border-b-4 border-line/60 px-4 py-4 dark:border-neutral-900/60"
     >
       <div>
         <div className="flex items-start gap-3">
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-wash text-brand-deep">
-            <EyeOff size={20} strokeWidth={2.5} aria-hidden />
-          </span>
+          {confession.seedUsername ? (
+            <Avatar name={confession.seedUsername} src={confession.seedAvatarUrl ?? null} size="md" />
+          ) : (
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-wash text-brand-deep">
+              <EyeOff size={20} strokeWidth={2.5} aria-hidden />
+            </span>
+          )}
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <p className="text-sm font-extrabold text-ink">Anonymous</p>
-              <Badge tone="neutral" className="px-2 py-0.5 text-[9px]">
-                <Lock size={10} strokeWidth={2.6} aria-hidden />
-                Identity hidden
-              </Badge>
+              <p className="text-sm font-extrabold text-ink">{confession.seedUsername ? `@${confession.seedUsername}` : "Anonymous"}</p>
+              {confession.seedUsername ? (
+                <Badge tone="warning" className="px-2 py-0.5 text-[9px]">Synthetic demo</Badge>
+              ) : (
+                <Badge tone="neutral" className="px-2 py-0.5 text-[9px]">
+                  <Lock size={10} strokeWidth={2.6} aria-hidden />
+                  Identity hidden
+                </Badge>
+              )}
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="text-[11px] font-semibold text-ink-muted">{timeAgo(confession.publishedAt ?? confession.createdAt)}</span>
@@ -135,6 +145,20 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
         <p className="mt-3.5 whitespace-pre-wrap wrap-break-word text-[15px] font-semibold leading-[1.65] text-ink-soft sm:text-base">
           {confession.content}
         </p>
+
+        {confession.mediaUrls && confession.mediaUrls.length > 0 && (
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {confession.mediaUrls.map((url, index) => (
+              <div key={`${confession.id}-media-${index}`} className="overflow-hidden rounded-2xl border-2 border-line bg-page">
+                {confession.mediaTypes?.[index] === "video" ? (
+                  <video src={url} controls playsInline preload="metadata" className="aspect-square size-full object-cover" />
+                ) : (
+                  <SafeImage src={url} alt={`Confession attachment ${index + 1}`} className="aspect-square size-full object-cover" loading="lazy" decoding="async" />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {pending && (
           <div

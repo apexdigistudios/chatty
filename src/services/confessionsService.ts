@@ -15,6 +15,12 @@ interface RawPublicConfession {
   created_at: string;
   published_at: string | null;
   moderation_status?: ModerationStatus;
+  seed_username?: string | null;
+  seed_full_name?: string | null;
+  seed_avatar_url?: string | null;
+  is_seed?: boolean;
+  media_urls?: string[];
+  media_types?: Array<"image" | "video">;
 }
 
 interface RawReaction {
@@ -70,6 +76,12 @@ async function attachReactions(rows: RawPublicConfession[]): Promise<Confession[
     publishedAt: row.published_at,
     reactions: totals.get(row.id) ?? emptyReactions(),
     myReaction: mine.get(row.id) ?? null,
+    isSeed: row.is_seed ?? false,
+    seedUsername: row.seed_username ?? null,
+    seedFullName: row.seed_full_name ?? null,
+    seedAvatarUrl: row.seed_avatar_url ?? null,
+    mediaUrls: row.media_urls ?? [],
+    mediaTypes: row.media_types ?? [],
   }));
 }
 
@@ -77,7 +89,7 @@ async function attachReactions(rows: RawPublicConfession[]): Promise<Confession[
 export async function fetchApprovedConfessions(limit = 40): Promise<Confession[]> {
   const { data, error } = await supabase
     .from("public_confessions")
-    .select("id, school_id, category, content, created_at, published_at")
+    .select("id, school_id, category, content, created_at, published_at, seed_username, seed_full_name, seed_avatar_url, is_seed, media_urls, media_types")
     .order("published_at", { ascending: false, nullsFirst: false })
     .limit(limit)
     .returns<RawPublicConfession[]>();

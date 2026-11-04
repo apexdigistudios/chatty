@@ -1,7 +1,7 @@
 import { COMPRESSION_PRESETS, compressImageFile } from "../lib/imageCompression";
 import { MEDIA_BUCKET, requireUserId, supabase } from "../lib/supabase";
 
-export type MediaFolder = "posts" | "avatars" | "crests";
+export type MediaFolder = "posts" | "seed-posts" | "avatars" | "crests";
 
 /**
  * Automatically compresses the image client-side (max 1200px, quality 0.75,
@@ -14,7 +14,8 @@ export async function uploadImage(file: File, folder: MediaFolder): Promise<stri
     throw new Error("Only image files can be uploaded.");
   }
 
-  const optimized = await compressImageFile(file, COMPRESSION_PRESETS[folder]);
+  const preset = folder === "seed-posts" ? COMPRESSION_PRESETS.posts : COMPRESSION_PRESETS[folder];
+  const optimized = await compressImageFile(file, preset);
 
   const ext =
     optimized.type === "image/webp"
@@ -70,9 +71,9 @@ export interface UploadedMedia {
 }
 
 /** Single entry point for post media: images are compressed, videos are streamed as-is. */
-export async function uploadPostMedia(file: File): Promise<UploadedMedia> {
+export async function uploadPostMedia(file: File, folder: "posts" | "seed-posts" = "posts"): Promise<UploadedMedia> {
   if (isVideoFile(file)) {
-    return { url: await uploadVideo(file, "posts"), mediaType: "video" };
+    return { url: await uploadVideo(file, folder), mediaType: "video" };
   }
-  return { url: await uploadImage(file, "posts"), mediaType: "image" };
+  return { url: await uploadImage(file, folder), mediaType: "image" };
 }

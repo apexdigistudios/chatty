@@ -14,6 +14,7 @@ interface ProfileHoverCardProps {
   username: string;
   avatarUrl: string | null;
   schoolName: string;
+  isSeed?: boolean;
   children: ReactNode;
 }
 
@@ -24,6 +25,7 @@ export function ProfileHoverCard({
   username,
   avatarUrl,
   schoolName,
+  isSeed = false,
   children,
 }: ProfileHoverCardProps) {
   const { user } = useAuth();
@@ -36,7 +38,7 @@ export function ProfileHoverCard({
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!open || user?.id === userId) return;
+    if (!open || isSeed || user?.id === userId) return;
     let active = true;
     setLoading(true);
     void fetchFollowSummary(userId, user?.id)
@@ -52,7 +54,7 @@ export function ProfileHoverCard({
     return () => {
       active = false;
     };
-  }, [open, toast, user?.id, userId]);
+  }, [isSeed, open, toast, user?.id, userId]);
 
   const onBlur = (event: FocusEvent<HTMLSpanElement>) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
@@ -106,7 +108,7 @@ export function ProfileHoverCard({
         <span
           role="group"
           aria-label={`@${username} profile preview`}
-          className="absolute left-0 top-full z-[70] mt-2 w-72 rounded-2xl border-2 border-line bg-card p-4 text-left shadow-[0_8px_28px_rgba(0,0,0,0.2)]"
+          className="absolute left-0 top-full z-70 mt-2 w-72 rounded-2xl border-2 border-line bg-card p-4 text-left shadow-[0_8px_28px_rgba(0,0,0,0.2)]"
         >
           <span className="flex items-start gap-3">
             <Avatar name={username} src={avatarUrl} size="lg" />
@@ -120,11 +122,17 @@ export function ProfileHoverCard({
               <span className="mt-0.5 block truncate text-xs font-semibold text-ink-muted">{schoolName}</span>
             </span>
           </span>
-          <span className="mt-3 flex items-center gap-1.5 text-xs font-bold text-ink-muted">
-            <Users size={13} aria-hidden />
-            {summary.followerCount} followers · {summary.followingCount} following
-          </span>
-          {user?.id !== userId && (
+          {isSeed ? (
+            <span className="mt-3 inline-flex rounded-full border border-warning-soft bg-warning-wash px-2.5 py-1 text-[10px] font-extrabold text-warning-deep">
+              Synthetic demo profile
+            </span>
+          ) : (
+            <span className="mt-3 flex items-center gap-1.5 text-xs font-bold text-ink-muted">
+              <Users size={13} aria-hidden />
+              {summary.followerCount} followers · {summary.followingCount} following
+            </span>
+          )}
+          {!isSeed && user?.id !== userId && (
             <span className="mt-3 block">
               <FollowButton following={summary.isFollowing} loading={loading || busy} onToggle={() => void toggleFollow()} />
             </span>

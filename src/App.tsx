@@ -15,6 +15,7 @@ import { ToastProvider, ToastViewport } from "./components/ui/Toast";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { isSupabaseConfigured } from "./lib/supabase";
 import { AdminPage } from "./pages/AdminPage";
+import { AdminDashboard } from "./pages/AdminDashboard";
 import { AuthWizardPage } from "./pages/AuthWizardPage";
 import { ConfessionsPage } from "./pages/ConfessionsPage";
 import { CreatePage } from "./pages/CreatePage";
@@ -62,6 +63,7 @@ function AnimatedRoutes() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/profile/:userId" element={<PublicProfilePage />} />
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/vvip" element={<AdminDashboard />} />
           <Route path="/admin/safety" element={<SafetyPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

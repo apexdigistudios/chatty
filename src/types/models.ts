@@ -95,6 +95,7 @@ export type MediaType = "image" | "video";
 export interface Post {
   id: string;
   authorId: string;
+  isSeed?: boolean;
   authorName: string;
   authorAvatar: string | null;
   authorSchoolId: string | null;
@@ -152,6 +153,16 @@ export interface PublicProfile {
   schoolShort: string | null;
   schoolCrest: string | null;
   createdAt: string;
+  isSeed?: boolean;
+}
+
+export interface AdminSeedProfile {
+  id: string;
+  username: string;
+  fullName: string;
+  avatarUrl: string | null;
+  schoolId: string;
+  createdAt: string;
 }
 
 /* ───────────── Digital Shoutout Postal System ───────────── */
@@ -199,6 +210,12 @@ export interface Confession {
   publishedAt: string | null;
   reactions: Record<ReactionKind, number>;
   myReaction: ReactionKind | null;
+  isSeed?: boolean;
+  seedUsername?: string | null;
+  seedFullName?: string | null;
+  seedAvatarUrl?: string | null;
+  mediaUrls?: string[];
+  mediaTypes?: MediaType[];
 }
 
 export interface ReportTarget {

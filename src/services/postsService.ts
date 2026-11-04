@@ -22,6 +22,9 @@ const GROUP_POST_SELECT = `id, user_id, school_id, group_id, content, media_url,
   group:school_groups(id, name, emoji),
   likes(count), comments(count)`;
 
+const SEED_AUTHOR_SELECT = `, seed_profile_id,
+  seed_author:admin_seed_profiles!posts_seed_profile_id_fkey(id, username, full_name, avatar_url, school_id)`;
+
 const SPOTLIGHT_FEED_SLOTS = 3;
 let spotlightPromotionsTableAvailable: boolean | null = null;
 
@@ -46,6 +49,25 @@ export function supportsSchoolGroups(): Promise<boolean> {
     })();
   }
   return groupsSupportPromise;
+}
+
+let seedProfilesSupportPromise: Promise<boolean> | null = null;
+function supportsSeedProfiles(): Promise<boolean> {
+  if (!seedProfilesSupportPromise) {
+    seedProfilesSupportPromise = (async () => {
+      try {
+        const [postResult, seedResult] = await Promise.all([
+          supabase.from("posts").select("seed_profile_id").limit(1),
+          supabase.from("admin_seed_profiles").select("id").limit(1),
+        ]);
+        if (postResult.error || seedResult.error) return false;
+        return true;
+      } catch {
+        return false;
+      }
+    })();
+  }
+  return seedProfilesSupportPromise;
 }
 
 let videoSupportPromise: Promise<boolean> | null = null;
@@ -127,12 +149,14 @@ async function selectForGroups(): Promise<string> {
     supportsPostShares(),
     supportsSeedEngagement(),
   ]);
-  return `${groups ? GROUP_POST_SELECT : BASE_POST_SELECT}${video ? ", media_type, video_duration_seconds" : ""}${hidden ? ", is_hidden" : ""}${shares ? ", post_shares(count)" : ""}${seededEngagement ? ", seed_likes_count, seed_comments_count" : ""}`;
+  const seedProfiles = await supportsSeedProfiles();
+  return `${groups ? GROUP_POST_SELECT : BASE_POST_SELECT}${seedProfiles ? SEED_AUTHOR_SELECT : ""}${video ? ", media_type, video_duration_seconds" : ""}${hidden ? ", is_hidden" : ""}${shares ? ", post_shares(count)" : ""}${seededEngagement ? ", seed_likes_count, seed_comments_count" : ""}`;
 }
 
 export interface RawPost {
   id: string;
   user_id: string;
+  seed_profile_id?: string | null;
   school_id: string;
   group_id?: string | null;
   content: string;
@@ -144,6 +168,7 @@ export interface RawPost {
   is_hidden?: boolean;
   created_at: string;
   author: { id: string; username: string; avatar_url: string | null; school_id?: string | null } | null;
+  seed_author?: { id: string; username: string; full_name: string; avatar_url: string | null; school_id: string } | null;
   school: { id: string; name: string; crest_url: string | null } | null;
   group?: { id: string; name: string; emoji: string } | null;
   likes: { count: number }[];
@@ -173,12 +198,14 @@ interface SpotlightPromotionRow {
 
 export function mapPost(row: RawPost, liked: boolean): Post {
   const schoolName = row.school?.name ?? "School";
+  const seedAuthor = row.seed_author ?? null;
   return {
     id: row.id,
-    authorId: row.user_id,
-    authorName: row.author?.username ?? "student",
-    authorAvatar: row.author?.avatar_url ?? null,
-    authorSchoolId: row.author?.school_id ?? row.school_id,
+    authorId: seedAuthor?.id ?? row.user_id,
+    isSeed: Boolean(seedAuthor),
+    authorName: seedAuthor?.username ?? row.author?.username ?? "student",
+    authorAvatar: seedAuthor?.avatar_url ?? row.author?.avatar_url ?? null,
+    authorSchoolId: seedAuthor?.school_id ?? row.author?.school_id ?? row.school_id,
     schoolId: row.school_id,
     schoolName,
     schoolShort: row.school ? shortNameOf(schoolName) : "SHS",
@@ -386,7 +413,13 @@ async function fetchFeedOnline(query: FeedQuery): Promise<Post[]> {
   if (!query.includeModerated) request = request.eq("status", "active");
   if (query.schoolId) request = request.eq("school_id", query.schoolId);
   if (query.groupId && supportsGroups) request = request.eq("group_id", query.groupId);
-  if (query.authorId) request = request.eq("user_id", query.authorId);
+  if (query.authorId) {
+    if (await supportsSeedProfiles()) {
+      request = request.or(`user_id.eq.${query.authorId},seed_profile_id.eq.${query.authorId}`);
+    } else {
+      request = request.eq("user_id", query.authorId);
+    }
+  }
   if (query.authorIds) request = request.in("user_id", query.authorIds);
   if (query.search?.trim()) request = request.ilike("content", `%${query.search.trim()}%`);
   if (blockedUserIds.length > 0) {

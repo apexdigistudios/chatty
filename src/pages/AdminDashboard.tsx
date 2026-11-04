@@ -1,0 +1,595 @@
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  AlertTriangle,
+  Check,
+  ChevronDown,
+  FileImage,
+  Loader2,
+  Plus,
+  Search,
+  ShieldCheck,
+  Trash2,
+  Upload,
+  UserRoundPen,
+  X,
+} from "lucide-react";
+import { Avatar } from "../components/ui/Avatar";
+import { Badge } from "../components/ui/Badge";
+import { Button } from "../components/ui/Button";
+import { Card, CardBody } from "../components/ui/Card";
+import { PageHeading } from "../components/layout/PageHeading";
+import { useToast } from "../components/ui/Toast";
+import { useAuth } from "../context/AuthContext";
+import { describeError, supabase } from "../lib/supabase";
+import {
+  clearAllSeedData,
+  createSeedPost,
+  createSeedProfiles,
+  deleteSeedProfile,
+  fetchSeedProfiles,
+  removeSeedMedia,
+  updateSeedProfile,
+  type SeedMedia,
+} from "../services/adminSeedService";
+import { isVideoFile, uploadPostMedia } from "../services/storageService";
+import { useGistStore } from "../store/gistStore";
+import type { AdminSeedProfile } from "../types/models";
+
+type DashboardTab = "profiles" | "publisher" | "purge";
+
+const TABS: Array<{ id: DashboardTab; label: string }> = [
+  { id: "profiles", label: "Cosplay users" },
+  { id: "publisher", label: "Post studio" },
+  { id: "purge", label: "System clean-up" },
+];
+
+const CONFESSION_CATEGORIES = [
+  "Crush Confession",
+  "School Secret",
+  "Relationship Gist",
+  "Friendship Gist",
+];
+
+function isSeedInput(value: unknown): value is {
+  username: string;
+  full_name: string;
+  avatar_url?: string | null;
+  school_id: string;
+} {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Record<string, unknown>;
+  return typeof item.username === "string" &&
+    typeof item.full_name === "string" &&
+    typeof item.school_id === "string" &&
+    (item.avatar_url === undefined || item.avatar_url === null || typeof item.avatar_url === "string");
+}
+
+export function AdminDashboard() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { user, isGlobalAdmin, loading: authLoading } = useAuth();
+  const schools = useGistStore((state) => state.schools);
+  const [serverAuthorized, setServerAuthorized] = useState(false);
+  const [accessChecking, setAccessChecking] = useState(true);
+  const [tab, setTab] = useState<DashboardTab>("profiles");
+  const [profiles, setProfiles] = useState<AdminSeedProfile[]>([]);
+  const [profilesLoading, setProfilesLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [search, setSearch] = useState("");
+  const [jsonInput, setJsonInput] = useState("");
+  const [editing, setEditing] = useState<AdminSeedProfile | null>(null);
+
+  const [authorSearch, setAuthorSearch] = useState("");
+  const [authorId, setAuthorId] = useState("");
+  const [schoolId, setSchoolId] = useState("");
+  const [content, setContent] = useState("");
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [isConfession, setIsConfession] = useState(false);
+  const [isAnonymous, setIsAnonymous] = useState(true);
+  const [category, setCategory] = useState(CONFESSION_CATEGORIES[1]);
+  const [purgeOpen, setPurgeOpen] = useState(false);
+  const [purgeConfirmation, setPurgeConfirmation] = useState("");
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user || !isGlobalAdmin) {
+      navigate("/", { replace: true });
+      setAccessChecking(false);
+      return;
+    }
+
+    let active = true;
+    setAccessChecking(true);
+    void (async () => {
+      try {
+        const { data, error } = await supabase.rpc("is_global_admin", {});
+        if (!active) return;
+        if (error) {
+          toast(describeError(error, "Could not verify admin access."), "danger");
+          navigate("/", { replace: true });
+          return;
+        }
+        if (data !== true) {
+          navigate("/", { replace: true });
+          return;
+        }
+        setServerAuthorized(true);
+      } catch (error) {
+        if (active) toast(describeError(error, "Could not verify admin access."), "danger");
+        if (active) navigate("/", { replace: true });
+      } finally {
+        if (active) setAccessChecking(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [authLoading, isGlobalAdmin, navigate, toast, user]);
+
+  const reloadProfiles = async () => {
+    setProfilesLoading(true);
+    try {
+      setProfiles(await fetchSeedProfiles());
+    } catch (error) {
+      toast(describeError(error, "Could not load seed profiles."), "danger");
+    } finally {
+      setProfilesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (serverAuthorized) void reloadProfiles();
+    // Load once after the server confirms the admin role.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverAuthorized]);
+
+  const filteredProfiles = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return profiles.filter((profile) =>
+      !term ||
+      profile.username.toLowerCase().includes(term) ||
+      profile.fullName.toLowerCase().includes(term)
+    );
+  }, [profiles, search]);
+
+  const matchingAuthors = useMemo(() => {
+    const term = authorSearch.trim().toLowerCase();
+    return profiles.filter((profile) =>
+      !term ||
+      profile.username.toLowerCase().includes(term) ||
+      profile.fullName.toLowerCase().includes(term)
+    );
+  }, [authorSearch, profiles]);
+
+  const selectedAuthor = profiles.find((profile) => profile.id === authorId) ?? null;
+  const previews = useMemo(
+    () => mediaFiles.map((file) => ({ file, url: URL.createObjectURL(file) })),
+    [mediaFiles]
+  );
+  useEffect(() => () => previews.forEach(({ url }) => URL.revokeObjectURL(url)), [previews]);
+
+  const createProfiles = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(jsonInput);
+    } catch {
+      toast("Please check the JSON format and try again.", "danger");
+      return;
+    }
+    if (!Array.isArray(parsed) || parsed.length === 0 || !parsed.every(isSeedInput)) {
+      toast("Use an array of profiles with username, full_name, and school_id.", "danger");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const created = await createSeedProfiles(parsed.map((profile) => ({
+        username: profile.username.trim(),
+        full_name: profile.full_name.trim(),
+        avatar_url: profile.avatar_url?.trim() || null,
+        school_id: profile.school_id,
+      })));
+      setProfiles((current) => [...created, ...current]);
+      setJsonInput("");
+      toast(`${created.length} synthetic profile${created.length === 1 ? "" : "s"} created.`, "success");
+    } catch (error) {
+      toast(describeError(error, "Could not create those profiles."), "danger");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editing) return;
+    setBusy(true);
+    try {
+      await updateSeedProfile(editing);
+      setProfiles((current) => current.map((profile) => profile.id === editing.id ? editing : profile));
+      setEditing(null);
+      toast("Synthetic profile updated.", "success");
+    } catch (error) {
+      toast(describeError(error, "Could not update that profile."), "danger");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeProfile = async (profile: AdminSeedProfile) => {
+    if (!window.confirm(`Delete synthetic profile @${profile.username} and its seeded posts?`)) return;
+    setBusy(true);
+    try {
+      await deleteSeedProfile(profile.id);
+      setProfiles((current) => current.filter((item) => item.id !== profile.id));
+      toast("Synthetic profile and its seeded content were deleted.", "success");
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("records were deleted")) {
+        setProfiles((current) => current.filter((item) => item.id !== profile.id));
+        toast("The profile was deleted, but some stored media could not be removed.", "danger");
+      } else {
+        toast(describeError(error, "Could not delete that profile."), "danger");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const selectMedia = (event: ChangeEvent<HTMLInputElement>) => {
+    const incoming = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    const next = [...mediaFiles, ...incoming];
+    if (next.length > 8) {
+      toast("A post can include up to 5 images and 3 videos.", "danger");
+      return;
+    }
+    if (next.some((file) => !file.type.startsWith("image/") && !isVideoFile(file))) {
+      toast("Choose image or video files only.", "danger");
+      return;
+    }
+    const imageCount = next.filter((file) => file.type.startsWith("image/")).length;
+    const videoCount = next.filter(isVideoFile).length;
+    if (imageCount > 5 || videoCount > 3) {
+      toast("A post can include up to 5 images and 3 videos.", "danger");
+      return;
+    }
+    setMediaFiles(next);
+  };
+
+  const publish = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!authorId || !schoolId) {
+      toast("Choose a synthetic author and school first.", "danger");
+      return;
+    }
+    if (!content.trim() && mediaFiles.length === 0) {
+      toast("Add text or an attachment before publishing.", "danger");
+      return;
+    }
+    if (content.trim().length > 300) {
+      toast("Posts are limited to 300 characters.", "danger");
+      return;
+    }
+
+    setBusy(true);
+    const uploaded: SeedMedia[] = [];
+    try {
+      for (const [index, file] of mediaFiles.entries()) {
+        const result = await uploadPostMedia(file, "seed-posts");
+        uploaded.push({
+          url: result.url,
+          media_type: result.mediaType,
+          sort_order: index,
+        });
+      }
+      await createSeedPost({
+        seedProfileId: authorId,
+        schoolId,
+        content: content.trim(),
+        media: uploaded,
+        isConfession,
+        isAnonymous,
+        category,
+      });
+      setContent("");
+      setMediaFiles([]);
+      setIsConfession(false);
+      toast(isConfession ? "Synthetic confession published." : "Synthetic post published.", "success");
+    } catch (error) {
+      if (uploaded.length > 0) {
+        try {
+          await removeSeedMedia(uploaded.map((item) => item.url));
+        } catch {
+          toast("Publishing failed, and some temporary media could not be removed.", "danger");
+          return;
+        }
+      }
+      toast(describeError(error, "Could not publish that content."), "danger");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const purge = async () => {
+    if (purgeConfirmation !== "PURGE") return;
+    setBusy(true);
+    try {
+      await clearAllSeedData();
+      setProfiles([]);
+      setPurgeOpen(false);
+      setPurgeConfirmation("");
+      toast("All synthetic profiles and their posts have been purged.", "success");
+    } catch (error) {
+      toast(describeError(error, "Could not finish the seed data purge."), "danger");
+      if (error instanceof Error && error.message.includes("records were deleted")) {
+        setProfiles([]);
+        setPurgeOpen(false);
+        toast("Synthetic records were purged, but some stored media could not be removed.", "danger");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (authLoading || accessChecking || !serverAuthorized) return null;
+
+  return (
+    <div className="mx-auto w-full max-w-[980px] min-w-0 px-4 pb-12 pt-5 sm:px-6 sm:pt-7">
+      <PageHeading
+        eyebrow="Global admin"
+        title="Synthetic Content Studio"
+        description="Manage clearly labeled demo profiles and publish content without creating fake authentication accounts."
+        action={<Badge tone="brand"><ShieldCheck size={12} aria-hidden />Admin only</Badge>}
+      />
+
+      <div role="tablist" aria-label="Synthetic content tools" className="mb-5 grid grid-cols-3 gap-2 rounded-2xl border-2 border-line bg-page p-1.5">
+        {TABS.map((item) => (
+          <button
+            key={item.id}
+            id={`seed-tab-${item.id}`}
+            type="button"
+            role="tab"
+            aria-selected={tab === item.id}
+            aria-controls={`seed-panel-${item.id}`}
+            onClick={() => setTab(item.id)}
+            className={`min-h-11 rounded-xl px-2 text-[10px] font-extrabold transition-colors sm:text-xs ${
+              tab === item.id ? "bg-card text-brand-deep shadow-sm" : "text-ink-muted hover:text-ink"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "profiles" && (
+        <section id="seed-panel-profiles" role="tabpanel" aria-labelledby="seed-tab-profiles" className="space-y-5">
+          <Card>
+            <CardBody className="pt-5">
+              <div className="flex items-start gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-wash text-brand-deep"><Plus size={19} aria-hidden /></span>
+                <div>
+                  <h2 className="text-sm font-extrabold text-ink">Bulk profile creation</h2>
+                  <p className="mt-1 text-xs font-semibold leading-relaxed text-ink-muted">Import at most 50 profiles per request. Each entry must include an existing school ID.</p>
+                </div>
+              </div>
+              <form className="mt-4" onSubmit={(event) => void createProfiles(event)}>
+                <label htmlFor="seed-profile-json" className="mb-1.5 block text-xs font-bold text-ink">Profile JSON</label>
+                <textarea
+                  id="seed-profile-json"
+                  value={jsonInput}
+                  onChange={(event) => setJsonInput(event.target.value)}
+                  rows={5}
+                  placeholder={'[{"username":"demo_student","full_name":"Demo Student","avatar_url":null,"school_id":"<school-uuid>"}]'}
+                  className="w-full rounded-2xl border-2 border-line bg-card px-3 py-3 font-mono text-xs text-ink outline-none focus:border-brand"
+                />
+                <Button type="submit" size="sm" loading={busy} leftIcon={<Plus size={14} aria-hidden />} className="mt-3">Create profiles</Button>
+              </form>
+            </CardBody>
+          </Card>
+
+          <section aria-labelledby="seed-users-heading">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <h2 id="seed-users-heading" className="text-sm font-extrabold text-ink">Synthetic profiles</h2>
+              <Badge tone="neutral">{profiles.length}</Badge>
+              <label className="ml-auto flex h-10 min-w-[180px] items-center gap-2 rounded-xl border-2 border-line bg-card px-3">
+                <Search size={14} className="text-ink-muted" aria-hidden />
+                <span className="sr-only">Search profiles</span>
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search users" className="w-full bg-transparent text-xs font-semibold text-ink outline-none" />
+              </label>
+            </div>
+            {profilesLoading ? (
+              <div className="flex justify-center py-10"><Loader2 size={22} className="animate-spin text-brand" aria-label="Loading profiles" /></div>
+            ) : filteredProfiles.length === 0 ? (
+              <div className="rounded-2xl border-2 border-dashed border-line px-5 py-10 text-center text-xs font-semibold text-ink-muted">No matching synthetic profiles yet.</div>
+            ) : (
+              <div className="space-y-2">
+                {filteredProfiles.map((profile) => {
+                  const school = schools.find((item) => item.id === profile.schoolId);
+                  return (
+                    <Card key={profile.id}>
+                      <CardBody className="flex flex-wrap items-center gap-3 py-3">
+                        <Avatar name={profile.username} src={profile.avatarUrl} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="truncate text-xs font-extrabold text-ink">@{profile.username}</span>
+                            <Badge tone="warning" className="px-1.5 py-0 text-[8px]">Synthetic</Badge>
+                          </div>
+                          <p className="truncate text-[11px] font-semibold text-ink-muted">{profile.fullName} · {school?.shortName ?? "School"}</p>
+                        </div>
+                        <Button size="sm" variant="outline" leftIcon={<UserRoundPen size={13} aria-hidden />} onClick={() => setEditing(profile)}>Edit</Button>
+                        <Button size="sm" variant="danger" disabled={busy} aria-label={`Delete @${profile.username}`} onClick={() => void removeProfile(profile)}><Trash2 size={14} aria-hidden /></Button>
+                      </CardBody>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </section>
+      )}
+
+      {tab === "publisher" && (
+        <section id="seed-panel-publisher" role="tabpanel" aria-labelledby="seed-tab-publisher">
+          <Card>
+            <CardBody className="pt-5">
+              <div className="mb-4 flex items-start gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-wash text-brand-deep"><FileImage size={18} aria-hidden /></span>
+                <div>
+                  <h2 className="text-sm font-extrabold text-ink">Post and confession studio</h2>
+                  <p className="mt-1 text-xs font-semibold text-ink-muted">Published content is labeled synthetic. Confessions are public immediately; anonymous mode never exposes the selected seed identity.</p>
+                </div>
+              </div>
+              <form onSubmit={(event) => void publish(event)} className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block text-xs font-bold text-ink">
+                    Search synthetic author
+                    <div className="relative mt-1.5">
+                      <input
+                        value={authorSearch}
+                        onChange={(event) => setAuthorSearch(event.target.value)}
+                        placeholder="Find by name or username"
+                        className="h-11 w-full rounded-xl border-2 border-line bg-card px-3 pr-9 text-xs font-semibold text-ink outline-none focus:border-brand"
+                      />
+                      <ChevronDown size={15} className="pointer-events-none absolute right-3 top-3.5 text-ink-muted" aria-hidden />
+                    </div>
+                  </label>
+                  <label className="block text-xs font-bold text-ink">
+                    Synthetic author
+                    <select value={authorId} onChange={(event) => {
+                      setAuthorId(event.target.value);
+                      const profile = profiles.find((item) => item.id === event.target.value);
+                      if (profile) setSchoolId(profile.schoolId);
+                    }} required className="mt-1.5 h-11 w-full rounded-xl border-2 border-line bg-card px-3 text-xs font-semibold text-ink outline-none focus:border-brand">
+                      <option value="">Choose a profile</option>
+                      {matchingAuthors.map((profile) => <option key={profile.id} value={profile.id}>@{profile.username} — {profile.fullName}</option>)}
+                    </select>
+                  </label>
+                  <label className="block text-xs font-bold text-ink sm:col-span-2">
+                    Publishing school
+                    <select value={schoolId} onChange={(event) => setSchoolId(event.target.value)} required className="mt-1.5 h-11 w-full rounded-xl border-2 border-line bg-card px-3 text-xs font-semibold text-ink outline-none focus:border-brand">
+                      <option value="">Choose a school</option>
+                      {schools.map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}
+                    </select>
+                  </label>
+                </div>
+
+                {selectedAuthor && (
+                  <div className="flex items-center gap-2 rounded-xl border-2 border-warning-soft bg-warning-wash px-3 py-2">
+                    <Avatar name={selectedAuthor.username} src={selectedAuthor.avatarUrl} size="sm" />
+                    <span className="text-xs font-bold text-warning-deep">Publishing as synthetic @{selectedAuthor.username}</span>
+                  </div>
+                )}
+
+                <label className="block text-xs font-bold text-ink">
+                  {isConfession ? "Confession" : "Gist"}
+                  <textarea value={content} onChange={(event) => setContent(event.target.value)} maxLength={300} rows={5} placeholder="Write the gist..." className="mt-1.5 w-full resize-y rounded-2xl border-2 border-line bg-card px-3 py-3 text-sm font-semibold text-ink outline-none focus:border-brand" />
+                  <span className="mt-1 block text-right text-[10px] font-semibold text-ink-muted">{content.length}/300</span>
+                </label>
+
+                <div>
+                    <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border-2 border-line bg-card px-3 text-xs font-bold text-ink hover:border-brand">
+                      <Upload size={15} aria-hidden />
+                      Add photo/video
+                      <input type="file" accept="image/*,video/*" multiple onChange={selectMedia} className="sr-only" />
+                    </label>
+                    <p className="mt-1.5 text-[10px] font-semibold text-ink-muted">Up to 5 images and 3 videos. Videos max 80 MB each.</p>
+                    {previews.length > 0 && (
+                      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        {previews.map(({ file, url }, index) => (
+                          <div key={`${file.name}-${index}`} className="relative aspect-square overflow-hidden rounded-xl border-2 border-line bg-page">
+                            {isVideoFile(file) ? (
+                              <video src={url} className="size-full object-cover" muted playsInline />
+                            ) : (
+                              <img src={url} alt={file.name} className="size-full object-cover" />
+                            )}
+                            {isVideoFile(file) && <span className="absolute bottom-1 left-1 rounded-full bg-black/70 px-2 py-0.5 text-[9px] font-bold text-white">VIDEO</span>}
+                            <button type="button" aria-label={`Remove ${file.name}`} onClick={() => setMediaFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="absolute right-1 top-1 flex size-7 items-center justify-center rounded-full bg-black/70 text-white"><X size={14} aria-hidden /></button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border-2 border-line bg-page px-3 py-2.5">
+                  <label className="inline-flex min-h-8 items-center gap-2 text-xs font-bold text-ink">
+                    <input type="checkbox" checked={isConfession} onChange={(event) => setIsConfession(event.target.checked)} className="size-4 accent-violet-500" />
+                    Publish as confession
+                  </label>
+                  {isConfession && (
+                    <>
+                      <select value={category} onChange={(event) => setCategory(event.target.value)} className="h-9 rounded-lg border-2 border-line bg-card px-2 text-[10px] font-bold text-ink">
+                        {CONFESSION_CATEGORIES.map((item) => <option key={item} value={item}>{item}</option>)}
+                      </select>
+                      <label className="inline-flex min-h-8 items-center gap-2 text-xs font-bold text-ink">
+                        <input type="checkbox" checked={isAnonymous} onChange={(event) => setIsAnonymous(event.target.checked)} className="size-4 accent-violet-500" />
+                        Keep identity anonymous
+                      </label>
+                    </>
+                  )}
+                </div>
+                <Button type="submit" loading={busy} disabled={!authorId || !schoolId} leftIcon={<Check size={15} aria-hidden />}>
+                  Publish {isConfession ? "confession" : "gist"}
+                </Button>
+              </form>
+            </CardBody>
+          </Card>
+        </section>
+      )}
+
+      {tab === "purge" && (
+        <section id="seed-panel-purge" role="tabpanel" aria-labelledby="seed-tab-purge">
+          <Card>
+            <CardBody className="pt-5">
+              <div className="flex items-start gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-danger-wash text-danger"><AlertTriangle size={18} aria-hidden /></span>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-sm font-extrabold text-ink">Purge all synthetic data</h2>
+                  <p className="mt-1 max-w-prose text-xs font-semibold leading-relaxed text-ink-muted">This permanently removes seed profiles, their posts and media, and seeded confessions. Organic accounts and content are not included.</p>
+                </div>
+              </div>
+              <Button variant="danger" className="mt-5" leftIcon={<Trash2 size={15} aria-hidden />} onClick={() => setPurgeOpen(true)}>Purge all seed data</Button>
+            </CardBody>
+          </Card>
+        </section>
+      )}
+
+      {editing && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditing(null); }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="edit-seed-title" className="w-full max-w-md rounded-3xl border-2 border-line bg-card p-5 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 id="edit-seed-title" className="text-base font-black text-ink">Edit synthetic profile</h2>
+              <button type="button" onClick={() => setEditing(null)} aria-label="Close edit dialog" className="flex size-10 items-center justify-center rounded-xl text-ink-muted hover:bg-page"><X size={17} aria-hidden /></button>
+            </div>
+            <form onSubmit={(event) => void saveProfile(event)} className="space-y-3">
+              <label className="block text-xs font-bold text-ink">Username<input value={editing.username} onChange={(event) => setEditing({ ...editing, username: event.target.value })} required minLength={3} maxLength={24} className="mt-1.5 h-11 w-full rounded-xl border-2 border-line bg-card px-3 text-sm text-ink outline-none focus:border-brand" /></label>
+              <label className="block text-xs font-bold text-ink">Full name<input value={editing.fullName} onChange={(event) => setEditing({ ...editing, fullName: event.target.value })} required maxLength={80} className="mt-1.5 h-11 w-full rounded-xl border-2 border-line bg-card px-3 text-sm text-ink outline-none focus:border-brand" /></label>
+              <label className="block text-xs font-bold text-ink">Avatar URL<input value={editing.avatarUrl ?? ""} onChange={(event) => setEditing({ ...editing, avatarUrl: event.target.value || null })} className="mt-1.5 h-11 w-full rounded-xl border-2 border-line bg-card px-3 text-sm text-ink outline-none focus:border-brand" /></label>
+              <label className="block text-xs font-bold text-ink">School<select value={editing.schoolId} onChange={(event) => setEditing({ ...editing, schoolId: event.target.value })} required className="mt-1.5 h-11 w-full rounded-xl border-2 border-line bg-card px-3 text-sm text-ink outline-none focus:border-brand">{schools.map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}</select></label>
+              <Button type="submit" loading={busy} fullWidth>Save profile</Button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {purgeOpen && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4">
+          <div role="alertdialog" aria-modal="true" aria-labelledby="purge-title" aria-describedby="purge-description" className="w-full max-w-md rounded-3xl border-2 border-danger-soft bg-card p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={20} className="mt-0.5 shrink-0 text-danger" aria-hidden />
+              <div>
+                <h2 id="purge-title" className="text-base font-black text-ink">Confirm permanent purge</h2>
+                <p id="purge-description" className="mt-1 text-xs font-semibold leading-relaxed text-ink-muted">All synthetic profiles and associated seeded content will be deleted. This cannot be undone.</p>
+              </div>
+            </div>
+            <label className="mt-4 block text-xs font-bold text-ink">Type PURGE to continue<input value={purgeConfirmation} onChange={(event) => setPurgeConfirmation(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border-2 border-line bg-card px-3 font-mono text-sm text-ink outline-none focus:border-danger" /></label>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" disabled={busy} onClick={() => { setPurgeOpen(false); setPurgeConfirmation(""); }}>Cancel</Button>
+              <Button variant="danger" disabled={purgeConfirmation !== "PURGE" || busy} loading={busy} onClick={() => void purge()}>Purge permanently</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

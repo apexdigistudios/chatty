@@ -183,21 +183,57 @@ export async function fetchPublicProfile(userId: string): Promise<PublicProfile 
       .eq("id", userId)
       .maybeSingle<RawPublicProfile>();
     if (error) throw new Error(error.message);
-    if (!data) return null;
-    const profile: PublicProfile = {
-      id: data.id,
-      username: data.username,
-      avatarUrl: data.avatar_url,
-      coverUrl: data.cover_url ?? null,
-      bio: data.bio ?? "",
-      fullName: data.full_name ?? null,
-      classForm: data.class_form ?? null,
-      schoolId: data.school_id,
-      schoolName: data.school?.name ?? null,
-      schoolShort: data.school ? shortNameOf(data.school.name) : null,
-      schoolCrest: data.school?.crest_url ?? null,
-      createdAt: data.created_at,
-    };
+    let profile: PublicProfile | null = data
+      ? {
+          id: data.id,
+          username: data.username,
+          avatarUrl: data.avatar_url,
+          coverUrl: data.cover_url ?? null,
+          bio: data.bio ?? "",
+          fullName: data.full_name ?? null,
+          classForm: data.class_form ?? null,
+          schoolId: data.school_id,
+          schoolName: data.school?.name ?? null,
+          schoolShort: data.school ? shortNameOf(data.school.name) : null,
+          schoolCrest: data.school?.crest_url ?? null,
+          createdAt: data.created_at,
+        }
+      : null;
+    if (!profile) {
+      const { data: seedProfile, error: seedError } = await supabase
+        .from("admin_seed_profiles")
+        .select("id, username, full_name, avatar_url, school_id, created_at, school:schools!school_id(name, crest_url:logo_url)")
+        .eq("id", userId)
+        .maybeSingle<{
+          id: string;
+          username: string;
+          full_name: string;
+          avatar_url: string | null;
+          school_id: string;
+          created_at: string;
+          school: { name: string; crest_url: string | null } | null;
+        }>();
+      if (seedError) {
+        if (seedError.code !== "42P01" && seedError.code !== "PGRST205") throw new Error(seedError.message);
+      } else if (seedProfile) {
+        profile = {
+          id: seedProfile.id,
+          username: seedProfile.username,
+          avatarUrl: seedProfile.avatar_url,
+          coverUrl: null,
+          bio: "Synthetic demo profile",
+          fullName: seedProfile.full_name,
+          classForm: null,
+          schoolId: seedProfile.school_id,
+          schoolName: seedProfile.school?.name ?? null,
+          schoolShort: seedProfile.school ? shortNameOf(seedProfile.school.name) : null,
+          schoolCrest: seedProfile.school?.crest_url ?? null,
+          createdAt: seedProfile.created_at,
+          isSeed: true,
+        };
+      }
+    }
+    if (!profile) return null;
     try {
       await writeOfflineValue(cacheKey, profile);
     } catch (cacheError) {
