@@ -1,6 +1,7 @@
 import { useEffect, useState, type ImgHTMLAttributes } from "react";
 import {
   cacheLoadedImage,
+  isBrowserOffline,
   persistImageBlob,
   readImageBlob,
 } from "../../lib/offlineCache";
@@ -29,6 +30,29 @@ export function SafeImage({
       if (cachedImage) URL.revokeObjectURL(cachedImage.objectUrl);
     };
   }, [cachedImage, src]);
+
+  useEffect(() => {
+    let active = true;
+    const loadCachedImage = async () => {
+      if (!isBrowserOffline()) return;
+      try {
+        const blob = await readImageBlob(src);
+        if (active && blob) {
+          setCachedImage({ source: src, objectUrl: URL.createObjectURL(blob) });
+        }
+      } catch (error) {
+        console.warn("Could not read the cached image.", error);
+      }
+    };
+    const handleOffline = () => void loadCachedImage();
+
+    void loadCachedImage();
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      active = false;
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [src]);
 
   return (
     <img

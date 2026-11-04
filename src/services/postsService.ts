@@ -1,7 +1,9 @@
 import { shortNameOf } from "../lib/media";
 import {
   isBrowserOffline,
+  readLatestOfflineFeed,
   readOfflineValue,
+  writeLatestOfflineFeed,
   writeOfflineValue,
 } from "../lib/offlineCache";
 import { countOf, currentUserId, requireUserId, supabase } from "../lib/supabase";
@@ -421,6 +423,18 @@ export async function fetchFeed(query: FeedQuery = {}): Promise<Post[]> {
   if (isBrowserOffline()) {
     const cached = await readOfflineValue<Post[]>(key);
     if (cached) return sortPostsNewestFirst(refreshCachedSpotlights(cached));
+    const latest = await readLatestOfflineFeed<Post>(userId);
+    if (latest) {
+      const filtered = latest.filter((post) =>
+        (!query.schoolId || post.schoolId === query.schoolId) &&
+        (!query.groupId || post.groupId === query.groupId) &&
+        (!query.authorId || post.authorId === query.authorId) &&
+        (!query.authorIds || query.authorIds.includes(post.authorId)) &&
+        (!query.search?.trim() || post.content.toLowerCase().includes(query.search.trim().toLowerCase())) &&
+        (query.includeModerated || post.status === "active")
+      );
+      return sortPostsNewestFirst(refreshCachedSpotlights(filtered)).slice(query.offset ?? 0, (query.offset ?? 0) + (query.limit ?? 10));
+    }
     throw new Error("You are offline and this feed has not been cached on this device.");
   }
 
@@ -431,11 +445,41 @@ export async function fetchFeed(query: FeedQuery = {}): Promise<Post[]> {
     } catch (error) {
       console.warn("Could not save this feed for offline use.", error);
     }
+    if (
+      query.offset === undefined &&
+      (query.limit ?? 10) >= 50 &&
+      !query.schoolId &&
+      !query.groupId &&
+      !query.authorId &&
+      !query.authorIds &&
+      !query.search
+    ) {
+      try {
+        await writeLatestOfflineFeed(userId, posts);
+      } catch (error) {
+        console.warn("Could not save the latest feed for offline use.", error);
+      }
+    }
     return posts;
   } catch (error) {
     if (!isBrowserOffline()) throw error;
     const cached = await readOfflineValue<Post[]>(key);
     if (cached) return sortPostsNewestFirst(refreshCachedSpotlights(cached));
+    const latest = await readLatestOfflineFeed<Post>(userId);
+    if (latest) {
+      const filtered = latest.filter((post) =>
+        (!query.schoolId || post.schoolId === query.schoolId) &&
+        (!query.groupId || post.groupId === query.groupId) &&
+        (!query.authorId || post.authorId === query.authorId) &&
+        (!query.authorIds || query.authorIds.includes(post.authorId)) &&
+        (!query.search?.trim() || post.content.toLowerCase().includes(query.search.trim().toLowerCase())) &&
+        (query.includeModerated || post.status === "active")
+      );
+      return sortPostsNewestFirst(refreshCachedSpotlights(filtered)).slice(
+        query.offset ?? 0,
+        (query.offset ?? 0) + (query.limit ?? 10)
+      );
+    }
     throw error;
   }
 }

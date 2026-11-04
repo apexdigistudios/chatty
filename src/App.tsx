@@ -3,6 +3,7 @@ import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AuthGateModal } from "./components/auth/AuthGateModal";
 import { PWAInstallPrompt } from "./components/common/PWAInstallPrompt";
+import { OfflineSyncListener } from "./components/common/OfflineSyncListener";
 import { SplashScreen } from "./components/common/SplashScreen";
 import { CommentDrawer } from "./components/feed/CommentDrawer";
 import { NotificationDrawer } from "./components/notifications/NotificationDrawer";
@@ -112,6 +113,7 @@ function RoutedApp() {
       {!loading && (
         <>
           <NotificationListener />
+          <OfflineSyncListener />
           <Shell />
           <AuthGateModal />
           <CommentDrawer />

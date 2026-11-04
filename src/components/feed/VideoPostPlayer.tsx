@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Expand, Loader2, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { formatVideoTime } from "../../lib/video";
+import { isBrowserOffline, readVideoBlob } from "../../lib/offlineCache";
 import { springs } from "../../theme/tokens";
 import { cn } from "../../utils/cn";
 import { VideoLightbox } from "./VideoLightbox";
@@ -22,6 +23,33 @@ export function VideoPostPlayer({ src, durationSeconds, edgeToEdge = false }: Vi
   const [duration, setDuration] = useState(durationSeconds ?? 0);
   const [loading, setLoading] = useState(true);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [cachedVideo, setCachedVideo] = useState<{ source: string; objectUrl: string } | null>(null);
+  const playbackSrc = cachedVideo?.source === src ? cachedVideo.objectUrl : src;
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl: string | null = null;
+    const loadOfflineVideo = async () => {
+      if (!isBrowserOffline()) return;
+      try {
+        const blob = await readVideoBlob(src);
+        if (active && blob) {
+          objectUrl = URL.createObjectURL(blob);
+          setCachedVideo({ source: src, objectUrl });
+        }
+      } catch (error) {
+        console.warn("Could not read the cached video.", error);
+      }
+    };
+    const handleOffline = () => void loadOfflineVideo();
+    void loadOfflineVideo();
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      active = false;
+      window.removeEventListener("offline", handleOffline);
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [src]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -45,7 +73,7 @@ export function VideoPostPlayer({ src, durationSeconds, edgeToEdge = false }: Vi
       observer.disconnect();
       video.pause();
     };
-  }, [src]);
+  }, [playbackSrc]);
 
   const togglePlay = () => {
     const video = videoRef.current;
@@ -76,7 +104,7 @@ export function VideoPostPlayer({ src, durationSeconds, edgeToEdge = false }: Vi
       >
         <video
           ref={videoRef}
-          src={src}
+          src={playbackSrc}
           playsInline
           loop
           muted={muted}
@@ -142,7 +170,7 @@ export function VideoPostPlayer({ src, durationSeconds, edgeToEdge = false }: Vi
           <div className="h-full bg-[#8B5CF6] transition-[width] duration-150" style={{ width: `${progress}%` }} />
         </div>
       </div>
-      <VideoLightbox src={lightboxOpen ? src : null} onClose={() => setLightboxOpen(false)} />
+      <VideoLightbox src={lightboxOpen ? playbackSrc : null} onClose={() => setLightboxOpen(false)} />
     </>
   );
 }

@@ -17,6 +17,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { useCanModerate } from "../../hooks/useModeration";
 import { isPostSaved, subscribeToSavedPosts, toggleSavedPost } from "../../lib/savedPosts";
+import { cachePublicMedia } from "../../lib/offlineCache";
 import { describeError } from "../../lib/supabase";
 import { timeAgo } from "../../lib/time";
 import { recordPostShare } from "../../services/followsService";
@@ -61,6 +62,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
   const [reportOpen, setReportOpen] = useState(false);
   const [textExpanded, setTextExpanded] = useState(false);
   const [textOverflows, setTextOverflows] = useState(false);
+  const articleRef = useRef<HTMLElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
@@ -98,6 +100,27 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
   const isAuthor = user?.id === post.authorId;
   const canDelete = Boolean(user) && (isAuthor || moderator);
   const profileHref = user?.id === post.authorId ? "/profile" : `/profile/${post.authorId}`;
+
+  useEffect(() => {
+    const article = articleRef.current;
+    if (!article || !("IntersectionObserver" in window)) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        observer.disconnect();
+        void (async () => {
+          for (const item of media) {
+            await cachePublicMedia(item.src, item.type);
+          }
+        })().catch((error: unknown) => {
+          console.warn("Could not pre-cache gist media for offline use.", error);
+        });
+      },
+      { rootMargin: "500px 0px" }
+    );
+    observer.observe(article);
+    return () => observer.disconnect();
+  }, [post.id]);
 
   const requireAuth = () => {
     if (user) return true;
@@ -156,6 +179,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
 
   return (
     <article
+      ref={articleRef}
       role="article"
       aria-label={`Gist by ${post.authorName} from ${post.schoolShort}`}
       className="relative w-full overflow-visible border-b-4 border-line/60 px-4 py-3 dark:border-neutral-900/60"

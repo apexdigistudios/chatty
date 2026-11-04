@@ -1,5 +1,6 @@
 import { shortNameOf } from "../lib/media";
 import { countOf, requireUserId, supabase } from "../lib/supabase";
+import { isBrowserOffline, readOfflineValue, writeOfflineValue } from "../lib/offlineCache";
 import type { School, SchoolRow, SchoolType } from "../types/models";
 import { uploadSchoolLogo } from "../lib/images/imageUpload";
 
@@ -37,13 +38,26 @@ export function mapSchool(row: RawSchool): School {
 }
 
 export async function fetchSchools(): Promise<School[]> {
-  const { data, error } = await supabase
-    .from("schools")
-    .select(SCHOOL_SELECT)
-    .order("name", { ascending: true })
-    .returns<RawSchool[]>();
-  if (error) throw new Error(error.message);
-  return (data ?? []).map(mapSchool);
+  const cacheKey = "schools:all";
+  if (isBrowserOffline()) return (await readOfflineValue<School[]>(cacheKey)) ?? [];
+  try {
+    const { data, error } = await supabase
+      .from("schools")
+      .select(SCHOOL_SELECT)
+      .order("name", { ascending: true })
+      .returns<RawSchool[]>();
+    if (error) throw new Error(error.message);
+    const schools = (data ?? []).map(mapSchool);
+    try {
+      await writeOfflineValue(cacheKey, schools);
+    } catch (cacheError) {
+      console.warn("Could not cache school communities for offline use.", cacheError);
+    }
+    return schools;
+  } catch (error) {
+    if (isBrowserOffline()) return (await readOfflineValue<School[]>(cacheKey)) ?? [];
+    throw error;
+  }
 }
 
 export async function fetchSchool(schoolId: string): Promise<School | null> {
