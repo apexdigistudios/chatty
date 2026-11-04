@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CalendarDays, Heart, MessageCircle, Send, Share2, Sparkles, Users, WifiOff } from "lucide-react";
+import { ArrowLeft, CalendarDays, Heart, Send, Share2, Sparkles, Users, WifiOff } from "lucide-react";
 import { GistCard } from "../components/feed/GistCard";
 import { FollowButton } from "../components/profile/FollowButton";
 import { Avatar } from "../components/ui/Avatar";
@@ -149,7 +149,6 @@ export function PublicProfilePage() {
   }
 
   const likesReceived = posts.reduce((sum, post) => sum + post.likeCount, 0);
-  const replies = posts.reduce((sum, post) => sum + post.commentCount, 0);
   const joined = new Date(profile.createdAt).toLocaleDateString(undefined, { month: "long", year: "numeric" });
 
   return (
@@ -253,7 +252,7 @@ export function PublicProfilePage() {
             Joined {joined}
           </p>
 
-          <div className="mt-4 grid grid-cols-5 divide-x divide-line rounded-2xl border-2 border-line bg-page py-3 text-center">
+          <div className="mt-4 grid grid-cols-4 divide-x divide-line rounded-2xl border-2 border-line bg-page py-3 text-center">
             <div>
               <p className="text-lg font-black tabular-nums text-ink">{posts.length}</p>
               <p className="text-[9px] font-extrabold uppercase tracking-wider text-ink-muted sm:text-[10px]">Gists</p>
@@ -262,12 +261,6 @@ export function PublicProfilePage() {
               <p className="text-lg font-black tabular-nums text-ink">{likesReceived}</p>
               <p className="flex items-center justify-center gap-1 text-[9px] font-extrabold uppercase tracking-wider text-ink-muted sm:text-[10px]">
                 <Heart size={10} aria-hidden /> Likes
-              </p>
-            </div>
-            <div>
-              <p className="text-lg font-black tabular-nums text-ink">{replies}</p>
-              <p className="flex items-center justify-center gap-1 text-[9px] font-extrabold uppercase tracking-wider text-ink-muted sm:text-[10px]">
-                <MessageCircle size={10} aria-hidden /> Replies
               </p>
             </div>
             <div>

@@ -459,7 +459,9 @@ async function fetchFeedOnline(query: FeedQuery): Promise<Post[]> {
   if (query.groupId && supportsGroups) request = request.eq("group_id", query.groupId);
   if (query.authorId) {
     if (await supportsSeedProfiles()) {
-      request = request.or(`user_id.eq.${query.authorId},seed_profile_id.eq.${query.authorId}`);
+      request = request.or(
+        `and(user_id.eq.${query.authorId},seed_profile_id.is.null),seed_profile_id.eq.${query.authorId}`
+      );
     } else {
       request = request.eq("user_id", query.authorId);
     }
@@ -542,7 +544,12 @@ export async function fetchFeed(query: FeedQuery = {}): Promise<Post[]> {
 
   if (isBrowserOffline()) {
     const cached = await readOfflineValue<Post[]>(key);
-    if (cached) return sortPostsNewestFirst(refreshCachedSpotlights(cached));
+    if (cached) {
+      const authorFiltered = query.authorId
+        ? cached.filter((post) => post.authorId === query.authorId)
+        : cached;
+      return sortPostsNewestFirst(refreshCachedSpotlights(authorFiltered));
+    }
     const latest = await readLatestOfflineFeed<Post>(userId);
     if (latest) {
       const filtered = latest.filter((post) =>
@@ -586,7 +593,12 @@ export async function fetchFeed(query: FeedQuery = {}): Promise<Post[]> {
   } catch (error) {
     if (!isBrowserOffline()) throw error;
     const cached = await readOfflineValue<Post[]>(key);
-    if (cached) return sortPostsNewestFirst(refreshCachedSpotlights(cached));
+    if (cached) {
+      const authorFiltered = query.authorId
+        ? cached.filter((post) => post.authorId === query.authorId)
+        : cached;
+      return sortPostsNewestFirst(refreshCachedSpotlights(authorFiltered));
+    }
     const latest = await readLatestOfflineFeed<Post>(userId);
     if (latest) {
       const filtered = latest.filter((post) =>
