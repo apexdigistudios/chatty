@@ -8,7 +8,7 @@ export type ReportStatus = "pending" | "resolved";
 export type AdminRoleKind = "global_admin" | "school_moderator";
 /** Stored lowercase in the live database. Use `schoolTypeLabel()` for display. */
 export type SchoolType = "public" | "private" | "mission" | "technical";
-export type ReactionKind = "laugh" | "shock" | "heart" | "relatable";
+export type ReactionKind = "like" | "heart" | "fire" | "laugh" | "clap" | "surprised";
 export type ConfessionCategory =
   | "Crush Confession"
   | "School Secret"
@@ -107,6 +107,8 @@ export interface Post {
   groupEmoji: string | null;
   content: string;
   mediaUrls: string[];
+  mediaTypes?: MediaType[];
+  videoDurations?: Array<number | null>;
   /** Video posts get a custom autoplay-on-scroll player. */
   mediaType: MediaType;
   videoDurationSeconds?: number | null;
@@ -220,8 +222,10 @@ export interface Report {
 }
 
 export const emptyReactions = (): Record<ReactionKind, number> => ({
-  laugh: 0,
-  shock: 0,
+  like: 0,
   heart: 0,
-  relatable: 0,
+  fire: 0,
+  laugh: 0,
+  clap: 0,
+  surprised: 0,
 });

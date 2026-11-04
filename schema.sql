@@ -99,7 +99,7 @@ create table if not exists public.confession_reactions (
   id             uuid primary key default gen_random_uuid(),
   confession_id  uuid not null references public.confessions (id) on delete cascade,
   user_id        uuid not null references public.profiles (id) on delete cascade,
-  kind           text not null check (kind in ('laugh','shock','heart','relatable')),
+  kind           text not null check (kind in ('like','heart','fire','laugh','clap','surprised')),
   created_at     timestamptz not null default now(),
   unique (confession_id, user_id)
 );
@@ -160,6 +160,16 @@ create table if not exists public.post_shares (
   constraint post_shares_unique_post_user unique (post_id, user_id)
 );
 
+create table if not exists public.post_media (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.posts (id) on delete cascade,
+  media_url text not null,
+  media_type text not null check (media_type in ('image', 'video')),
+  video_duration_seconds integer,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
 -- ────────────────── Sub-communities (clubs, squads, gengs) ──────────────────
 
 create table if not exists public.school_groups (
@@ -203,6 +213,12 @@ create index if not exists admin_roles_user_idx          on public.admin_roles (
 create index if not exists profiles_school_idx           on public.profiles (school_id);
 create index if not exists follows_following_id_idx       on public.follows (following_id);
 create index if not exists post_shares_post_id_idx        on public.post_shares (post_id);
+create index if not exists post_media_post_sort_idx       on public.post_media (post_id, sort_order);
+
+create or replace view public.profile_follow_counts as
+select following_id as profile_id, count(*)::bigint as followers_count
+from public.follows
+group by following_id;
 
 -- ─────────────────────── Authorization helpers ─────────────────────────────
 -- SECURITY DEFINER so policies can consult admin_roles/schools without
@@ -408,6 +424,7 @@ alter table public.admin_roles          enable row level security;
 alter table public.user_blocks          enable row level security;
 alter table public.follows               enable row level security;
 alter table public.post_shares           enable row level security;
+alter table public.post_media            enable row level security;
 
 -- schools ------------------------------------------------------------------
 drop policy if exists "schools: public read"            on public.schools;
@@ -492,6 +509,37 @@ revoke all on table public.post_shares from anon, authenticated;
 grant select on table public.post_shares to anon, authenticated;
 grant insert on table public.post_shares to authenticated;
 grant all on table public.post_shares to service_role;
+
+-- post media ---------------------------------------------------------------
+drop policy if exists "post media: read visible posts" on public.post_media;
+drop policy if exists "post media: author create" on public.post_media;
+
+create policy "post media: read visible posts" on public.post_media
+  for select using (
+    exists (
+      select 1 from public.posts
+      where posts.id = post_media.post_id
+        and (
+          posts.status = 'active'
+          or posts.user_id = (select auth.uid())
+          or public.is_school_moderator(posts.school_id)
+          or public.is_global_admin()
+        )
+    )
+  );
+create policy "post media: author create" on public.post_media
+  for insert to authenticated
+  with check (
+    exists (
+      select 1 from public.posts
+      where posts.id = post_media.post_id
+        and posts.user_id = (select auth.uid())
+    )
+  );
+grant select on table public.post_media to anon, authenticated;
+grant insert on table public.post_media to authenticated;
+grant all on table public.post_media to service_role;
+grant select on public.profile_follow_counts to anon, authenticated;
 
 -- posts --------------------------------------------------------------------
 drop policy if exists "posts: read active or privileged" on public.posts;

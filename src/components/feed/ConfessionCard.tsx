@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { EyeOff, Heart, Laugh, Lock, MoreHorizontal, Share2, ShieldCheck, ThumbsUp, Zap, type LucideIcon } from "lucide-react";
+import { EyeOff, Lock, MoreHorizontal, Share2, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { describeError } from "../../lib/supabase";
 import { timeAgo } from "../../lib/time";
@@ -18,15 +18,17 @@ import { ReportMenu } from "./ReportMenu";
 interface ReactionMeta {
   kind: ReactionKind;
   label: string;
-  icon: LucideIcon;
+  emoji: string;
   activeClass: string;
 }
 
 export const REACTION_META: ReactionMeta[] = [
-  { kind: "laugh", label: "Laugh", icon: Laugh, activeClass: "bg-warning-wash text-warning-deep border-warning-soft" },
-  { kind: "shock", label: "Shock", icon: Zap, activeClass: "bg-accent-wash text-accent-deep border-accent-soft" },
-  { kind: "heart", label: "Heart", icon: Heart, activeClass: "bg-danger-wash text-danger border-danger-soft" },
-  { kind: "relatable", label: "Relatable", icon: ThumbsUp, activeClass: "bg-brand-wash text-brand-deep border-brand-soft" },
+  { kind: "like", label: "Like", emoji: "👍", activeClass: "bg-brand-wash text-brand-deep border-brand-soft" },
+  { kind: "heart", label: "Love", emoji: "❤️", activeClass: "bg-danger-wash text-danger border-danger-soft" },
+  { kind: "fire", label: "Fire", emoji: "🔥", activeClass: "bg-warning-wash text-warning-deep border-warning-soft" },
+  { kind: "laugh", label: "Funny", emoji: "😂", activeClass: "bg-warning-wash text-warning-deep border-warning-soft" },
+  { kind: "clap", label: "Applause", emoji: "👏", activeClass: "bg-accent-wash text-accent-deep border-accent-soft" },
+  { kind: "surprised", label: "Surprised", emoji: "😮", activeClass: "bg-accent-wash text-accent-deep border-accent-soft" },
 ];
 
 const categoryTone: Record<ConfessionCategory, BadgeTone> = {
@@ -155,7 +157,7 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
 
         {reactionsAvailable() && (
           <div className="mt-4 flex flex-wrap gap-2">
-            {REACTION_META.map(({ kind, label, icon: Icon, activeClass }) => {
+            {REACTION_META.map(({ kind, label, emoji, activeClass }) => {
               const active = confession.myReaction === kind;
               const count = confession.reactions[kind];
               return (
@@ -173,7 +175,7 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
                     active ? activeClass : "border-line bg-card text-ink-muted hover:border-line-deep hover:text-ink"
                   )}
                 >
-                  <Icon size={14} strokeWidth={2.5} aria-hidden />
+                  <span className="text-base leading-none" aria-hidden>{emoji}</span>
                   <span className="tabular-nums">{count}</span>
                 </motion.button>
               );

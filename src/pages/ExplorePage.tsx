@@ -10,8 +10,8 @@ import { ProgressiveImage } from "../components/ui/ProgressiveImage";
 import { SchoolBadge } from "../components/ui/SchoolBadge";
 import { describeError } from "../lib/supabase";
 import { timeAgo } from "../lib/time";
-import { searchProfiles, type ProfileSearchHit } from "../services/profilesService";
-import { fetchFeed } from "../services/postsService";
+import { fetchPopularProfiles, searchProfiles, type ProfileSearchHit } from "../services/profilesService";
+import { fetchFeed, fetchPopularGists } from "../services/postsService";
 import { useGistStore } from "../store/gistStore";
 import type { Post } from "../types/models";
 import { cn } from "../utils/cn";
@@ -49,21 +49,12 @@ export function ExplorePage() {
     setLoading(true);
     setError(null);
     Promise.all([
-      fetchFeed({ search: debounced || undefined, limit: debounced ? 20 : 8 }),
-      debounced ? searchProfiles(debounced) : Promise.resolve([] as ProfileSearchHit[]),
+      debounced ? fetchFeed({ search: debounced, limit: 20 }) : fetchPopularGists(),
+      debounced ? searchProfiles(debounced) : fetchPopularProfiles(),
     ])
       .then(([nextGists, nextPeople]) => {
         if (!active) return;
-        setGists(
-          debounced
-            ? nextGists
-            : [
-                ...nextGists.filter((post) => post.spotlightStatus === "active"),
-                ...nextGists
-                  .filter((post) => post.spotlightStatus !== "active")
-                  .sort((a, b) => b.likeCount - a.likeCount),
-              ]
-        );
+        setGists(nextGists);
         setPeople(nextPeople);
       })
       .catch((err) => active && setError(describeError(err, "Search failed.")))
@@ -120,7 +111,7 @@ export function ExplorePage() {
           {showGists && gists.length > 0 && (
             <section aria-labelledby="gists-heading">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 id="gists-heading" className="text-sm font-extrabold text-ink sm:text-base">{debounced ? "Gists matching your search" : "Popular gists"}</h2>
+                <h2 id="gists-heading" className="text-sm font-extrabold text-ink sm:text-base">{debounced ? "Gists matching your search" : "Popular gists (100+ likes)"}</h2>
                 <Badge tone="brand">{gists.length}</Badge>
               </div>
               <div className="divide-y-2 divide-line overflow-hidden rounded-2xl border-2 border-line bg-card">
@@ -158,7 +149,7 @@ export function ExplorePage() {
           {showPeople && people.length > 0 && (
             <section aria-labelledby="people-heading">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 id="people-heading" className="text-sm font-extrabold text-ink sm:text-base">Students</h2>
+                <h2 id="people-heading" className="text-sm font-extrabold text-ink sm:text-base">{debounced ? "Students" : "Popular students (100+ followers)"}</h2>
                 <Badge tone="success">{people.length}</Badge>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -170,6 +161,7 @@ export function ExplorePage() {
                         <p className="truncate text-[13px] font-extrabold text-ink">@{student.username}</p>
                         <p className="truncate text-[11px] font-semibold text-ink-muted">{student.schoolShort ?? "No school yet"}</p>
                         {student.bio && <p className="mt-0.5 line-clamp-1 text-[10px] font-semibold text-ink-muted">{student.bio}</p>}
+                        {!debounced && student.followersCount !== undefined && <p className="mt-0.5 text-[10px] font-bold text-brand-deep">{student.followersCount.toLocaleString()} followers</p>}
                       </div>
                       {student.schoolId && (
                         <button type="button" onClick={() => openSchoolFeed(student.schoolId as string)} className="shrink-0 rounded-xl border-2 border-line px-2.5 py-1.5 text-[10px] font-extrabold text-ink hover:border-brand hover:text-brand-deep">School</button>

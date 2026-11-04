@@ -13,8 +13,8 @@ import { useAuthGateStore } from "../store/authGateStore";
 import { useGistStore } from "../store/gistStore";
 import { springs } from "../theme/tokens";
 
-const tabs = ["All SHSs", "Following", "My School", "Trending", "Confessions"] as const;
-type FeedTab = (typeof tabs)[number];
+const tabs = ["All SHSs", "Following", "My School", "Confessions"] as const;
+type FeedTab = (typeof tabs)[number] | "Trending";
 
 const listVariants = { hidden: { opacity: 1 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } };
 const itemVariants = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.22, ease: "easeOut" as const } } };
@@ -166,7 +166,7 @@ export function HomePage() {
   return (
     <div className="mx-auto w-full max-w-[720px] min-w-0 px-0 pt-0 sm:px-6 sm:pt-7">
       <div className="sticky top-[calc(3.4375rem+max(0.625rem,env(safe-area-inset-top)))] z-40 border-b border-line/60 bg-white/80 px-3 py-1.5 backdrop-blur-md dark:border-neutral-800/50 dark:bg-neutral-950/80 sm:px-4 md:top-[calc(3.5625rem+max(0.625rem,env(safe-area-inset-top)))]">
-        <div className="mx-auto grid w-full max-w-[720px] grid-cols-5 items-center" role="tablist" aria-label="Choose feed">
+        <div className="mx-auto grid w-full max-w-[720px] grid-cols-4 items-center" role="tablist" aria-label="Choose feed">
           {tabs.map((tab) => {
             const selected = activeTab === tab;
             return (

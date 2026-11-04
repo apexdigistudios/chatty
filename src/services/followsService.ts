@@ -1,5 +1,13 @@
 import { currentUserId, requireUserId, supabase } from "../lib/supabase";
 import { isBrowserOffline, readOfflineValue, writeOfflineValue } from "../lib/offlineCache";
+import { shortNameOf } from "../lib/media";
+
+export interface FollowProfile {
+  id: string;
+  username: string;
+  avatarUrl: string | null;
+  schoolName: string | null;
+}
 
 let followsTableUnavailable = false;
 const EMPTY_FOLLOW_SUMMARY: FollowSummary = {
@@ -12,6 +20,41 @@ export interface FollowSummary {
   followerCount: number;
   followingCount: number;
   isFollowing: boolean;
+}
+
+export async function fetchFollowProfiles(
+  profileId: string,
+  relation: "followers" | "following"
+): Promise<FollowProfile[]> {
+  const idColumn = relation === "followers" ? "follower_id" : "following_id";
+  const filterColumn = relation === "followers" ? "following_id" : "follower_id";
+  const { data: relations, error: relationError } = await supabase
+    .from("follows")
+    .select("follower_id, following_id")
+    .eq(filterColumn, profileId)
+    .order("created_at", { ascending: false });
+  if (relationError) throw new Error(relationError.message);
+  const ids = (relations ?? []).map((item) => item[idColumn]);
+  if (ids.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, username, avatar_url, school:schools!school_id(name)")
+    .in("id", ids)
+    .returns<Array<{ id: string; username: string; avatar_url: string | null; school: { name: string } | null }>>();
+  if (error) throw new Error(error.message);
+  const profilesById = new Map((data ?? []).map((profile) => [profile.id, profile]));
+  return ids.flatMap((id) => {
+    const profile = profilesById.get(id);
+    return profile
+      ? [{
+          id: profile.id,
+          username: profile.username,
+          avatarUrl: profile.avatar_url,
+          schoolName: profile.school ? shortNameOf(profile.school.name) : null,
+        }]
+      : [];
+  });
 }
 
 export async function fetchFollowingIds(userId?: string | null): Promise<string[]> {

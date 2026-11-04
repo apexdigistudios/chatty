@@ -19,7 +19,7 @@ import { downloadMedia } from "../../lib/download";
 import { isPostSaved, toggleSavedPost } from "../../lib/savedPosts";
 import { describeError } from "../../lib/supabase";
 import { recordPostShare } from "../../services/followsService";
-import { deletePost } from "../../services/postsService";
+import { permanentlyDeletePost } from "../../services/postsService";
 import { springs } from "../../theme/tokens";
 import type { Post } from "../../types/models";
 import { cn } from "../../utils/cn";
@@ -41,7 +41,7 @@ interface PostActionMenuProps {
 /**
  * Post action sheet: Save, Download image, Share and Report are available to
  * everyone (guests included). Delete is rendered only when `canDelete` and
- * performs a Supabase soft-delete (`status = 'removed'`).
+ * performs a permanent Supabase delete when the author or a moderator confirms.
  */
 export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onShare, onPromote, onReport }: PostActionMenuProps) {
   const { toast } = useToast();
@@ -118,8 +118,8 @@ export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onSh
   const remove = async () => {
     setBusy(true);
     try {
-      await deletePost(post.id);
-      toast("Gist removed.", "success");
+      await permanentlyDeletePost(post.id);
+      toast("Post permanently deleted.", "success");
       onDeleted?.(post.id);
       onClose();
     } catch (error) {
@@ -169,7 +169,7 @@ export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onSh
                 {post.mediaUrls.length > 0 && (
                   <button type="button" onClick={download} disabled={busy} className={itemClass} role="menuitem">
                     {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Download size={16} className="text-brand-deep" aria-hidden />}
-                    {post.mediaType === "video" ? "Download video" : "Download image"}
+                    {(post.mediaTypes?.[0] ?? post.mediaType) === "video" ? "Download video" : "Download image"}
                   </button>
                 )}
 
@@ -221,7 +221,7 @@ export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onSh
                       role="menuitem"
                     >
                       <Trash2 size={16} aria-hidden />
-                      Delete gist
+                      Delete post
                     </button>
                   </>
                 )}
@@ -241,7 +241,7 @@ export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onSh
                 <p className="text-xs font-extrabold text-ink">Delete this gist?</p>
               </div>
               <p className="px-1 text-[11px] font-semibold leading-relaxed text-ink-muted">
-                It will be hidden from every feed with <code className="font-black">status = removed</code>.
+                This permanently removes the post and its attachments. This cannot be undone.
               </p>
               <div className="mt-3 flex gap-2">
                 <button

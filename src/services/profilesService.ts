@@ -292,6 +292,7 @@ export async function fetchMyRoles(): Promise<AdminRoleRow[]> {
 
 export interface ProfileSearchHit extends Profile {
   schoolShort: string | null;
+  followersCount?: number;
 }
 
 /** Open postal lookup: students in one SHS by official name or nickname. */
@@ -339,6 +340,35 @@ export async function searchProfiles(query: string, limit = 8): Promise<ProfileS
     ...mapProfile(row),
     schoolShort: row.school ? shortNameOf(row.school.name) : null,
   }));
+}
+
+export async function fetchPopularProfiles(limit = 8): Promise<ProfileSearchHit[]> {
+  const { data: counts, error: countError } = await supabase
+    .from("profile_follow_counts")
+    .select("profile_id, followers_count")
+    .gt("followers_count", 100)
+    .order("followers_count", { ascending: false })
+    .limit(limit)
+    .returns<Array<{ profile_id: string; followers_count: number }>>();
+  if (countError) throw new Error(countError.message);
+  if (!counts?.length) return [];
+
+  const select = await profileSelect();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(`${select}, school:schools!school_id(name)`)
+    .in("id", counts.map((item) => item.profile_id))
+    .returns<RawProfileSearch[]>();
+  if (error) throw new Error(error.message);
+
+  const countById = new Map(counts.map((item) => [item.profile_id, item.followers_count]));
+  return (data ?? [])
+    .map((row) => ({
+      ...mapProfile(row),
+      schoolShort: row.school ? shortNameOf(row.school.name) : null,
+      followersCount: countById.get(row.id) ?? 0,
+    }))
+    .sort((a, b) => (b.followersCount ?? 0) - (a.followersCount ?? 0));
 }
 
 /* ───────────── Auth ───────────── */

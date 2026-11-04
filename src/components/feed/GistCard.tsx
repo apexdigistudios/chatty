@@ -89,7 +89,10 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
   const media = post.mediaUrls.map((src, index) => ({
     src,
     alt: `Photo ${index + 1} shared by ${post.authorName} from ${post.schoolShort}`,
+    type: post.mediaTypes?.[index] ?? (index === 0 ? post.mediaType : "image"),
+    duration: post.videoDurations?.[index] ?? (index === 0 ? post.videoDurationSeconds : null),
   }));
+  const imageMedia = media.filter((item) => item.type === "image");
   const moderator = canModerate(post.schoolId);
   const isAuthor = user?.id === post.authorId;
   const canDelete = Boolean(user) && (isAuthor || moderator);
@@ -258,14 +261,14 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           </button>
         )}
 
-        {media.length > 0 && post.mediaType === "video" && media[0] ? (
+        {media.length === 1 && media[0]?.type === "video" ? (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={springs.gentle}
             className="-mx-4 mt-3 w-[calc(100%+2rem)]"
           >
-            <VideoPostPlayer src={media[0].src} durationSeconds={post.videoDurationSeconds} edgeToEdge />
+            <VideoPostPlayer src={media[0].src} durationSeconds={media[0].duration} edgeToEdge />
           </motion.div>
         ) : media.length > 0 ? (
           <motion.div
@@ -274,11 +277,15 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
             transition={springs.gentle}
             className={cn("-mx-4 mt-3 w-[calc(100%+2rem)]", media.length > 1 ? "grid grid-cols-2 gap-0" : "block")}
           >
-            {media.map((item, index) => (
+            {media.map((item) => item.type === "video" ? (
+              <div key={item.src} className="overflow-hidden bg-black">
+                <VideoPostPlayer src={item.src} durationSeconds={item.duration} edgeToEdge />
+              </div>
+            ) : (
               <div key={item.src} className="overflow-hidden rounded-none border-0 bg-page shadow-none">
                 <button
                   type="button"
-                  onClick={() => setLightboxIndex(index)}
+                  onClick={() => setLightboxIndex(imageMedia.indexOf(item))}
                   aria-label={`Open full-screen: ${item.alt}`}
                   className="group relative block w-full cursor-zoom-in focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
                 >
@@ -393,8 +400,8 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
       {spotlightOpen && <SpotlightModal post={post} onClose={() => setSpotlightOpen(false)} />}
       {reportOpen && <ReportModal post={post} onClose={() => setReportOpen(false)} />}
 
-      {post.mediaType !== "video" && media.length > 0 && (
-        <ImageLightbox images={media} index={lightboxIndex} onClose={() => setLightboxIndex(null)} />
+      {imageMedia.length > 0 && (
+        <ImageLightbox images={imageMedia} index={lightboxIndex} onClose={() => setLightboxIndex(null)} />
       )}
     </article>
   );

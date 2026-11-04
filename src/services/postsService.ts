@@ -5,7 +5,7 @@ import {
   writeOfflineValue,
 } from "../lib/offlineCache";
 import { countOf, currentUserId, requireUserId, supabase } from "../lib/supabase";
-import type { Comment, Post, PostStatus } from "../types/models";
+import type { Comment, MediaType, Post, PostStatus } from "../types/models";
 import { fetchBlockedUserIds } from "./blocksService";
 import { uploadPostMedia } from "./storageService";
 
@@ -88,6 +88,19 @@ function supportsPostShares(): Promise<boolean> {
   return postSharesSupportPromise;
 }
 
+let postMediaSupportPromise: Promise<boolean> | null = null;
+function supportsPostMedia(): Promise<boolean> {
+  if (!postMediaSupportPromise) {
+    postMediaSupportPromise = (async () => {
+      const { error } = await supabase.from("post_media").select("id").limit(1);
+      if (error && (error.code === "42P01" || error.code === "PGRST205")) return false;
+      if (error) throw new Error(error.message);
+      return true;
+    })();
+  }
+  return postMediaSupportPromise;
+}
+
 async function selectForGroups(): Promise<string> {
   const [groups, video, hidden, shares] = await Promise.all([
     supportsSchoolGroups(),
@@ -119,6 +132,14 @@ export interface RawPost {
   post_shares?: { count: number }[];
 }
 
+interface RawPostMedia {
+  post_id: string;
+  media_url: string;
+  media_type: MediaType;
+  video_duration_seconds: number | null;
+  sort_order: number;
+}
+
 interface SpotlightPromotionRow {
   id: string;
   post_id: string;
@@ -146,6 +167,10 @@ export function mapPost(row: RawPost, liked: boolean): Post {
     groupEmoji: row.group?.emoji ?? null,
     content: row.content,
     mediaUrls: row.media_url ? [row.media_url] : [],
+    mediaTypes: row.media_url
+      ? [row.media_type ?? (/\.(mp4|webm|mov|m4v|ogv)(?:$|[?#])/i.test(row.media_url) ? "video" : "image")]
+      : [],
+    videoDurations: row.media_url ? [row.video_duration_seconds ?? null] : [],
     mediaType:
       row.media_type ??
       (/\.(mp4|webm|mov|m4v|ogv)(?:$|[?#])/i.test(row.media_url ?? "") ? "video" : "image"),
@@ -175,7 +200,34 @@ export async function hydrateLikes(rows: RawPost[]): Promise<Post[]> {
       .in("post_id", rows.map((row) => row.id));
     likedIds = new Set((data ?? []).map((like: { post_id: string }) => like.post_id));
   }
-  return rows.map((row) => mapPost(row, likedIds.has(row.id)));
+  const posts = rows.map((row) => mapPost(row, likedIds.has(row.id)));
+  if (!(await supportsPostMedia())) return posts;
+
+  const { data: mediaRows, error: mediaError } = await supabase
+    .from("post_media")
+    .select("post_id, media_url, media_type, video_duration_seconds, sort_order")
+    .in("post_id", rows.map((row) => row.id))
+    .order("sort_order", { ascending: true })
+    .returns<RawPostMedia[]>();
+  if (mediaError) throw new Error(mediaError.message);
+  const byPost = new Map<string, RawPostMedia[]>();
+  for (const media of mediaRows ?? []) {
+    const items = byPost.get(media.post_id) ?? [];
+    items.push(media);
+    byPost.set(media.post_id, items);
+  }
+  return posts.map((post) => {
+    const items = byPost.get(post.id);
+    if (!items?.length) return post;
+    return {
+      ...post,
+      mediaUrls: items.map((item) => item.media_url),
+      mediaTypes: items.map((item) => item.media_type),
+      videoDurations: items.map((item) => item.video_duration_seconds),
+      mediaType: items[0]!.media_type,
+      videoDurationSeconds: items[0]!.video_duration_seconds,
+    };
+  });
 }
 
 export interface FeedQuery {
@@ -447,6 +499,40 @@ export async function fetchTrendingPosts(
     .slice(0, limit);
 }
 
+export async function fetchPopularGists(limit = 8): Promise<Post[]> {
+  const { data: popular, error: countError } = await supabase
+    .from("post_like_counts")
+    .select("post_id, likes_count")
+    .gt("likes_count", 100)
+    .order("likes_count", { ascending: false })
+    .limit(limit)
+    .returns<Array<{ post_id: string; likes_count: number }>>();
+  if (countError && countError.code !== "PGRST205" && countError.code !== "42P01") {
+    throw new Error(countError.message);
+  }
+  if (countError) {
+    return (await fetchFeed({ limit: 100 }))
+      .filter((post) => post.likeCount > 100)
+      .sort((a, b) => b.likeCount - a.likeCount)
+      .slice(0, limit);
+  }
+  if (!popular?.length) return [];
+
+  const select = await selectForGroups();
+  const supportsHiddenPosts = await supportsPostVisibility();
+  let request = supabase
+    .from("posts")
+    .select(select)
+    .in("id", popular.map((item) => item.post_id))
+    .eq("status", "active");
+  if (supportsHiddenPosts) request = request.eq("is_hidden", false);
+  const { data, error } = await request.returns<RawPost[]>();
+  if (error) throw new Error(error.message);
+  const order = new Map(popular.map((item, index) => [item.post_id, index]));
+  const ordered = [...(data ?? [])].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return hydrateLikes(ordered);
+}
+
 /** Highest-liked gists right now — shown as a labelled fallback when trending is empty. */
 export async function fetchTopByLikes(limit = 4): Promise<Post[]> {
   const candidates = await fetchFeed({ limit: 40 });
@@ -487,37 +573,62 @@ export interface CreatePostInput {
   schoolId: string;
   /** Optional club/squad (requires migration-step9). */
   groupId?: string | null;
-  /** The live schema stores a single `media_url`; only the first file is uploaded. */
   files?: File[];
-  videoDurationSeconds?: number | null;
+  videoDurations?: Array<number | null>;
 }
 
 export async function createPost(input: CreatePostInput): Promise<Post> {
   const userId = await requireUserId();
-  const file = input.files?.[0];
-  const media = file ? await uploadPostMedia(file) : null;
+  const files = input.files ?? [];
+  const imageCount = files.filter((file) => !file.type.startsWith("video/")).length;
+  const videoCount = files.length - imageCount;
+  if (imageCount > 5 || videoCount > 3) {
+    throw new Error("A gist can include up to 5 images and 3 videos.");
+  }
+  if (files.length > 1 && !(await supportsPostMedia())) {
+    throw new Error("Multiple attachments need the profile_explore_and_post_media.sql migration.");
+  }
+  const media = await Promise.all(files.map((file) => uploadPostMedia(file)));
+  const firstMedia = media[0] ?? null;
   const [supportsGroups, supportsVideo] = await Promise.all([supportsSchoolGroups(), supportsVideoMetadata()]);
 
   const payload: Record<string, unknown> = {
     user_id: userId,
     school_id: input.schoolId,
     content: input.content.trim(),
-    media_url: media?.url ?? null,
+    media_url: firstMedia?.url ?? null,
     post_type: "public",
     status: "active",
     ...(supportsGroups && input.groupId ? { group_id: input.groupId } : {}),
   };
-  if (media && supportsVideo) {
-    payload.media_type = media.mediaType;
-    if (media.mediaType === "video") {
-      payload.video_duration_seconds = input.videoDurationSeconds ?? null;
+  if (firstMedia && supportsVideo) {
+    payload.media_type = firstMedia.mediaType;
+    if (firstMedia.mediaType === "video") {
+      payload.video_duration_seconds = input.videoDurations?.[0] ?? null;
     }
   }
 
   const select = await selectForGroups();
   const { data, error } = await supabase.from("posts").insert(payload).select(select).single<RawPost>();
   if (error) throw new Error(error.message);
-  return mapPost(data, false);
+  if (media.length > 0 && (await supportsPostMedia())) {
+    const { error: mediaError } = await supabase.from("post_media").insert(
+      media.map((item, index) => ({
+        post_id: data.id,
+        media_url: item.url,
+        media_type: item.mediaType,
+        video_duration_seconds: item.mediaType === "video" ? input.videoDurations?.[index] ?? null : null,
+        sort_order: index,
+      }))
+    );
+    if (mediaError) {
+      const { error: rollbackError } = await supabase.from("posts").delete().eq("id", data.id);
+      if (rollbackError) console.error("Could not remove a partially-created gist.", rollbackError);
+      throw new Error(mediaError.message);
+    }
+  }
+  const [post] = await hydrateLikes([data]);
+  return post!;
 }
 
 /** Toggles the viewer's like and returns the new liked state. */
@@ -567,7 +678,28 @@ export async function fetchLikedPosts(limit = 30): Promise<Post[]> {
   if (error) throw new Error(error.message);
   const order = new Map(ids.map((id, index) => [id, index]));
   const sorted = [...visibleRows].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
-  return sorted.map((row) => mapPost(row, true));
+  return hydrateLikes(sorted);
+}
+
+export async function fetchPostsByIds(ids: string[]): Promise<Post[]> {
+  if (ids.length === 0) return [];
+  const select = await selectForGroups();
+  const { data, error } = await supabase
+    .from("posts")
+    .select(select)
+    .in("id", ids)
+    .eq("status", "active")
+    .returns<RawPost[]>();
+  if (error) throw new Error(error.message);
+  const order = new Map(ids.map((id, index) => [id, index]));
+  const ordered = [...(data ?? [])].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return hydrateLikes(ordered);
+}
+
+export async function permanentlyDeletePost(postId: string): Promise<void> {
+  await requireUserId();
+  const { error } = await supabase.from("posts").delete().eq("id", postId);
+  if (error) throw new Error(error.message);
 }
 
 /* ───────────── Comments ───────────── */

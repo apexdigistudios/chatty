@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowUpRight, BookOpen, Camera, Check, ChevronDown, EyeOff, Heart, Loader2, Lock, LogIn, LogOut, Mailbox, MessageCircle, Monitor, Moon, Pencil, Plus, Send, Settings, ShieldCheck, Sparkles, Sun } from "lucide-react";
+import { ArrowUpRight, BookOpen, Bookmark, Camera, Check, ChevronDown, EyeOff, Heart, Loader2, Lock, LogIn, LogOut, Mailbox, MessageCircle, Monitor, Moon, Pencil, Plus, Send, Settings, ShieldCheck, Sparkles, Sun, Video } from "lucide-react";
 import { MascotCharacter } from "../components/auth/MascotCharacter";
 import { GistCard } from "../components/feed/GistCard";
 import { Avatar } from "../components/ui/Avatar";
@@ -26,12 +26,18 @@ import type { Post } from "../types/models";
 import { cn } from "../utils/cn";
 import { FeedSkeleton } from "./HomePage";
 import { SafeImage } from "../components/common/SafeImage";
+import { ProfileHeader } from "../components/profile/ProfileHeader";
+import { FollowListModal } from "../components/profile/FollowListModal";
+import { fetchFollowSummary, type FollowSummary } from "../services/followsService";
+import { fetchPostsByIds } from "../services/postsService";
+import { readSavedPostIds, subscribeToSavedPosts } from "../lib/savedPosts";
 
-type ProfileTab = "My Gists" | "Liked Gists" | "Account Settings";
-const TABS: Array<{ id: ProfileTab; icon: typeof MessageCircle }> = [
-  { id: "My Gists", icon: MessageCircle },
-  { id: "Liked Gists", icon: Heart },
-  { id: "Account Settings", icon: Settings },
+type ProfileTab = "Gists" | "Videos" | "Liked" | "Saved" | "Account Settings";
+const TABS: Array<{ id: Exclude<ProfileTab, "Account Settings">; icon: typeof MessageCircle }> = [
+  { id: "Gists", icon: MessageCircle },
+  { id: "Videos", icon: Video },
+  { id: "Liked", icon: Heart },
+  { id: "Saved", icon: Bookmark },
 ];
 
 const GUIDELINES = [
@@ -49,9 +55,12 @@ export function ProfilePage() {
   const schools = useGistStore((state) => state.schools);
   const setComposerIntent = useGistStore((state) => state.setComposerIntent);
 
-  const [tab, setTab] = useState<ProfileTab>("My Gists");
+  const [tab, setTab] = useState<ProfileTab>("Gists");
   const [myPosts, setMyPosts] = useState<Post[]>([]);
   const [liked, setLiked] = useState<Post[]>([]);
+  const [saved, setSaved] = useState<Post[]>([]);
+  const [followSummary, setFollowSummary] = useState<FollowSummary>({ followerCount: 0, followingCount: 0, isFollowing: false });
+  const [followList, setFollowList] = useState<"followers" | "following" | null>(null);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [editing, setEditing] = useState(false);
   const [draftUsername, setDraftUsername] = useState("");
@@ -74,9 +83,14 @@ export function ProfilePage() {
     if (!user) return;
     setLoadingPosts(true);
     try {
-      const [posts, likes] = await Promise.all([fetchFeed({ authorId: user.id, includeModerated: true, limit: 30 }), fetchLikedPosts()]);
+      const [posts, likes, follows] = await Promise.all([
+        fetchFeed({ authorId: user.id, includeModerated: true, limit: 30 }),
+        fetchLikedPosts(),
+        fetchFollowSummary(user.id, user.id),
+      ]);
       setMyPosts(posts);
       setLiked(likes);
+      setFollowSummary(follows);
     } catch (error) {
       toast(describeError(error), "danger");
     } finally {
@@ -87,6 +101,24 @@ export function ProfilePage() {
   useEffect(() => {
     void loadActivity();
   }, [loadActivity]);
+
+  const loadSaved = useCallback(async () => {
+    const ids = readSavedPostIds();
+    if (ids.length === 0) {
+      setSaved([]);
+      return;
+    }
+    try {
+      setSaved(await fetchPostsByIds(ids));
+    } catch (error) {
+      toast(describeError(error, "Could not load saved gists."), "danger");
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    void loadSaved();
+    return subscribeToSavedPosts(() => void loadSaved());
+  }, [loadSaved]);
 
   const openEditor = () => {
     if (!profile) return;
@@ -334,19 +366,6 @@ export function ProfilePage() {
             </>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => editing && avatarRef.current?.click()}
-          aria-label={editing ? "Upload new avatar" : "Profile avatar"}
-          className="group absolute left-1/2 top-20 z-10 block -translate-x-1/2 rounded-full ring-4 ring-card sm:left-6 sm:top-28 sm:translate-x-0 md:top-48"
-        >
-          <Avatar name={profile.username} src={editing ? draftAvatar : profile.avatarUrl} size="2xl" online />
-          {editing && (
-            <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/55 text-white">
-              <Camera size={22} strokeWidth={2.5} aria-hidden />
-            </span>
-          )}
-        </button>
         <CardBody className="relative px-4 pb-5 pt-16 sm:px-6 sm:pt-20">
           <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
             <input ref={avatarRef} type="file" accept="image/*" onChange={pickAvatar} className="sr-only" aria-label="Upload avatar" />
@@ -358,16 +377,36 @@ export function ProfilePage() {
             )}
           </div>
 
-          <div className="mt-3 flex flex-col items-center text-center sm:items-start sm:text-left">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="min-w-0">
-                <h1 className="truncate text-2xl font-black tracking-tight text-ink sm:text-[26px]">@{profile.username}</h1>
-                {profile.fullName && <p className="truncate text-xs font-bold text-ink-muted">{profile.fullName}</p>}
-              </div>
+          <div className="mt-3">
+            <ProfileHeader
+              username={profile.username}
+              fullName={profile.fullName ?? null}
+              avatar={
+                <button
+                  type="button"
+                  onClick={() => editing && avatarRef.current?.click()}
+                  aria-label={editing ? "Upload new avatar" : "Profile avatar"}
+                  className="group relative block rounded-full ring-4 ring-card"
+                >
+                  <Avatar name={profile.username} src={editing ? draftAvatar : profile.avatarUrl} size="2xl" online />
+                  {editing && (
+                    <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/55 text-white">
+                      <Camera size={22} strokeWidth={2.5} aria-hidden />
+                    </span>
+                  )}
+                </button>
+              }
+              bio={editing ? draftBio : profile.bio}
+              followerCount={followSummary.followerCount}
+              followingCount={followSummary.followingCount}
+              onFollowersClick={() => setFollowList("followers")}
+              onFollowingClick={() => setFollowList("following")}
+            />
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
               <Badge tone="success" className="px-2.5 py-0.5 text-[10px]">Online</Badge>
               {profile.classForm && <Badge tone="brand" className="px-2.5 py-0.5 text-[10px]">{profile.classForm}</Badge>}
             </div>
-            <p className="mt-0.5 text-xs font-bold text-ink-muted">{user?.email}</p>
+            <p className="mt-1 text-center text-xs font-bold text-ink-muted sm:text-left">{user?.email}</p>
             <div className="mt-3">
               {mySchool ? (
                 <button type="button" onClick={() => setTab("Account Settings")} className="inline-flex max-w-full items-center gap-2 rounded-full border-2 border-line bg-page py-1 pl-1.5 pr-3.5 text-left hover:border-brand">
@@ -381,7 +420,6 @@ export function ProfilePage() {
                 <button type="button" onClick={() => setTab("Account Settings")} className="rounded-full border-2 border-dashed border-line px-3 py-1.5 text-xs font-extrabold text-brand-deep hover:border-brand">Choose your SHS</button>
               )}
             </div>
-            {!editing && <p className="mt-3 max-w-xl text-sm font-semibold leading-relaxed text-ink-soft">{profile.bio || "No bio yet — tell your campus who you are."}</p>}
           </div>
 
           <AnimatePresence initial={false}>
@@ -433,10 +471,11 @@ export function ProfilePage() {
             )}
           </AnimatePresence>
 
-          <div className="mt-4 grid grid-cols-3 divide-x-2 divide-line rounded-2xl border-2 border-line bg-page py-3 text-center">
-            <button type="button" onClick={() => setTab("My Gists")} className="min-h-11 px-1 hover:text-brand-deep"><p className="text-lg font-black tabular-nums text-ink">{myPosts.length}</p><p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">My gists</p></button>
-            <button type="button" onClick={() => setTab("Liked Gists")} className="min-h-11 px-1 hover:text-brand-deep"><p className="text-lg font-black tabular-nums text-ink">{liked.length}</p><p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Liked</p></button>
-            <div className="px-1"><p className="text-lg font-black tabular-nums text-ink">{myPosts.reduce((sum, post) => sum + post.likeCount, 0)}</p><p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Likes received</p></div>
+          <div className="mt-4 grid grid-cols-4 divide-x-2 divide-line rounded-2xl border-2 border-line bg-page py-3 text-center">
+            <button type="button" onClick={() => setTab("Gists")} className="min-h-11 px-1 hover:text-brand-deep"><p className="text-lg font-black tabular-nums text-ink">{myPosts.length}</p><p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Gists</p></button>
+            <button type="button" onClick={() => setTab("Videos")} className="min-h-11 px-1 hover:text-brand-deep"><p className="text-lg font-black tabular-nums text-ink">{myPosts.filter((post) => post.mediaTypes?.includes("video") || post.mediaType === "video").length}</p><p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Videos</p></button>
+            <button type="button" onClick={() => setTab("Liked")} className="min-h-11 px-1 hover:text-brand-deep"><p className="text-lg font-black tabular-nums text-ink">{liked.length}</p><p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Liked</p></button>
+            <button type="button" onClick={() => setTab("Saved")} className="min-h-11 px-1 hover:text-brand-deep"><p className="text-lg font-black tabular-nums text-ink">{saved.length}</p><p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Saved</p></button>
           </div>
         </CardBody>
       </Card>
@@ -490,7 +529,7 @@ export function ProfilePage() {
         </div>
       </section>
 
-      <div role="tablist" aria-label="Profile sections" className="mt-5 grid grid-cols-1 gap-1 rounded-2xl border-2 border-line bg-surface-muted p-1 sm:grid-cols-3">
+      <div role="tablist" aria-label="Profile sections" className="mt-5 grid grid-cols-2 gap-1 rounded-2xl border-2 border-line bg-surface-muted p-1 sm:grid-cols-4">
         {TABS.map(({ id, icon: Icon }) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={cn("relative z-0 flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-[11px] font-extrabold leading-tight transition-colors sm:text-xs", tab === id ? "text-brand-deep" : "text-ink-muted hover:text-ink")}>
             {tab === id && <motion.span layoutId="profile-tab" transition={springs.bouncy} className="absolute inset-0 -z-10 rounded-xl border border-line bg-card shadow-[0_2px_0_var(--border-color)]" aria-hidden />}
@@ -499,25 +538,47 @@ export function ProfilePage() {
           </button>
         ))}
       </div>
+      <button
+        type="button"
+        onClick={() => setTab("Account Settings")}
+        className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-xs font-extrabold text-ink-muted transition-colors hover:bg-page hover:text-brand-deep"
+      >
+        <Settings size={14} aria-hidden />
+        Account settings
+      </button>
 
       <div className="mt-5">
-        {tab === "My Gists" && (
+        {(tab === "Gists" || tab === "Videos") && (
           <div className="space-y-0">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-extrabold text-ink sm:text-base">Published by @{profile.username}</h2>
+              <h2 className="text-sm font-extrabold text-ink sm:text-base">{tab === "Videos" ? "Videos" : `Published by @${profile.username}`}</h2>
               <Button size="sm" leftIcon={<Plus size={14} strokeWidth={2.8} aria-hidden />} onClick={() => { setComposerIntent("gist", profile.schoolId); navigate("/create"); }}>New gist</Button>
             </div>
-            {loadingPosts ? <FeedSkeleton count={2} /> : myPosts.length > 0 ? myPosts.map((post) => <GistCard key={post.id} post={post} onRemoved={(postId) => { setMyPosts((prev) => prev.filter((item) => item.id !== postId)); setLiked((prev) => prev.filter((item) => item.id !== postId)); }} />) : (
-              <Empty title="You haven't posted a gist yet" detail="Share campus news, NSMQ banter or photos with your community." action="Create first gist" onAction={() => { setComposerIntent("gist", profile.schoolId); navigate("/create"); }} />
-            )}
+            {(() => {
+              const profilePosts = tab === "Videos"
+                ? myPosts.filter((post) => post.mediaTypes?.includes("video") || post.mediaType === "video")
+                : myPosts;
+              return loadingPosts ? <FeedSkeleton count={2} /> : profilePosts.length > 0 ? profilePosts.map((post) => <GistCard key={post.id} post={post} onRemoved={(postId) => { setMyPosts((prev) => prev.filter((item) => item.id !== postId)); setLiked((prev) => prev.filter((item) => item.id !== postId)); setSaved((prev) => prev.filter((item) => item.id !== postId)); }} />) : (
+                <Empty title={tab === "Videos" ? "No videos yet" : "You haven't posted a gist yet"} detail={tab === "Videos" ? "Videos you share with your school will appear here." : "Share campus news, NSMQ banter or photos with your community."} action="Create first gist" onAction={() => { setComposerIntent("gist", profile.schoolId); navigate("/create"); }} />
+              );
+            })()}
           </div>
         )}
 
-        {tab === "Liked Gists" && (
+        {tab === "Liked" && (
           <div className="space-y-0">
             <h2 className="text-sm font-extrabold text-ink sm:text-base">Gists you liked ({liked.length})</h2>
             {loadingPosts ? <FeedSkeleton count={2} /> : liked.length > 0 ? liked.map((post) => <GistCard key={post.id} post={post} onRemoved={(postId) => { setMyPosts((prev) => prev.filter((item) => item.id !== postId)); setLiked((prev) => prev.filter((item) => item.id !== postId)); }} />) : (
               <Empty title="No liked gists yet" detail="Tap the heart on any campus gist and it will collect here." action="Browse feed" onAction={() => navigate("/")} />
+            )}
+          </div>
+        )}
+
+        {tab === "Saved" && (
+          <div className="space-y-0">
+            <h2 className="text-sm font-extrabold text-ink sm:text-base">Saved gists ({saved.length})</h2>
+            {saved.length > 0 ? saved.map((post) => <GistCard key={post.id} post={post} onRemoved={(postId) => { setMyPosts((prev) => prev.filter((item) => item.id !== postId)); setLiked((prev) => prev.filter((item) => item.id !== postId)); setSaved((prev) => prev.filter((item) => item.id !== postId)); }} />) : (
+              <Empty title="No saved gists yet" detail="Save a gist from its options menu to keep it here." action="Browse feed" onAction={() => navigate("/")} />
             )}
           </div>
         )}
@@ -622,6 +683,7 @@ export function ProfilePage() {
           </div>
         )}
       </div>
+      {followList && <FollowListModal profileId={profile.id} relation={followList} onClose={() => setFollowList(null)} />}
     </div>
   );
 }

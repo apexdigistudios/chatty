@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Check, ChevronDown, EyeOff, ImagePlus, Loader2, Lock, Search, Send, ShieldAlert, X, ZoomIn } from "lucide-react";
+import { ArrowLeft, EyeOff, ImagePlus, Loader2, Lock, Send, ShieldAlert, X, ZoomIn } from "lucide-react";
 import { Avatar } from "../components/ui/Avatar";
 import { ImageLightbox } from "../components/ui/ImageLightbox";
 import { ProgressiveImage } from "../components/ui/ProgressiveImage";
@@ -19,11 +19,11 @@ import { describeError } from "../lib/supabase";
 import { isVideoMime, readVideoMetadata } from "../lib/video";
 import { useGistStore } from "../store/gistStore";
 import { springs } from "../theme/tokens";
-import { CONFESSION_CATEGORIES, MAX_POST_LENGTH, type ConfessionCategory, type SchoolGroup } from "../types/models";
+import { MAX_POST_LENGTH, type ConfessionCategory, type SchoolGroup } from "../types/models";
 import { cn } from "../utils/cn";
 
-/** The live `posts` table stores one `media_url` per gist. */
-const MAX_ATTACHMENTS = 1;
+const MAX_IMAGES = 5;
+const MAX_VIDEOS = 3;
 
 interface Attachment {
   kind: "image" | "video";
@@ -45,43 +45,29 @@ export function CreatePage() {
   const groupParam = searchParams.get("group");
   const [postGroup, setPostGroup] = useState<SchoolGroup | null>(null);
 
-  const schools = useGistStore((state) => state.schools);
-  const loadSchools = useGistStore((state) => state.loadSchools);
   const composerType = useGistStore((state) => state.composerType);
-  const composerSchoolId = useGistStore((state) => state.composerSchoolId);
   const setComposerIntent = useGistStore((state) => state.setComposerIntent);
   const createPost = useGistStore((state) => state.createPost);
   const submitConfession = useGistStore((state) => state.submitConfession);
+  const schools = useGistStore((state) => state.schools);
+  const loadSchools = useGistStore((state) => state.loadSchools);
 
   const [content, setContent] = useState("");
-  const [category, setCategory] = useState<ConfessionCategory>("School Secret");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [compressing, setCompressing] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [schoolOpen, setSchoolOpen] = useState(false);
-  const [schoolQuery, setSchoolQuery] = useState("");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const previewUrls = useRef(new Set<string>());
 
   const isConfession = composerType === "confession";
-  const school = useMemo(
-    () => schools.find((item) => item.id === (composerSchoolId ?? profile?.schoolId)) ?? schools.find((item) => item.id === profile?.schoolId) ?? schools[0] ?? null,
-    [composerSchoolId, profile?.schoolId, schools]
-  );
+  const schoolId = profile?.schoolId ?? null;
+  const school = useMemo(() => schoolId ? schools.find((item) => item.id === schoolId) ?? null : null, [schoolId, schools]);
   const remaining = MAX_POST_LENGTH - content.length;
   const canPublish =
-    content.trim().length > 0 && Boolean(school) && !publishing && !compressing;
-
-  const visibleSchools = useMemo(() => {
-    const q = schoolQuery.trim().toLowerCase();
-    return q ? schools.filter((item) => `${item.name} ${item.shortName} ${item.region}`.toLowerCase().includes(q)) : schools;
-  }, [schoolQuery, schools]);
-
-  useEffect(() => {
-    if (schools.length === 0) void loadSchools();
-  }, [schools.length, loadSchools]);
+    content.trim().length > 0 && Boolean(schoolId) && !publishing && !compressing;
 
   // Optional club context passed from /schools/:id?tab=groups → "Post to <club>".
   useEffect(() => {
@@ -93,14 +79,13 @@ export function CreatePage() {
     fetchGroup(groupParam)
       .then((group) => {
         if (!active) return;
-        setPostGroup(group);
-        if (group) setComposerIntent("gist", group.schoolId);
+        setPostGroup(group?.schoolId === profile?.schoolId ? group : null);
       })
       .catch(() => active && setPostGroup(null));
     return () => {
       active = false;
     };
-  }, [groupParam, setComposerIntent]);
+  }, [groupParam, profile?.schoolId]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -108,8 +93,19 @@ export function CreatePage() {
     }
   }, [authLoading, user, navigate]);
 
-  // Revoke object URLs when attachments change / unmount.
-  useEffect(() => () => attachments.forEach((item) => URL.revokeObjectURL(item.previewUrl)), [attachments]);
+  useEffect(() => {
+    if (schools.length === 0) void loadSchools();
+  }, [schools.length, loadSchools]);
+
+  useEffect(() => () => {
+    previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+  }, []);
+
+  const createPreviewUrl = (file: File) => {
+    const url = URL.createObjectURL(file);
+    previewUrls.current.add(url);
+    return url;
+  };
 
   const syncHeight = useCallback(() => {
     const el = textRef.current;
@@ -132,35 +128,43 @@ export function CreatePage() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !publishing && lightboxIndex === null) {
-        if (schoolOpen) setSchoolOpen(false);
-        else cancel();
+        cancel();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [cancel, lightboxIndex, publishing, schoolOpen]);
+  }, [cancel, lightboxIndex, publishing]);
 
   const pickFiles = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     event.target.value = "";
     if (files.length === 0) return;
 
-    const slots = MAX_ATTACHMENTS - attachments.length;
-    if (slots <= 0) {
-      toast("One photo per gist — remove the current one to swap it.", "info");
-      return;
+    let remainingImages = MAX_IMAGES - attachments.filter((item) => item.kind === "image").length;
+    let remainingVideos = MAX_VIDEOS - attachments.filter((item) => item.kind === "video").length;
+    const accepted: File[] = [];
+    for (const file of files) {
+      if (isVideoMime(file.type) && remainingVideos > 0) {
+        accepted.push(file);
+        remainingVideos -= 1;
+      } else if (file.type.startsWith("image/") && remainingImages > 0) {
+        accepted.push(file);
+        remainingImages -= 1;
+      }
     }
+    if (accepted.length < files.length) toast("A gist supports up to 5 images and 3 videos. Extra files were skipped.", "info");
+    if (accepted.length === 0) return;
 
     setCompressing(true);
     try {
       const compressedList: Attachment[] = [];
-      for (const rawFile of files.slice(0, slots)) {
+      for (const rawFile of accepted) {
         if (isVideoMime(rawFile.type)) {
           const metadata = await readVideoMetadata(rawFile);
           compressedList.push({
             kind: "video",
             file: rawFile,
-            previewUrl: URL.createObjectURL(rawFile),
+            previewUrl: createPreviewUrl(rawFile),
             originalBytes: rawFile.size,
             compressedBytes: rawFile.size,
             width: metadata.width,
@@ -173,7 +177,7 @@ export function CreatePage() {
         compressedList.push({
           kind: "image",
           file: result.file,
-          previewUrl: URL.createObjectURL(result.file),
+          previewUrl: createPreviewUrl(result.file),
           originalBytes: result.originalBytes,
           compressedBytes: result.compressedBytes,
           width: result.width,
@@ -197,9 +201,22 @@ export function CreatePage() {
     }
   };
 
-  const removeAttachment = (index: number) => setAttachments((prev) => prev.filter((_, i) => i !== index));
+  const removeAttachment = (index: number) => {
+    const removed = attachments[index];
+    if (removed) {
+      URL.revokeObjectURL(removed.previewUrl);
+      previewUrls.current.delete(removed.previewUrl);
+    }
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const replaceVideoDraft = (index: number, draft: VideoAttachmentDraft) => {
+    const previousUrl = attachments[index]?.previewUrl;
+    if (previousUrl) {
+      URL.revokeObjectURL(previousUrl);
+      previewUrls.current.delete(previousUrl);
+    }
+    previewUrls.current.add(draft.previewUrl);
     setAttachments((prev) => prev.map((item, i) =>
       i === index
         ? { ...item, file: draft.file, previewUrl: draft.previewUrl, duration: draft.duration, width: draft.width, height: draft.height, compressedBytes: draft.file.size }
@@ -209,20 +226,20 @@ export function CreatePage() {
 
   const publish = async () => {
     const text = content.trim();
-    if (!text || !school || publishing) return;
+    if (!text || !schoolId || publishing) return;
     setPublishing(true);
     try {
       if (isConfession) {
-        await submitConfession({ content: text.slice(0, MAX_POST_LENGTH), category, schoolId: school.id });
+        await submitConfession({ content: text.slice(0, MAX_POST_LENGTH), category: "School Secret" satisfies ConfessionCategory, schoolId });
         toast("Confession submitted for moderator review.", "brand");
         navigate("/confessions");
       } else {
         await createPost({
           content: text.slice(0, MAX_POST_LENGTH),
-          schoolId: school.id,
-          groupId: postGroup?.schoolId === school.id ? postGroup.id : null,
+          schoolId,
+          groupId: postGroup?.schoolId === schoolId ? postGroup.id : null,
           files: attachments.map((item) => item.file),
-          videoDurationSeconds: attachments[0]?.duration ?? null,
+          videoDurations: attachments.map((item) => item.duration ?? null),
         });
         toast("Gist published to the feed!", "success");
         navigate("/");
@@ -236,7 +253,8 @@ export function CreatePage() {
 
   const ringProgress = Math.min(1, content.length / MAX_POST_LENGTH);
   const circumference = 2 * Math.PI * 10;
-  const lightboxImages = attachments.filter((item) => item.kind === "image").map((item, index) => ({ src: item.previewUrl, alt: `Attachment ${index + 1}` }));
+  const imageAttachments = attachments.filter((item) => item.kind === "image");
+  const lightboxImages = imageAttachments.map((item, index) => ({ src: item.previewUrl, alt: `Attachment ${index + 1}` }));
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={springs.gentle} className="flex min-h-dvh w-full flex-col bg-card text-ink">
@@ -248,7 +266,7 @@ export function CreatePage() {
           </motion.button>
           <div className="min-w-0 flex-1 text-center">
             <h1 className="truncate text-base font-black tracking-tight text-ink sm:text-lg">{isConfession ? "New Confession" : "Create Gist"}</h1>
-            <p className="truncate text-[10px] font-extrabold uppercase tracking-[0.14em] text-brand-deep">{isConfession ? "Anonymous · moderated" : `Public · ${school?.shortName ?? "pick a school"}`}</p>
+            <p className="truncate text-[10px] font-extrabold uppercase tracking-[0.14em] text-brand-deep">{isConfession ? "Anonymous · moderated" : `Public · ${school?.shortName ?? "no SHS linked"}`}</p>
           </div>
           <motion.button
             type="button"
@@ -275,16 +293,10 @@ export function CreatePage() {
             )}
             <div className="min-w-0">
               <span className="block truncate text-sm font-black text-ink sm:text-[15px]">{isConfession ? "Anonymous Student" : `@${profile?.username ?? "student"}`}</span>
-              <button
-                type="button"
-                onClick={() => setSchoolOpen((open) => !open)}
-                aria-expanded={schoolOpen}
-                className="mt-1 inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full border-2 border-line bg-page py-0.5 pl-1 pr-2.5 text-left transition-colors hover:border-brand"
-              >
+              <span className="mt-1 inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full border-2 border-line bg-page py-0.5 pl-1 pr-2.5 text-left">
                 <SchoolBadge schoolId={school?.id} crestUrl={school?.crestUrl} name={school?.name ?? "School"} size="xs" />
-                <span className="truncate text-[11px] font-extrabold text-ink">{school?.shortName ?? "Choose school"}</span>
-                <ChevronDown size={13} strokeWidth={2.7} className={cn("shrink-0 text-ink-muted transition-transform", schoolOpen && "rotate-180")} aria-hidden />
-              </button>
+                <span className="truncate text-[11px] font-extrabold text-ink">{school?.shortName ?? "No school linked"}</span>
+              </span>
             </div>
           </div>
 
@@ -316,45 +328,9 @@ export function CreatePage() {
         )}
 
         <AnimatePresence initial={false}>
-          {schoolOpen && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={springs.gentle} className="overflow-hidden">
-              <div className="mt-3 rounded-2xl border-2 border-line bg-page p-2.5">
-                <label className="flex items-center gap-2 rounded-xl border border-line bg-card px-3">
-                  <Search size={15} strokeWidth={2.6} className="shrink-0 text-ink-muted" aria-hidden />
-                  <input value={schoolQuery} onChange={(event) => setSchoolQuery(event.target.value)} placeholder="Search communities…" aria-label="Search schools" className="h-9 min-w-0 flex-1 bg-transparent text-xs font-bold text-ink outline-none placeholder:text-ink-faint" />
-                </label>
-                <div className="mt-2 grid max-h-48 grid-cols-1 gap-1 overflow-y-auto sm:grid-cols-2">
-                  {visibleSchools.map((item) => {
-                    const selected = item.id === school?.id;
-                    return (
-                      <button key={item.id} type="button" onClick={() => { setComposerIntent(composerType, item.id); setSchoolOpen(false); }} className={cn("flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors", selected ? "border border-brand bg-brand-wash" : "hover:bg-card")}>
-                        <SchoolBadge schoolId={item.id} crestUrl={item.crestUrl} name={item.name} size="sm" ring={selected} />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-xs font-extrabold text-ink">{item.shortName}</span>
-                          <span className="block truncate text-[10px] font-semibold text-ink-muted">{item.region}</span>
-                        </span>
-                        {selected && <Check size={14} strokeWidth={3} className="shrink-0 text-brand-deep" aria-hidden />}
-                      </button>
-                    );
-                  })}
-                  {visibleSchools.length === 0 && <p className="px-3 py-4 text-center text-xs font-semibold text-ink-muted">No community matched. Create one from the Schools page.</p>}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence initial={false}>
           {isConfession && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={springs.gentle} className="overflow-hidden">
               <div className="pt-3">
-                <div className="flex flex-wrap gap-1.5">
-                  {CONFESSION_CATEGORIES.map((item) => (
-                    <button key={item} type="button" onClick={() => setCategory(item)} aria-pressed={category === item} className={cn("rounded-full border-2 px-3 py-1 text-[11px] font-extrabold transition-colors", category === item ? "border-brand-deep bg-brand-deep text-brand-contrast" : "border-line bg-card text-ink-muted hover:border-line-deep hover:text-ink")}>
-                      {item}
-                    </button>
-                  ))}
-                </div>
                 <div className="mt-2.5 flex items-center gap-2 rounded-2xl border border-warning-soft bg-warning-wash px-3 py-2">
                   <ShieldAlert size={15} strokeWidth={2.5} className="shrink-0 text-warning-deep" aria-hidden />
                   <p className="text-[11px] font-semibold text-warning-deep">Submitted confessions undergo moderator review before appearing publicly. Photos are not attached to confessions.</p>
@@ -379,10 +355,10 @@ export function CreatePage() {
           {!isConfession && attachments.length > 0 && (
             <div className="mt-4">
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-ink-muted">Attached photo or video</span>
-                <span className="text-[11px] font-semibold text-ink-muted">Uploads to letsgist-media when you publish</span>
+                <span className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-ink-muted">Attachments ({attachments.length}/8)</span>
+                <span className="text-right text-[11px] font-semibold text-ink-muted">Up to 5 photos · 3 videos</span>
               </div>
-              <div className={cn("grid gap-3", attachments.length === 1 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2")}>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {attachments.map((item, index) => item.kind === "video" ? (
                   <VideoAttachmentEditor
                     key={`${item.previewUrl}-${index}`}
@@ -393,7 +369,7 @@ export function CreatePage() {
                 ) : (
                   <motion.div key={item.previewUrl} layout initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={springs.bouncy} className="group relative overflow-hidden rounded-2xl border-2 border-line bg-page p-2 shadow-[0_3px_0_var(--border-color)]">
                     <div className="relative overflow-hidden rounded-xl bg-card">
-                      <button type="button" onClick={() => setLightboxIndex(index)} aria-label="Preview full-screen" className="relative block w-full cursor-zoom-in">
+                      <button type="button" onClick={() => setLightboxIndex(imageAttachments.findIndex((image) => image.previewUrl === item.previewUrl))} aria-label="Preview full-screen" className="relative block w-full cursor-zoom-in">
                         <ProgressiveImage
                           src={item.previewUrl}
                           alt={`Attachment ${index + 1}`}
@@ -426,7 +402,7 @@ export function CreatePage() {
       <footer className="sticky bottom-0 z-20 border-t-2 border-line bg-card/95 backdrop-blur-md" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
         <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-2 px-3 pt-2.5 sm:px-6">
           <div className="flex items-center gap-2">
-            <input ref={fileRef} type="file" accept="image/*,video/mp4,video/webm,video/quicktime" onChange={pickFiles} className="sr-only" aria-label="Upload image or video" />
+            <input ref={fileRef} type="file" multiple accept="image/*,video/mp4,video/webm,video/quicktime" onChange={pickFiles} className="sr-only" aria-label="Upload up to 5 images and 3 videos" />
             <motion.button
               type="button"
               whileTap={{ scale: 0.93 }}
@@ -440,7 +416,7 @@ export function CreatePage() {
               ) : (
                 <ImagePlus size={16} strokeWidth={2.5} className="text-brand-deep" aria-hidden />
               )}
-              <span>{compressing ? "Optimizing…" : "Attach photo / video"}</span>
+              <span>{compressing ? "Optimizing…" : "Attach media"}</span>
             </motion.button>
           </div>
           <div className="flex shrink-0 items-center gap-2">
