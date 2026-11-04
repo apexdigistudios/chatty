@@ -68,9 +68,20 @@ create table if not exists public.posts (
 create table if not exists public.comments (
   id          uuid primary key default gen_random_uuid(),
   post_id     uuid not null references public.posts (id) on delete cascade,
+  parent_id   uuid,
   user_id     uuid not null references public.profiles (id) on delete cascade,
   content     text not null check (char_length(content) between 1 and 220),
-  created_at  timestamptz not null default now()
+  created_at  timestamptz not null default now(),
+  unique (id, post_id),
+  foreign key (parent_id, post_id) references public.comments (id, post_id) on delete cascade
+);
+
+create table if not exists public.comment_likes (
+  id         uuid primary key default gen_random_uuid(),
+  comment_id uuid not null references public.comments (id) on delete cascade,
+  user_id    uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (comment_id, user_id)
 );
 
 create table if not exists public.likes (
@@ -96,6 +107,26 @@ create table if not exists public.confessions (
   rejection_reason   text,
   created_at         timestamptz not null default now(),
   published_at       timestamptz
+);
+
+create table if not exists public.confession_comments (
+  id            uuid primary key default gen_random_uuid(),
+  confession_id uuid not null references public.confessions (id) on delete cascade,
+  parent_id     uuid,
+  user_id       uuid not null references public.profiles (id) on delete cascade,
+  content       text not null check (char_length(content) between 1 and 220),
+  created_at    timestamptz not null default now(),
+  unique (id, confession_id),
+  foreign key (parent_id, confession_id)
+    references public.confession_comments (id, confession_id) on delete cascade
+);
+
+create table if not exists public.confession_comment_likes (
+  id         uuid primary key default gen_random_uuid(),
+  comment_id uuid not null references public.confession_comments (id) on delete cascade,
+  user_id    uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (comment_id, user_id)
 );
 
 create table if not exists public.confession_reactions (
@@ -205,6 +236,9 @@ create unique index if not exists idx_schools_unique_normalized_name
 create index if not exists posts_user_created_idx        on public.posts (user_id, created_at desc);
 create index if not exists posts_feed_idx                on public.posts (status, post_type, created_at desc);
 create index if not exists comments_post_created_idx     on public.comments (post_id, created_at);
+create index if not exists comments_parent_idx            on public.comments (parent_id);
+create index if not exists confession_comments_thread_idx on public.confession_comments (confession_id, created_at);
+create index if not exists confession_comments_parent_idx on public.confession_comments (parent_id);
 create index if not exists likes_user_created_idx        on public.likes (user_id, created_at desc);
 create index if not exists confessions_queue_idx         on public.confessions (moderation_status, created_at desc);
 create index if not exists confessions_published_idx     on public.confessions (published_at desc) where moderation_status = 'approved';
@@ -419,9 +453,12 @@ alter table public.schools              enable row level security;
 alter table public.profiles             enable row level security;
 alter table public.posts                enable row level security;
 alter table public.comments             enable row level security;
+alter table public.comment_likes        enable row level security;
 alter table public.likes                enable row level security;
 alter table public.confessions          enable row level security;
 alter table public.confession_reactions enable row level security;
+alter table public.confession_comments  enable row level security;
+alter table public.confession_comment_likes enable row level security;
 alter table public.reports              enable row level security;
 alter table public.admin_roles          enable row level security;
 alter table public.user_blocks          enable row level security;
@@ -592,6 +629,25 @@ create policy "comments: own or moderator delete" on public.comments
     or exists (select 1 from public.posts p where p.id = post_id and public.is_school_moderator(p.school_id))
   );
 
+-- comment_likes ------------------------------------------------------------
+drop policy if exists "comment likes: public read" on public.comment_likes;
+drop policy if exists "comment likes: own insert" on public.comment_likes;
+drop policy if exists "comment likes: own delete" on public.comment_likes;
+create policy "comment likes: public read" on public.comment_likes
+  for select using (true);
+create policy "comment likes: own insert" on public.comment_likes
+  for insert to authenticated
+  with check (
+    user_id = auth.uid()
+    and exists (
+      select 1 from public.comments c
+      join public.posts p on p.id = c.post_id
+      where c.id = comment_id and p.status = 'active'
+    )
+  );
+create policy "comment likes: own delete" on public.comment_likes
+  for delete to authenticated using (user_id = auth.uid());
+
 -- likes --------------------------------------------------------------------
 drop policy if exists "likes: public read" on public.likes;
 drop policy if exists "likes: own insert"  on public.likes;
@@ -616,6 +672,41 @@ create policy "confessions: global admin update" on public.confessions
 create policy "confessions: author or admin delete" on public.confessions
   for delete to authenticated
   using (public.is_global_admin() or (author_id = auth.uid() and moderation_status = 'pending'));
+
+-- confession_comments ------------------------------------------------------
+drop policy if exists "confession comments: public read approved" on public.confession_comments;
+drop policy if exists "confession comments: own insert" on public.confession_comments;
+drop policy if exists "confession comments: own or admin delete" on public.confession_comments;
+create policy "confession comments: public read approved" on public.confession_comments
+  for select using (
+    exists (select 1 from public.public_confessions pc where pc.id = confession_id)
+  );
+create policy "confession comments: own insert" on public.confession_comments
+  for insert to authenticated
+  with check (
+    user_id = auth.uid()
+    and exists (select 1 from public.public_confessions pc where pc.id = confession_id)
+  );
+create policy "confession comments: own or admin delete" on public.confession_comments
+  for delete to authenticated using (user_id = auth.uid() or public.is_global_admin());
+
+drop policy if exists "confession comment likes: public read" on public.confession_comment_likes;
+drop policy if exists "confession comment likes: own insert" on public.confession_comment_likes;
+drop policy if exists "confession comment likes: own delete" on public.confession_comment_likes;
+create policy "confession comment likes: public read" on public.confession_comment_likes
+  for select using (true);
+create policy "confession comment likes: own insert" on public.confession_comment_likes
+  for insert to authenticated
+  with check (
+    user_id = auth.uid()
+    and exists (
+      select 1 from public.confession_comments cc
+      join public.public_confessions pc on pc.id = cc.confession_id
+      where cc.id = comment_id
+    )
+  );
+create policy "confession comment likes: own delete" on public.confession_comment_likes
+  for delete to authenticated using (user_id = auth.uid());
 
 -- confession_reactions -----------------------------------------------------
 drop policy if exists "reactions: public read" on public.confession_reactions;

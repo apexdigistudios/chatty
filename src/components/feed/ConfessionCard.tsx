@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { EyeOff, Lock, MoreHorizontal, Share2, ShieldCheck } from "lucide-react";
+import { EyeOff, Lock, MessageCircle, MoreHorizontal, Share2, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { describeError } from "../../lib/supabase";
 import { timeAgo } from "../../lib/time";
@@ -51,6 +51,7 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
   const { user } = useAuth();
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
   const toggleReaction = useGistStore((state) => state.toggleReaction);
+  const openComments = useGistStore((state) => state.openComments);
   const school = useGistStore((state) =>
     confession.schoolId ? state.schools.find((item) => item.id === confession.schoolId) : undefined
   );
@@ -208,6 +209,17 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
       </div>
 
       <div className="mt-3 flex items-center gap-1 border-t border-line/50 pt-1.5">
+        {!pending && (
+          <button
+            type="button"
+            onClick={() => openComments({ type: "confession", id: confession.id })}
+            aria-label={`Open comments, ${confession.commentCount} comments`}
+            className="flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold text-ink-muted transition-colors hover:bg-brand-wash hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm"
+          >
+            <MessageCircle size={16} strokeWidth={2.4} aria-hidden />
+            <span className="tabular-nums">{confession.commentCount}</span>
+          </button>
+        )}
         <button
           type="button"
           onClick={share}

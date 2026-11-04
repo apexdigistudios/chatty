@@ -457,11 +457,11 @@ export function CreatePage() {
                 {previewFlash && <span className="pointer-events-none absolute inset-0 bg-white/15" aria-hidden />}
               </div>
             ) : (
-              <div className="flex max-w-sm flex-col items-center px-8 text-center">
+              <div className="relative z-10 flex max-w-sm flex-col items-center px-8 pb-[calc(11rem+env(safe-area-inset-bottom))] text-center sm:pb-0">
                 <span className="flex size-20 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white/75">
                   {isConfession ? <EyeOff size={28} aria-hidden /> : <ImagePlus size={28} aria-hidden />}
                 </span>
-                <h1 className="mt-5 text-2xl font-black tracking-tight">Create your gist</h1>
+                <h1 className="mt-5 text-2xl font-black tracking-tight">{isConfession ? "Create your confession" : "Create your gist"}</h1>
                 <p className="mt-2 text-sm font-semibold leading-relaxed text-white/65">
                   Add a photo or video, or start with a caption. Your campus is waiting.
                 </p>

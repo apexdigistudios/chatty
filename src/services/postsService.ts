@@ -8,7 +8,7 @@ import {
 } from "../lib/offlineCache";
 import { countOf, currentUserId, requireUserId, supabase } from "../lib/supabase";
 import { isUserGlobalAdmin } from "../lib/adminAccess";
-import type { Comment, MediaType, Post, PostStatus } from "../types/models";
+import type { Comment, CommentThreadTarget, MediaType, Post, PostStatus } from "../types/models";
 import { fetchBlockedUserIds } from "./blocksService";
 import { uploadPostMedia } from "./storageService";
 
@@ -918,12 +918,14 @@ export async function permanentlyDeletePost(postId: string): Promise<void> {
 
 /* ───────────── Comments ───────────── */
 
-const COMMENT_SELECT = `id, post_id, user_id, content, created_at,
+const COMMENT_AUTHOR_SELECT = `id, user_id, parent_id, content, created_at,
   author:profiles(id, username, avatar_url, school_id, school:schools!school_id(name))`;
 
 interface RawComment {
   id: string;
-  post_id: string;
+  post_id?: string;
+  confession_id?: string;
+  parent_id: string | null;
   user_id: string;
   content: string;
   created_at: string;
@@ -936,10 +938,23 @@ interface RawComment {
   } | null;
 }
 
-function mapComment(row: RawComment): Comment {
+interface RawCommentLike {
+  comment_id: string;
+  user_id: string;
+}
+
+function mapComment(
+  row: RawComment,
+  target: CommentThreadTarget,
+  likes: RawCommentLike[],
+  userId: string | null
+): Comment {
+  const commentLikes = likes.filter((like) => like.comment_id === row.id);
   return {
     id: row.id,
-    postId: row.post_id,
+    threadType: target.type,
+    threadId: target.id,
+    parentId: row.parent_id,
     authorId: row.user_id,
     authorName: row.author?.username ?? "student",
     authorAvatar: row.author?.avatar_url ?? null,
@@ -947,18 +962,40 @@ function mapComment(row: RawComment): Comment {
     authorSchoolShort: row.author?.school ? shortNameOf(row.author.school.name) : null,
     content: row.content,
     createdAt: row.created_at,
+    likesCount: commentLikes.length,
+    likedByMe: Boolean(userId && commentLikes.some((like) => like.user_id === userId)),
   };
 }
 
-export async function fetchComments(postId: string): Promise<Comment[]> {
-  const { data, error } = await supabase
-    .from("comments")
-    .select(COMMENT_SELECT)
-    .eq("post_id", postId)
-    .order("created_at", { ascending: true })
-    .returns<RawComment[]>();
-  if (error) throw new Error(error.message);
-  return (data ?? []).map(mapComment);
+export async function fetchComments(target: CommentThreadTarget): Promise<Comment[]> {
+  const result = target.type === "post"
+    ? await supabase
+        .from("comments")
+        .select(`${COMMENT_AUTHOR_SELECT}, post_id`)
+        .eq("post_id", target.id)
+        .order("created_at", { ascending: true })
+        .returns<RawComment[]>()
+    : await supabase
+        .from("confession_comments")
+        .select(`${COMMENT_AUTHOR_SELECT}, confession_id`)
+        .eq("confession_id", target.id)
+        .order("created_at", { ascending: true })
+        .returns<RawComment[]>();
+  if (result.error) throw new Error(result.error.message);
+
+  const rows = result.data ?? [];
+  const ids = rows.map((row) => row.id);
+  const [userId, likesResult] = await Promise.all([
+    currentUserId(),
+    ids.length === 0
+      ? Promise.resolve({ data: [] as RawCommentLike[], error: null })
+      : target.type === "post"
+        ? supabase.from("comment_likes").select("comment_id, user_id").in("comment_id", ids).returns<RawCommentLike[]>()
+        : supabase.from("confession_comment_likes").select("comment_id, user_id").in("comment_id", ids).returns<RawCommentLike[]>(),
+  ]);
+  if (likesResult.error) throw new Error(likesResult.error.message);
+  const likes = likesResult.data ?? [];
+  return rows.map((row) => mapComment(row, target, likes, userId));
 }
 
 export async function seedPostEngagement(
@@ -1003,18 +1040,54 @@ export const addSeedConfessionViews = (id: string, count: number) =>
 export const addSeedProfileFollowers = (id: string, count: number) =>
   addSeedCounter("admin_add_seed_followers", "p_seed_profile_id", id, count);
 
-export async function addComment(postId: string, content: string): Promise<Comment> {
+export async function addComment(
+  target: CommentThreadTarget,
+  content: string,
+  parentId: string | null = null
+): Promise<Comment> {
   const userId = await requireUserId();
+  const values = {
+    parent_id: parentId,
+    user_id: userId,
+    content: content.trim(),
+  };
+  if (target.type === "post") {
+    const { data, error } = await supabase
+      .from("comments")
+      .insert({ ...values, post_id: target.id })
+      .select(COMMENT_AUTHOR_SELECT)
+      .single<RawComment>();
+    if (error) throw new Error(error.message);
+    return mapComment(data, target, [], userId);
+  }
   const { data, error } = await supabase
-    .from("comments")
-    .insert({ post_id: postId, user_id: userId, content: content.trim() })
-    .select(COMMENT_SELECT)
+    .from("confession_comments")
+    .insert({ ...values, confession_id: target.id })
+    .select(COMMENT_AUTHOR_SELECT)
     .single<RawComment>();
   if (error) throw new Error(error.message);
-  return mapComment(data);
+  return mapComment(data, target, [], userId);
 }
 
-export async function deleteComment(commentId: string): Promise<void> {
-  const { error } = await supabase.from("comments").delete().eq("id", commentId);
+export async function deleteComment(target: CommentThreadTarget, commentId: string): Promise<void> {
+  const { error } = target.type === "post"
+    ? await supabase.from("comments").delete().eq("id", commentId)
+    : await supabase.from("confession_comments").delete().eq("id", commentId);
   if (error) throw new Error(error.message);
+}
+
+export async function toggleCommentLike(
+  target: CommentThreadTarget,
+  commentId: string,
+  likedByMe: boolean
+): Promise<void> {
+  const userId = await requireUserId();
+  const table = target.type === "post" ? "comment_likes" : "confession_comment_likes";
+  const result = likedByMe
+    ? await supabase.from(table).delete().eq("comment_id", commentId).eq("user_id", userId)
+    : await supabase.from(table).upsert(
+        { comment_id: commentId, user_id: userId },
+        { onConflict: "comment_id,user_id" }
+      );
+  if (result.error) throw new Error(result.error.message);
 }

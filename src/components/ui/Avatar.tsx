@@ -40,7 +40,7 @@ export function Avatar({ name, src, size = "md", online = false, ring = false, c
     <span className={cn("relative inline-flex shrink-0", className)}>
       <span
         className={cn(
-          "relative flex items-center justify-center overflow-hidden rounded-full ring-2 ring-line",
+          "relative flex items-center justify-center overflow-hidden rounded-full",
           sizeClasses[size],
           ring && "ring-2 ring-brand"
         )}

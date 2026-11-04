@@ -193,7 +193,9 @@ export interface Shoutout {
 
 export interface Comment {
   id: string;
-  postId: string;
+  threadType: "post" | "confession";
+  threadId: string;
+  parentId: string | null;
   authorId: string;
   authorName: string;
   authorAvatar: string | null;
@@ -201,6 +203,13 @@ export interface Comment {
   authorSchoolShort: string | null;
   content: string;
   createdAt: string;
+  likesCount: number;
+  likedByMe: boolean;
+}
+
+export interface CommentThreadTarget {
+  type: "post" | "confession";
+  id: string;
 }
 
 export interface Confession {
@@ -213,6 +222,7 @@ export interface Confession {
   publishedAt: string | null;
   reactions: Record<ReactionKind, number>;
   myReaction: ReactionKind | null;
+  commentCount: number;
   isSeed?: boolean;
   seedUsername?: string | null;
   seedFullName?: string | null;

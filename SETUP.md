@@ -103,14 +103,22 @@ dashboard supports report dismissal/restoration, recoverable post removal, and
 account suspension until manually lifted. Refunds are not initiated by the
 dashboard and must be processed manually.
 
+### A10 · Comment threads, likes, and confession comments
+
+Run `supabase/migrations/comment_threads.sql` after the existing schema migrations.
+It adds nested replies and per-comment likes to post comments, plus an anonymous-
+safe comments table and likes for approved confessions. New replies must remain in
+the same post or confession thread, and confession authors remain hidden.
+
 ### B · Fresh project
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. Open **SQL Editor → New query**, paste the whole of `schema.sql`, and run it.
    It is idempotent — safe to re-run. It creates:
-   - tables: `schools`, `profiles`, `posts`, `comments`, `likes`, `confessions`,
+   - tables: `schools`, `profiles`, `posts`, `comments`, `comment_likes`, `likes`,
+     `confessions`, `confession_comments`, `confession_comment_likes`,
      `confession_reactions`, `reports`, `admin_roles`
-   - RLS on every table + 36 policies
+   - RLS on every table with row-scoped policies
    - the `public_confessions` view (anonymity enforced in the DB)
    - triggers: profile-on-signup, founder-becomes-moderator
    - RPC: `claim_school(uuid)`

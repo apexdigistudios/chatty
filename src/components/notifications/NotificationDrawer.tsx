@@ -143,7 +143,7 @@ export function NotificationDrawer() {
       return;
     }
     if (item.postId) {
-      openComments(item.postId);
+      openComments({ type: "post", id: item.postId });
       return;
     }
     navigate(item.schoolId ? `/schools/${item.schoolId}` : "/");

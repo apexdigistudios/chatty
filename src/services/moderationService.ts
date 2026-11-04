@@ -200,6 +200,7 @@ function mapQueued(row: RawQueuedConfession): Confession {
     publishedAt: row.published_at,
     reactions: emptyReactions(),
     myReaction: null,
+    commentCount: 0,
   };
 }
 

@@ -55,9 +55,9 @@ import type { AdminSeedProfile } from "../types/models";
 type DashboardTab = "profiles" | "publisher" | "engagement" | "purge";
 
 const TABS: Array<{ id: DashboardTab; label: string }> = [
-  { id: "profiles", label: "Cosplay users" },
+  { id: "profiles", label: "Synthetic profiles" },
   { id: "publisher", label: "Post studio" },
-  { id: "engagement", label: "Engagement" },
+  { id: "engagement", label: "Posts & confessions" },
   { id: "purge", label: "System clean-up" },
 ];
 

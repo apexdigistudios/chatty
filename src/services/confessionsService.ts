@@ -23,6 +23,10 @@ interface RawPublicConfession {
   media_types?: Array<"image" | "video">;
 }
 
+interface RawConfessionCommentCount {
+  confession_id: string;
+}
+
 interface RawReaction {
   confession_id: string;
   user_id: string;
@@ -40,8 +44,17 @@ const isMissingTable = (code: string | undefined): boolean => code === "PGRST205
 
 async function attachReactions(rows: RawPublicConfession[]): Promise<Confession[]> {
   if (rows.length === 0) return [];
-  const userId = await currentUserId();
+
   const ids = rows.map((row) => row.id);
+  const [userId, commentsResult] = await Promise.all([
+    currentUserId(),
+    supabase.from("confession_comments").select("confession_id").in("confession_id", ids).returns<RawConfessionCommentCount[]>(),
+  ]);
+  if (commentsResult.error) throw new Error(commentsResult.error.message);
+  const commentCounts = new Map<string, number>();
+  for (const comment of commentsResult.data ?? []) {
+    commentCounts.set(comment.confession_id, (commentCounts.get(comment.confession_id) ?? 0) + 1);
+  }
   let data: RawReaction[] = [];
   if (reactionsTableAvailable) {
     const result = await supabase
@@ -76,6 +89,7 @@ async function attachReactions(rows: RawPublicConfession[]): Promise<Confession[
     publishedAt: row.published_at,
     reactions: totals.get(row.id) ?? emptyReactions(),
     myReaction: mine.get(row.id) ?? null,
+    commentCount: commentCounts.get(row.id) ?? 0,
     isSeed: row.is_seed ?? false,
     seedUsername: row.seed_username ?? null,
     seedFullName: row.seed_full_name ?? null,

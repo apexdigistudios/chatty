@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, Heart, MessageCircle, RefreshCw, Share2, Volume2, VolumeX, Zap } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { ArrowDown, ArrowLeft, ArrowUp, Heart, MessageCircle, RefreshCw, Share2, Volume2, VolumeX, Zap } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { describeError } from "../lib/supabase";
 import { timeAgo } from "../lib/time";
@@ -13,6 +13,8 @@ import { useGistStore } from "../store/gistStore";
 import type { Confession, Post } from "../types/models";
 import { useToast } from "../components/ui/Toast";
 import { Avatar } from "../components/ui/Avatar";
+import { BottomNav } from "../components/layout/BottomNav";
+import { SidebarNav } from "../components/layout/SidebarNav";
 
 type SpotlightItem =
   | { kind: "post"; key: string; videoUrl: string; post: Post; score: number }
@@ -32,14 +34,13 @@ function scoreConfession(confession: Confession, schoolId: string | null, now: n
 
 export function SpotlightPage() {
   const { user } = useAuth();
-  const routeNavigate = useNavigate();
   const { toast } = useToast();
   const openComments = useGistStore((state) => state.openComments);
+  const commentsByThread = useGistStore((state) => state.commentsByThread);
+  const slideListRef = useRef<HTMLDivElement>(null);
   const schools = useGistStore((state) => state.schools);
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
   const [items, setItems] = useState<SpotlightItem[]>([]);
-  const [knownTags, setKnownTags] = useState<string[]>([]);
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +52,7 @@ export function SpotlightPage() {
     try {
       const [context, feed, confessions] = await Promise.all([
         fetchFeedRankingContext(),
-        fetchFeed({ limit: 100, tag: selectedTag ?? undefined }),
+        fetchFeed({ limit: 100 }),
         fetchApprovedConfessions(100),
       ]);
       const now = Date.now();
@@ -66,8 +67,7 @@ export function SpotlightPage() {
         );
       const rankedConfessions = confessions.flatMap((confession) =>
         confession.mediaUrls?.flatMap((videoUrl, index) =>
-          confession.mediaTypes?.[index] === "video" &&
-          (!selectedTag || extractTags(confession.content).includes(selectedTag))
+          confession.mediaTypes?.[index] === "video"
             ? [{
                 kind: "confession" as const,
                 key: `confession:${confession.id}:${index}`,
@@ -80,17 +80,13 @@ export function SpotlightPage() {
       );
       const nextItems = [...rankedPosts, ...rankedConfessions].sort((a, b) => b.score - a.score);
       setItems(nextItems);
-      const tags = nextItems.flatMap((item) =>
-        extractTags(item.kind === "post" ? item.post.content : item.confession.content)
-      );
-      setKnownTags((current) => [...new Set([...current, ...tags])].slice(0, 12));
     } catch (cause) {
       setError(describeError(cause, "Could not load Spotlight videos."));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedTag]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -131,8 +127,18 @@ export function SpotlightPage() {
     }
   };
 
+  const scrollSlide = (direction: -1 | 1) => {
+    const list = slideListRef.current;
+    if (!list) return;
+    list.scrollBy({ top: direction * list.clientHeight, behavior: "smooth" });
+  };
+
   return (
-    <main className="fixed inset-0 z-50 h-dvh overflow-hidden bg-neutral-950 text-white">
+    <>
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-[220px] overflow-y-auto border-r border-line bg-page px-3 md:block">
+      <SidebarNav />
+    </aside>
+    <main className="fixed inset-0 z-30 h-dvh overflow-hidden bg-neutral-950 text-white md:left-[220px] md:w-[calc(100%-220px)]">
       <header className="pointer-events-none absolute inset-x-0 top-0 z-30 px-3 pb-5 pt-[max(0.7rem,env(safe-area-inset-top))]">
         <div className="pointer-events-auto flex items-center justify-between">
           <Link
@@ -156,28 +162,6 @@ export function SpotlightPage() {
             <RefreshCw size={17} className={refreshing ? "animate-spin" : ""} aria-hidden />
           </button>
         </div>
-        {knownTags.length > 0 && (
-          <div className="pointer-events-auto mx-auto mt-3 flex max-w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
-            <button
-              type="button"
-              onClick={() => setSelectedTag(null)}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-extrabold backdrop-blur-md ${selectedTag ? "bg-black/45 text-white/80" : "bg-white text-neutral-950"}`}
-            >
-              For you
-            </button>
-            {knownTags.map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                onClick={() => setSelectedTag(tag)}
-                aria-pressed={selectedTag === tag}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-extrabold backdrop-blur-md ${selectedTag === tag ? "bg-white text-neutral-950" : "bg-black/45 text-white"}`}
-              >
-                #{tag}
-              </button>
-            ))}
-          </div>
-        )}
       </header>
 
       {loading ? (
@@ -192,76 +176,94 @@ export function SpotlightPage() {
           <Zap size={28} className="mb-3 text-purple-300" aria-hidden />
           <p className="text-base font-black">No videos to spotlight yet</p>
           <p className="mt-1 max-w-xs text-sm font-semibold text-white/65">
-            {selectedTag ? `No videos tagged #${selectedTag}. Try another tag.` : "Video gists and approved confession clips will show up here."}
+            Video gists and approved confession clips will show up here.
           </p>
         </div>
       ) : (
-        <div className="h-full snap-y snap-mandatory overflow-y-auto overscroll-contain [scrollbar-width:none]">
-          {items.map((item) => (
-            <SpotlightSlide
-              key={item.key}
-              item={item}
-              schoolName={
-                item.kind === "post"
-                  ? item.post.schoolShort
-                  : item.confession.schoolId
-                    ? schools.find((school) => school.id === item.confession.schoolId)?.shortName ?? "School"
-                    : "Gist me"
-              }
-              onLike={async () => {
-                if (item.kind !== "post") return;
-                if (!user) {
-                  openAuthGate({ title: "Like this Spotlight", speech: "Join Gist me to react to campus videos.", returnTo: "/spotlight" });
-                  return;
+        <div ref={slideListRef} className="h-full snap-y snap-mandatory overflow-y-auto overscroll-contain [scrollbar-width:none]">
+          {items.map((item) => {
+            const threadId = item.kind === "post" ? item.post.id : item.confession.id;
+            const cachedCount = commentsByThread[`${item.kind}:${threadId}`]?.length;
+            const slideItem = item.kind === "post"
+              ? { ...item, post: { ...item.post, commentCount: Math.max(item.post.commentCount, cachedCount ?? 0) } }
+              : { ...item, confession: { ...item.confession, commentCount: Math.max(item.confession.commentCount, cachedCount ?? 0) } };
+            return (
+              <SpotlightSlide
+                key={slideItem.key}
+                item={slideItem}
+                schoolName={
+                  item.kind === "post"
+                    ? item.post.schoolShort
+                    : item.confession.schoolId
+                      ? schools.find((school) => school.id === item.confession.schoolId)?.shortName ?? "School"
+                      : "Gist me"
                 }
-                try {
-                  const liked = await toggleLike(item.post.id);
-                  setItems((current) => current.map((entry) => entry.key === item.key && entry.kind === "post"
-                    ? { ...entry, post: { ...entry.post, likedByMe: liked, likeCount: Math.max(0, entry.post.likeCount + (liked ? 1 : -1)) } }
-                    : entry));
-                } catch (cause) {
-                  toast(describeError(cause, "Could not update your reaction."), "danger");
-                }
-              }}
-              onComment={() => {
-                if (item.kind === "post") openComments(item.post.id);
-              }}
-              onShare={() => {
-                if (item.kind === "post") void share(item.post);
-              }}
-              onShareConfession={() => {
-                if (item.kind === "confession") void shareConfession(item.confession);
-              }}
-              onConfessionReaction={async () => {
-                if (item.kind !== "confession") return;
-                if (!user) {
-                  openAuthGate({ title: "React anonymously", speech: "Join Gist me to react to campus confessions.", returnTo: "/spotlight" });
-                  return;
-                }
-                try {
-                  const confession = item.confession;
-                  const current = confession.myReaction;
-                  const next = current === "heart" ? null : "heart";
-                  await toggleReaction(confession.id, "heart", current);
-                  setItems((currentItems) => currentItems.map((entry) => {
-                    if (entry.kind !== "confession" || entry.confession.id !== confession.id) return entry;
-                    const reactions = { ...entry.confession.reactions };
-                    if (current) reactions[current] = Math.max(0, reactions[current] - 1);
-                    if (next) reactions[next] += 1;
-                    return { ...entry, confession: { ...entry.confession, reactions, myReaction: next } };
-                  }));
-                } catch (cause) {
-                  toast(describeError(cause, "Could not update your reaction."), "danger");
-                }
-              }}
-              onOpenConfessions={() => {
-                if (item.kind === "confession") routeNavigate("/confessions");
-              }}
-            />
-          ))}
+                onLike={async () => {
+                  if (item.kind !== "post") return;
+                  if (!user) {
+                    openAuthGate({ title: "Like this Spotlight", speech: "Join Gist me to react to campus videos.", returnTo: "/spotlight" });
+                    return;
+                  }
+                  try {
+                    const liked = await toggleLike(item.post.id);
+                    setItems((current) => current.map((entry) => entry.key === item.key && entry.kind === "post"
+                      ? { ...entry, post: { ...entry.post, likedByMe: liked, likeCount: Math.max(0, entry.post.likeCount + (liked ? 1 : -1)) } }
+                      : entry));
+                  } catch (cause) {
+                    toast(describeError(cause, "Could not update your reaction."), "danger");
+                  }
+                }}
+                onComment={() => {
+                  openComments(item.kind === "post"
+                    ? { type: "post", id: item.post.id }
+                    : { type: "confession", id: item.confession.id });
+                }}
+                onShare={() => {
+                  if (item.kind === "post") void share(item.post);
+                }}
+                onShareConfession={() => {
+                  if (item.kind === "confession") void shareConfession(item.confession);
+                }}
+                onConfessionReaction={async () => {
+                  if (item.kind !== "confession") return;
+                  if (!user) {
+                    openAuthGate({ title: "React anonymously", speech: "Join Gist me to react to campus confessions.", returnTo: "/spotlight" });
+                    return;
+                  }
+                  try {
+                    const confession = item.confession;
+                    const current = confession.myReaction;
+                    const next = current === "heart" ? null : "heart";
+                    await toggleReaction(confession.id, "heart", current);
+                    setItems((currentItems) => currentItems.map((entry) => {
+                      if (entry.kind !== "confession" || entry.confession.id !== confession.id) return entry;
+                      const reactions = { ...entry.confession.reactions };
+                      if (current) reactions[current] = Math.max(0, reactions[current] - 1);
+                      if (next) reactions[next] += 1;
+                      return { ...entry, confession: { ...entry.confession, reactions, myReaction: next } };
+                    }));
+                  } catch (cause) {
+                    toast(describeError(cause, "Could not update your reaction."), "danger");
+                  }
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
+      {!loading && !error && items.length > 0 && (
+        <div className="pointer-events-none absolute right-4 top-1/2 z-20 hidden -translate-y-1/2 flex-col gap-2 md:flex">
+          <button type="button" onClick={() => scrollSlide(-1)} aria-label="Previous Spotlight video" className="pointer-events-auto flex size-11 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-lg backdrop-blur transition hover:bg-black/80">
+            <ArrowUp size={20} aria-hidden />
+          </button>
+          <button type="button" onClick={() => scrollSlide(1)} aria-label="Next Spotlight video" className="pointer-events-auto flex size-11 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-lg backdrop-blur transition hover:bg-black/80">
+            <ArrowDown size={20} aria-hidden />
+          </button>
         </div>
       )}
     </main>
+    <BottomNav alwaysVisible />
+    </>
   );
 }
 
@@ -281,7 +283,6 @@ function SpotlightSlide({
   onShare,
   onShareConfession,
   onConfessionReaction,
-  onOpenConfessions,
 }: {
   item: SpotlightItem;
   schoolName: string;
@@ -290,11 +291,11 @@ function SpotlightSlide({
   onShare: () => void;
   onShareConfession: () => void;
   onConfessionReaction: () => void;
-  onOpenConfessions: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [audioBlocked, setAudioBlocked] = useState(false);
   const confession = item.kind === "confession" ? item.confession : null;
   const post = item.kind === "post" ? item.post : null;
   const caption = post?.content ?? confession?.content ?? "";
@@ -310,9 +311,17 @@ function SpotlightSlide({
     if (!video || !slide) return;
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && entry.intersectionRatio >= 0.65) {
-        video.muted = true;
-        setMuted(true);
-        void video.play().catch(() => setPlaying(false));
+        video.muted = false;
+        void video.play().catch(async () => {
+          setAudioBlocked(true);
+          video.muted = true;
+          setMuted(true);
+          try {
+            await video.play();
+          } catch {
+            setPlaying(false);
+          }
+        });
       } else {
         video.pause();
       }
@@ -349,8 +358,28 @@ function SpotlightSlide({
         aria-label={`Spotlight video by ${author}`}
       />
       <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/90 via-transparent to-black/20" aria-hidden />
+      {audioBlocked && muted && (
+        <button
+          type="button"
+          onClick={() => {
+            const video = videoRef.current;
+            if (!video) return;
+            video.muted = false;
+            setMuted(false);
+            setAudioBlocked(false);
+            void video.play().catch(() => {
+              video.muted = true;
+              setMuted(true);
+              setAudioBlocked(true);
+            });
+          }}
+          className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/65 px-4 py-2.5 text-xs font-extrabold text-white backdrop-blur"
+        >
+          Tap to enable sound
+        </button>
+      )}
 
-      <div className="absolute bottom-[calc(1.25rem+env(safe-area-inset-bottom))] left-4 right-19 z-10 space-y-2 text-white">
+      <div className="absolute bottom-[calc(6rem+env(safe-area-inset-bottom))] left-4 right-19 z-10 space-y-2 text-white md:bottom-24">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-black">{author}</span>
           {username && author !== `@${username}` && <span className="text-[11px] font-semibold text-white/75">@{username}</span>}
@@ -371,8 +400,8 @@ function SpotlightSlide({
         </p>
       </div>
 
-      <aside className="absolute bottom-[calc(2rem+env(safe-area-inset-bottom))] right-3 z-10 flex flex-col items-center gap-4 text-white">
-        <Link to={post ? `/profile/${post.authorId}` : "/confessions"} aria-label={`View ${author}`} className="mb-1 rounded-full border-2 border-white/80 shadow-lg">
+      <aside className="absolute bottom-[calc(6.5rem+env(safe-area-inset-bottom))] right-3 z-10 flex flex-col items-center gap-4 text-white md:bottom-24">
+        <Link to={post ? `/profile/${post.authorId}` : "/confessions"} aria-label={`View ${author}`} className="mb-1 rounded-full shadow-lg">
           <Avatar
             name={post?.authorName ?? confession?.seedUsername ?? "Anonymous"}
             src={post?.authorAvatar ?? confession?.seedAvatarUrl}
@@ -396,7 +425,7 @@ function SpotlightSlide({
             <ActionButton label={`React · ${reactionCount}`} onClick={onConfessionReaction} active={confession?.myReaction === "heart"} detail={reactionCount}>
               <Heart size={25} fill={confession?.myReaction === "heart" ? "currentColor" : "none"} />
             </ActionButton>
-            <ActionButton label="Open confession feed" onClick={onOpenConfessions} detail="View">
+            <ActionButton label={`Comments · ${confession?.commentCount ?? 0}`} onClick={onComment} detail={confession?.commentCount ?? 0}>
               <MessageCircle size={24} />
             </ActionButton>
             <ActionButton label="Share confession" onClick={onShareConfession}>
@@ -411,6 +440,7 @@ function SpotlightSlide({
             if (!video) return;
             video.muted = !video.muted;
             setMuted(video.muted);
+            if (!video.muted) setAudioBlocked(false);
           }}
           aria-label={muted ? "Turn sound on" : "Mute video"}
           className="flex min-h-11 flex-col items-center gap-1 text-[10px] font-extrabold drop-shadow"

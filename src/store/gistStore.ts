@@ -6,6 +6,7 @@ import * as postsService from "../services/postsService";
 import * as schoolsService from "../services/schoolsService";
 import type {
   Comment,
+  CommentThreadTarget,
   Confession,
   ConfessionCategory,
   Post,
@@ -23,6 +24,23 @@ export type ComposerType = "gist" | "confession";
 const PAGE_SIZE = 10;
 let feedLoadRequestId = 0;
 let followingLoadRequestId = 0;
+
+const commentThreadKey = (target: CommentThreadTarget) => `${target.type}:${target.id}`;
+
+function removeCommentBranch(comments: Comment[], commentId: string): Comment[] {
+  const removedIds = new Set([commentId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const comment of comments) {
+      if (comment.parentId && removedIds.has(comment.parentId) && !removedIds.has(comment.id)) {
+        removedIds.add(comment.id);
+        changed = true;
+      }
+    }
+  }
+  return comments.filter((comment) => !removedIds.has(comment.id));
+}
 
 interface GistState {
   /* schools */
@@ -62,14 +80,16 @@ interface GistState {
   removePostLocally: (postId: string) => void;
 
   /* comments */
-  commentsByPostId: Record<string, Comment[]>;
+  commentsByThread: Record<string, Comment[]>;
   commentsLoading: Record<string, boolean>;
-  activeCommentPostId: string | null;
-  openComments: (postId: string) => void;
+  commentsError: Record<string, string | null>;
+  activeCommentThread: CommentThreadTarget | null;
+  openComments: (target: CommentThreadTarget) => void;
   closeComments: () => void;
-  loadComments: (postId: string) => Promise<void>;
-  addComment: (postId: string, content: string) => Promise<void>;
-  deleteComment: (postId: string, commentId: string) => Promise<void>;
+  loadComments: (target: CommentThreadTarget) => Promise<void>;
+  addComment: (target: CommentThreadTarget, content: string, parentId?: string | null) => Promise<void>;
+  deleteComment: (target: CommentThreadTarget, commentId: string) => Promise<void>;
+  toggleCommentLike: (target: CommentThreadTarget, commentId: string) => Promise<void>;
 
   /* confessions */
   confessions: Confession[];
@@ -335,54 +355,94 @@ export const useGistStore = create<GistState>()((set, get) => ({
     })),
 
   /* ───────────── comments ───────────── */
-  commentsByPostId: {},
+  commentsByThread: {},
   commentsLoading: {},
-  activeCommentPostId: null,
+  commentsError: {},
+  activeCommentThread: null,
 
-  openComments: (postId) => {
-    set({ activeCommentPostId: postId });
-    void get().loadComments(postId);
+  openComments: (target) => {
+    set({ activeCommentThread: target });
+    void get().loadComments(target).catch(() => undefined);
   },
 
-  closeComments: () => set({ activeCommentPostId: null }),
+  closeComments: () => set({ activeCommentThread: null }),
 
-  loadComments: async (postId) => {
-    set((state) => ({ commentsLoading: { ...state.commentsLoading, [postId]: true } }));
+  loadComments: async (target) => {
+    const key = commentThreadKey(target);
+    set((state) => ({
+      commentsLoading: { ...state.commentsLoading, [key]: true },
+      commentsError: { ...state.commentsError, [key]: null },
+    }));
     try {
-      const comments = await postsService.fetchComments(postId);
+      const comments = await postsService.fetchComments(target);
       set((state) => ({
-        commentsByPostId: { ...state.commentsByPostId, [postId]: comments },
-        commentsLoading: { ...state.commentsLoading, [postId]: false },
+        commentsByThread: { ...state.commentsByThread, [key]: comments },
+        commentsLoading: { ...state.commentsLoading, [key]: false },
       }));
-      get().patchPost(postId, { commentCount: comments.length });
+      if (target.type === "post") get().patchPost(target.id, { commentCount: comments.length });
+      else set((state) => ({
+        confessions: state.confessions.map((item) => item.id === target.id ? { ...item, commentCount: comments.length } : item),
+        myConfessions: state.myConfessions.map((item) => item.id === target.id ? { ...item, commentCount: comments.length } : item),
+      }));
     } catch (error) {
-      set((state) => ({ commentsLoading: { ...state.commentsLoading, [postId]: false } }));
+      set((state) => ({
+        commentsLoading: { ...state.commentsLoading, [key]: false },
+        commentsError: { ...state.commentsError, [key]: describeError(error, "Could not load comments.") },
+      }));
       throw error;
     }
   },
 
-  addComment: async (postId, content) => {
-    const comment = await postsService.addComment(postId, content);
+  addComment: async (target, content, parentId = null) => {
+    const comment = await postsService.addComment(target, content, parentId);
+    const key = commentThreadKey(target);
     set((state) => ({
-      commentsByPostId: {
-        ...state.commentsByPostId,
-        [postId]: [...(state.commentsByPostId[postId] ?? []), comment],
+      commentsByThread: {
+        ...state.commentsByThread,
+        [key]: [...(state.commentsByThread[key] ?? []), comment],
       },
     }));
-    const post = get().posts.find((item) => item.id === postId);
-    if (post) get().patchPost(postId, { commentCount: post.commentCount + 1 });
+    const comments = get().commentsByThread[key];
+    if (target.type === "post") get().patchPost(target.id, { commentCount: comments.length });
+    else set((state) => ({
+      confessions: state.confessions.map((item) => item.id === target.id ? { ...item, commentCount: comments.length } : item),
+      myConfessions: state.myConfessions.map((item) => item.id === target.id ? { ...item, commentCount: comments.length } : item),
+    }));
   },
 
-  deleteComment: async (postId, commentId) => {
-    await postsService.deleteComment(commentId);
+  deleteComment: async (target, commentId) => {
+    await postsService.deleteComment(target, commentId);
+    const key = commentThreadKey(target);
+    const comments = removeCommentBranch(get().commentsByThread[key] ?? [], commentId);
     set((state) => ({
-      commentsByPostId: {
-        ...state.commentsByPostId,
-        [postId]: (state.commentsByPostId[postId] ?? []).filter((comment) => comment.id !== commentId),
+      commentsByThread: {
+        ...state.commentsByThread,
+        [key]: comments,
       },
     }));
-    const post = get().posts.find((item) => item.id === postId);
-    if (post) get().patchPost(postId, { commentCount: Math.max(0, post.commentCount - 1) });
+    if (target.type === "post") get().patchPost(target.id, { commentCount: comments.length });
+    else set((state) => ({
+      confessions: state.confessions.map((item) => item.id === target.id ? { ...item, commentCount: comments.length } : item),
+      myConfessions: state.myConfessions.map((item) => item.id === target.id ? { ...item, commentCount: comments.length } : item),
+    }));
+  },
+
+  toggleCommentLike: async (target, commentId) => {
+    const key = commentThreadKey(target);
+    const comments = get().commentsByThread[key] ?? [];
+    const comment = comments.find((item) => item.id === commentId);
+    if (!comment) return;
+    const likedByMe = !comment.likedByMe;
+    const apply = (current: Comment[]) => current.map((item) => item.id === commentId
+      ? { ...item, likedByMe, likesCount: Math.max(0, item.likesCount + (likedByMe ? 1 : -1)) }
+      : item);
+    set((state) => ({ commentsByThread: { ...state.commentsByThread, [key]: apply(state.commentsByThread[key] ?? []) } }));
+    try {
+      await postsService.toggleCommentLike(target, commentId, comment.likedByMe);
+    } catch (error) {
+      set((state) => ({ commentsByThread: { ...state.commentsByThread, [key]: apply(state.commentsByThread[key] ?? []) } }));
+      throw error;
+    }
   },
 
   /* ───────────── confessions ───────────── */

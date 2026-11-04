@@ -17,6 +17,7 @@ import {
   ZoomIn,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { isUserGlobalAdmin } from "../../lib/adminAccess";
 import { useCanModerate } from "../../hooks/useModeration";
 import { isPostSaved, subscribeToSavedPosts, toggleSavedPost } from "../../lib/savedPosts";
 import { cachePublicMedia } from "../../lib/offlineCache";
@@ -78,6 +79,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
   const { toast } = useToast();
   const { user, isGlobalAdmin } = useAuth();
   const canModerate = useCanModerate();
+  const canBoostSeeds = isGlobalAdmin || isUserGlobalAdmin(user?.email);
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
   const toggleLike = useGistStore((state) => state.toggleLike);
   const openComments = useGistStore((state) => state.openComments);
@@ -323,7 +325,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           </div>
         </div>
         <div className="-mr-1 -mt-1 flex shrink-0 items-center gap-1">
-          {isGlobalAdmin && post.isSeed && (
+          {canBoostSeeds && post.isSeed && (
             <button
               type="button"
               onClick={() => setAdminToolsOpen((open) => !open)}
@@ -347,7 +349,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
         </div>
       </div>
 
-      {isGlobalAdmin && post.isSeed && adminToolsOpen && (
+      {canBoostSeeds && post.isSeed && adminToolsOpen && (
         <div className="absolute right-3 top-14 z-50 w-[min(19rem,calc(100%-1.5rem))] rounded-2xl border-2 border-brand-soft bg-card p-3 shadow-2xl">
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="flex items-center gap-1.5 text-xs font-black text-ink"><ShieldCheck size={14} className="text-brand-deep" aria-hidden /> Admin Tools</p>
@@ -463,7 +465,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           type="button"
           whileTap={{ scale: 0.92 }}
           transition={springs.snappy}
-          onClick={() => openComments(post.id)}
+          onClick={() => openComments({ type: "post", id: post.id })}
           aria-label={`Open comments, ${displayCommentCount} comments`}
           className="flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold text-ink-muted transition-colors hover:bg-brand-wash hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm"
         >
