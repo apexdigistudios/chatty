@@ -14,8 +14,6 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { pathname } = useLocation();
   const showBottomNav = pathname === "/" || pathname === "/spotlight";
 
-  if (pathname === "/spotlight") return <>{children}</>;
-
   return (
     <div className="min-h-dvh overflow-x-clip bg-page text-ink transition-colors duration-200">
       <Header />

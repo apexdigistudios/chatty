@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Heart, MessageCircle, RefreshCw, Share2, Volume2, VolumeX, Zap } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Heart, MessageCircle, RefreshCw, Share2, Volume2, VolumeX, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { describeError } from "../lib/supabase";
@@ -13,8 +13,6 @@ import { useGistStore } from "../store/gistStore";
 import type { Confession, Post } from "../types/models";
 import { useToast } from "../components/ui/Toast";
 import { Avatar } from "../components/ui/Avatar";
-import { BottomNav } from "../components/layout/BottomNav";
-import { SidebarNav } from "../components/layout/SidebarNav";
 
 type SpotlightItem =
   | { kind: "post"; key: string; videoUrl: string; post: Post; score: number }
@@ -44,7 +42,6 @@ export function SpotlightPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
@@ -135,22 +132,7 @@ export function SpotlightPage() {
   };
 
   return (
-    <>
-    <aside className={`fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-gray-200 bg-white transition-[width] duration-300 ease-in-out dark:border-neutral-800 dark:bg-black md:flex ${sidebarCollapsed ? "w-[76px] px-2" : "w-[260px] px-3"}`}>
-      <div className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-        <SidebarNav collapsed={sidebarCollapsed} />
-      </div>
-      <button
-        type="button"
-        onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
-        aria-label={sidebarCollapsed ? "Expand navigation sidebar" : "Collapse navigation sidebar"}
-        aria-expanded={!sidebarCollapsed}
-        className={`absolute top-5 z-50 flex size-7 items-center justify-center rounded-full border border-gray-200 bg-white text-ink shadow-md transition-[left,transform,color,background-color] duration-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white dark:hover:bg-neutral-800 ${sidebarCollapsed ? "left-[62px]" : "left-[246px]"}`}
-      >
-        {sidebarCollapsed ? <ArrowRight size={14} aria-hidden /> : <ArrowLeft size={14} aria-hidden />}
-      </button>
-    </aside>
-    <main className={`fixed inset-0 z-30 h-dvh overflow-hidden bg-neutral-950 text-white transition-[left,width] duration-300 ease-in-out ${sidebarCollapsed ? "md:left-[76px] md:w-[calc(100%-76px)]" : "md:left-[260px] md:w-[calc(100%-260px)]"}`}>
+    <div className="relative -mb-[calc(8rem+env(safe-area-inset-bottom))] h-[calc(100dvh-4rem)] overflow-hidden bg-neutral-950 text-white md:-mb-12">
       <section className="relative mx-auto h-full w-full bg-neutral-950 md:max-w-[520px] md:shadow-[0_0_48px_rgba(0,0,0,0.55)]">
       <header className="pointer-events-none absolute inset-x-0 top-0 z-30 px-3 pb-5 pt-[max(0.7rem,env(safe-area-inset-top))]">
         <div className="pointer-events-auto flex items-center justify-between">
@@ -277,9 +259,7 @@ export function SpotlightPage() {
           </div>
         </div>
       )}
-    </main>
-    <BottomNav spotlight />
-    </>
+    </div>
   );
 }
 
