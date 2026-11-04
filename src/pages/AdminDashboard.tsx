@@ -21,6 +21,7 @@ import { Card, CardBody } from "../components/ui/Card";
 import { PageHeading } from "../components/layout/PageHeading";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../context/AuthContext";
+import { isAuthorizedAdminEmail } from "../lib/adminAccess";
 import { describeError, supabase } from "../lib/supabase";
 import {
   clearAllSeedData,
@@ -68,7 +69,7 @@ function isSeedInput(value: unknown): value is {
 export function AdminDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, isGlobalAdmin, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const schools = useGistStore((state) => state.schools);
   const [serverAuthorized, setServerAuthorized] = useState(false);
   const [accessChecking, setAccessChecking] = useState(true);
@@ -93,7 +94,7 @@ export function AdminDashboard() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user || !isGlobalAdmin) {
+    if (!user || !isAuthorizedAdminEmail(user.email)) {
       navigate("/", { replace: true });
       setAccessChecking(false);
       return;
@@ -125,7 +126,7 @@ export function AdminDashboard() {
     return () => {
       active = false;
     };
-  }, [authLoading, isGlobalAdmin, navigate, toast, user]);
+  }, [authLoading, navigate, toast, user]);
 
   const reloadProfiles = async () => {
     setProfilesLoading(true);

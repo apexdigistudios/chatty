@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, EyeOff, Hash, ImagePlus, Loader2, Lock, Send, ShieldAlert, Smile, X, ZoomIn } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, EyeOff, Globe2, Hash, ImagePlus, Loader2, Lock, Send, ShieldAlert, Smile, X, ZoomIn } from "lucide-react";
 import { Avatar } from "../components/ui/Avatar";
 import { ImageLightbox } from "../components/ui/ImageLightbox";
 import { ProgressiveImage } from "../components/ui/ProgressiveImage";
@@ -16,6 +16,7 @@ import {
   formatBytes,
 } from "../lib/imageCompression";
 import { describeError } from "../lib/supabase";
+import { isAuthorizedAdminEmail } from "../lib/adminAccess";
 import { isVideoMime, readVideoMetadata } from "../lib/video";
 import { useGistStore } from "../store/gistStore";
 import { springs } from "../theme/tokens";
@@ -66,14 +67,15 @@ export function CreatePage() {
   const previewUrls = useRef(new Set<string>());
 
   const isConfession = composerType === "confession";
-  const schoolId = profile?.schoolId ?? null;
+  const isGlobalAdminAuthor = isGlobalAdmin || isAuthorizedAdminEmail(user?.email);
+  const schoolId = !isConfession && isGlobalAdminAuthor ? null : profile?.schoolId ?? null;
   const school = useMemo(() => schoolId ? schools.find((item) => item.id === schoolId) ?? null : null, [schoolId, schools]);
   const remaining = MAX_POST_LENGTH - content.length;
   const hasText = content.trim().length > 0;
   const hasMedia = attachments.length > 0;
   const canPublish =
     (isConfession ? hasText : hasText || hasMedia) &&
-    (Boolean(schoolId) || (!isConfession && isGlobalAdmin)) &&
+    (Boolean(schoolId) || (!isConfession && isGlobalAdminAuthor)) &&
     !publishing &&
     !compressing;
   const canContinue =
@@ -309,7 +311,7 @@ export function CreatePage() {
       }
       return;
     }
-    if (!schoolId && (isConfession || !isGlobalAdmin)) {
+    if (!schoolId && (isConfession || !isGlobalAdminAuthor)) {
       toast("Choose your school in your profile before publishing a gist.", "danger");
       return;
     }
@@ -351,7 +353,7 @@ export function CreatePage() {
           </motion.button>
           <div className="min-w-0 flex-1 text-center">
             <h1 className="truncate text-base font-black tracking-tight text-ink sm:text-lg">{step === 1 ? "Create Gist" : "Add details"}</h1>
-            <p className="truncate text-[10px] font-extrabold uppercase tracking-[0.14em] text-brand-deep">{isConfession ? "Anonymous · moderated" : `Step ${step} of 2 · ${school?.shortName ?? (isGlobalAdmin ? "Global admin" : "no SHS linked")}`}</p>
+            <p className="truncate text-[10px] font-extrabold uppercase tracking-[0.14em] text-brand-deep">{isConfession ? "Anonymous · moderated" : `Step ${step} of 2 · ${school?.shortName ?? (isGlobalAdminAuthor ? "All Schools" : "no SHS linked")}`}</p>
           </div>
           <motion.button
             type="button"
@@ -381,10 +383,17 @@ export function CreatePage() {
                 <Avatar name={profile?.username ?? "you"} src={profile?.avatarUrl} size="sm" />
                 <span className="truncate text-xs font-extrabold text-ink">{profile?.fullName || `@${profile?.username ?? "student"}`}</span>
               </div>
-              <span className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-line bg-card px-2 py-1 text-[10px] font-extrabold text-ink-muted">
-                <SchoolBadge schoolId={school?.id} crestUrl={school?.crestUrl} name={school?.name ?? "School"} size="xs" />
-                {school?.shortName ?? "No school linked"}
-              </span>
+              {isGlobalAdminAuthor && !school ? (
+                <span className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-brand/25 bg-brand-wash px-2.5 py-1 text-[10px] font-extrabold text-brand-deep">
+                  <Globe2 size={12} strokeWidth={2.5} aria-hidden />
+                  All Schools.
+                </span>
+              ) : (
+                <span className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-line bg-card px-2 py-1 text-[10px] font-extrabold text-ink-muted">
+                  <SchoolBadge schoolId={school?.id} crestUrl={school?.crestUrl} name={school?.name ?? "School"} size="xs" />
+                  {school?.shortName ?? "No school linked"}
+                </span>
+              )}
             </div>
             <span className="shrink-0 rounded-full bg-brand-wash px-2 py-1 text-[9px] font-black uppercase text-brand-deep">{attachments.length} media</span>
           </div>
@@ -401,10 +410,17 @@ export function CreatePage() {
               <div className="min-w-0">
                 <span className="block truncate text-sm font-black text-ink sm:text-[15px]">{isConfession ? "Anonymous Student" : profile?.fullName || `@${profile?.username ?? "student"}`}</span>
                 {!isConfession && profile?.fullName && <span className="block truncate text-[11px] font-semibold text-ink-muted">@{profile.username}</span>}
-                <span className="mt-1 inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full border border-line bg-page py-0.5 pl-1 pr-2.5 text-left">
-                  <SchoolBadge schoolId={school?.id} crestUrl={school?.crestUrl} name={school?.name ?? "School"} size="xs" />
-                  <span className="truncate text-[11px] font-extrabold text-ink">{school?.shortName ?? "No school linked"}</span>
-                </span>
+                {isGlobalAdminAuthor && !school ? (
+                  <span className="mt-1 inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full border border-brand/25 bg-brand-wash px-2.5 py-1 text-left text-[11px] font-extrabold text-brand-deep">
+                    <Globe2 size={14} strokeWidth={2.5} aria-hidden />
+                    All Schools · Global Admin
+                  </span>
+                ) : (
+                  <span className="mt-1 inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full border border-line bg-page py-0.5 pl-1 pr-2.5 text-left">
+                    <SchoolBadge schoolId={school?.id} crestUrl={school?.crestUrl} name={school?.name ?? "School"} size="xs" />
+                    <span className="truncate text-[11px] font-extrabold text-ink">{school?.shortName ?? "No school linked"}</span>
+                  </span>
+                )}
               </div>
             </div>
           </div>

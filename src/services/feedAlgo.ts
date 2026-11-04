@@ -37,18 +37,12 @@ export interface RankedFeedOptions {
   offset?: number;
   followingOnly?: boolean;
   schoolId?: string | null;
+  tag?: string;
 }
 
-export async function fetchRankedFeed({
-  limit,
-  offset = 0,
-  followingOnly = false,
-  schoolId,
-}: RankedFeedOptions): Promise<Post[]> {
+export async function fetchFeedRankingContext(): Promise<FeedRankingContext> {
   const viewerId = await currentUserId();
   const followingIds = new Set(await fetchFollowingIds(viewerId));
-  if (followingOnly && followingIds.size === 0) return [];
-
   let viewerSchoolId: string | null = null;
   if (viewerId) {
     if (isBrowserOffline()) {
@@ -64,17 +58,30 @@ export async function fetchRankedFeed({
       viewerSchoolId = data?.school_id ?? null;
     }
   }
+  return { schoolId: viewerSchoolId, followingIds, now: Date.now() };
+}
+
+export async function fetchRankedFeed({
+  limit,
+  offset = 0,
+  followingOnly = false,
+  schoolId,
+  tag,
+}: RankedFeedOptions): Promise<Post[]> {
+  const context = await fetchFeedRankingContext();
+  if (followingOnly && context.followingIds.size === 0) return [];
 
   let candidates: Post[];
   try {
     candidates = await fetchFeed({
       limit: CANDIDATE_LIMIT,
       schoolId: schoolId ?? undefined,
-      authorIds: followingOnly ? [...followingIds] : undefined,
+      authorIds: followingOnly ? [...context.followingIds] : undefined,
+      tag,
     });
   } catch (error) {
     if (!isBrowserOffline() || followingOnly) throw error;
-    candidates = await fetchFeed({ limit: 10, schoolId: schoolId ?? undefined });
+    candidates = await fetchFeed({ limit: 10, schoolId: schoolId ?? undefined, tag });
   }
-  return rankFeedPosts(candidates, { schoolId: viewerSchoolId, followingIds, now: Date.now() }).slice(offset, offset + limit);
+  return rankFeedPosts(candidates, context).slice(offset, offset + limit);
 }

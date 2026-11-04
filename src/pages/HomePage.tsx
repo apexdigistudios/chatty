@@ -73,6 +73,7 @@ export function HomePage() {
   const schools = useGistStore((state) => state.schools);
   const confessions = useGistStore((state) => state.confessions);
   const confessionsLoading = useGistStore((state) => state.confessionsLoading);
+  const confessionsError = useGistStore((state) => state.confessionsError);
   const loadConfessions = useGistStore((state) => state.loadConfessions);
   const setComposerIntent = useGistStore((state) => state.setComposerIntent);
 
@@ -100,7 +101,11 @@ export function HomePage() {
 
   useEffect(() => {
     if (activeTab === "Following" && followingPosts.length === 0 && !followingLoading) void loadFollowingFeed();
-    if (activeTab === "Confessions" && confessions.length === 0) void loadConfessions();
+    if (
+      (activeTab === "All SHSs" || activeTab === "My School" || activeTab === "Confessions") &&
+      confessions.length === 0 &&
+      !confessionsLoading
+    ) void loadConfessions();
     if (activeTab === "Trending" && trendingPosts.length === 0 && trendingFallback.length === 0 && !trendingLoading) void loadTrending();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
@@ -110,7 +115,7 @@ export function HomePage() {
     await Promise.all([
       loadFeed(),
       activeTab === "Following" ? loadFollowingFeed() : Promise.resolve(),
-      activeTab === "Confessions" ? loadConfessions() : Promise.resolve(),
+      ["All SHSs", "My School", "Confessions"].includes(activeTab) ? loadConfessions() : Promise.resolve(),
       activeTab === "Trending" ? loadTrending() : Promise.resolve(),
     ]);
     setRefreshing(false);
@@ -131,6 +136,26 @@ export function HomePage() {
     }
     return activeTab === "Following" ? followingPosts : posts;
   }, [activeTab, followingPosts, posts, profile?.schoolId]);
+  const mixedItems = useMemo(() => {
+    const includeConfessions = activeTab === "All SHSs" || activeTab === "My School";
+    const schoolFilter = activeTab === "My School" ? profile?.schoolId : feedSchoolId;
+    const items: Array<
+      | { kind: "post"; id: string; createdAt: string; post: (typeof visiblePosts)[number] }
+      | { kind: "confession"; id: string; createdAt: string; confession: (typeof confessions)[number] }
+    > = visiblePosts.map((post) => ({ kind: "post", id: post.id, createdAt: post.createdAt, post }));
+    if (includeConfessions && !(activeTab === "My School" && !profile?.schoolId)) {
+      for (const confession of confessions) {
+        if (schoolFilter && confession.schoolId !== schoolFilter) continue;
+        items.push({
+          kind: "confession",
+          id: confession.id,
+          createdAt: confession.publishedAt ?? confession.createdAt,
+          confession,
+        });
+      }
+    }
+    return items.sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
+  }, [activeTab, confessions, feedSchoolId, profile?.schoolId, visiblePosts]);
 
   const startComposing = (type: "gist" | "confession") => {
     if (!user) {
@@ -160,7 +185,7 @@ export function HomePage() {
       ? followingLoading && followingPosts.length === 0
     : showingTrending
       ? trendingLoading && trendingPosts.length === 0
-      : feedLoading && posts.length === 0;
+      : feedLoading && posts.length === 0 || confessionsLoading && confessions.length === 0;
   const visibleHasMore = showingFollowing ? followingHasMore : feedHasMore;
 
   return (
@@ -299,6 +324,11 @@ export function HomePage() {
           <Button size="sm" variant="outline" onClick={() => void loadFeed()}>Retry</Button>
         </div>
       )}
+      {confessionsError && (activeTab === "All SHSs" || activeTab === "My School" || showingConfessions) && (
+        <div role="alert" className="mx-4 mb-4 rounded-2xl border-2 border-danger-soft bg-danger-wash px-3.5 py-3 text-xs font-semibold text-danger-deep sm:mx-0">
+          Approved confessions could not be loaded. {confessionsError}
+        </div>
+      )}
 
       <AnimatePresence mode="wait" initial={false}>
         {loading ? (
@@ -349,6 +379,14 @@ export function HomePage() {
                   ))}
                 </>
               )
+            ) : mixedItems.length > 0 ? (
+              mixedItems.map((item) => (
+                <motion.div key={`${item.kind}:${item.id}`} variants={itemVariants}>
+                  {item.kind === "post"
+                    ? <GistCard post={item.post} />
+                    : <ConfessionCard confession={item.confession} />}
+                </motion.div>
+              ))
             ) : visiblePosts.length > 0 ? (
               visiblePosts.map((post) => (
                 <motion.div key={post.id} variants={itemVariants}>

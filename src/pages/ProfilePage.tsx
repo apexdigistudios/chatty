@@ -18,6 +18,7 @@ import {
   formatBytes,
 } from "../lib/imageCompression";
 import { describeError } from "../lib/supabase";
+import { isAuthorizedAdminEmail } from "../lib/adminAccess";
 import { checkUsernameAvailable, updateMyProfile, uploadMyAvatar, uploadMyCover } from "../services/profilesService";
 import { fetchFeed, fetchLikedPosts } from "../services/postsService";
 import { useGistStore } from "../store/gistStore";
@@ -597,6 +598,21 @@ export function ProfilePage() {
           </Link>
         </div>
       </section>
+
+      {isAuthorizedAdminEmail(user?.email) && (
+        <div className="mt-4">
+          <Link
+            to="/vvip"
+            className="group flex min-h-14 items-center justify-between gap-3 rounded-2xl border-2 border-brand/30 bg-brand-wash px-4 py-3 text-brand-deep shadow-[0_3px_0_var(--brand-edge)] transition-[transform,box-shadow,border-color] hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_5px_0_var(--brand-edge)] active:translate-y-0.5 active:shadow-[0_1px_0_var(--brand-edge)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          >
+            <span className="flex min-w-0 items-center gap-3">
+              <ShieldCheck size={19} strokeWidth={2.5} aria-hidden />
+              <span className="truncate text-sm font-black">VVIP Admin Panel</span>
+            </span>
+            <ArrowUpRight size={17} className="shrink-0 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden />
+          </Link>
+        </div>
+      )}
 
       <div role="tablist" aria-label="Profile sections" className="mt-5 grid grid-cols-4 border-b border-line">
         {TABS.map(({ id, label, icon: Icon }) => (

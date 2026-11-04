@@ -6,7 +6,11 @@ create policy "posts: own insert" on public.posts
   for insert to authenticated
   with check (
     user_id = auth.uid()
-    and (school_id is not null or public.is_global_admin())
+    and (
+      school_id is not null
+      or public.is_global_admin()
+      or lower(auth.jwt() ->> 'email') in ('nbamellow77@gmail.com', 'hello.gistme@gmail.com')
+    )
   );
 
 drop policy if exists "posts: group must match school" on public.posts;
@@ -14,7 +18,11 @@ create policy "posts: group must match school" on public.posts
   for insert to authenticated
   with check (
     user_id = auth.uid()
-    and (school_id is not null or public.is_global_admin())
+    and (
+      school_id is not null
+      or public.is_global_admin()
+      or lower(auth.jwt() ->> 'email') in ('nbamellow77@gmail.com', 'hello.gistme@gmail.com')
+    )
     and (
       group_id is null
       or exists (

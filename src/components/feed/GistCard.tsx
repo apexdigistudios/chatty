@@ -11,7 +11,6 @@ import {
   Share2,
   ShieldAlert,
   Users,
-  Zap,
   ZoomIn,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -263,13 +262,10 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
               </Badge>
             )}
             {post.spotlightStatus === "active" && (
-              <Badge
-                tone="brand"
-                className="shrink-0 gap-1 border border-purple-500/40 bg-purple-500/10 px-2 py-1 text-[9px] text-purple-600 dark:text-purple-400"
-              >
-                <Zap size={11} fill="currentColor" aria-hidden />
+              <span className="inline-flex shrink-0 items-center gap-1 text-[9px] font-black uppercase tracking-wide text-purple-700 dark:text-purple-300">
+                <span aria-hidden>✦</span>
                 Spotlight
-              </Badge>
+              </span>
             )}
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">

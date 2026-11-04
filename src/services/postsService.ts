@@ -7,6 +7,7 @@ import {
   writeOfflineValue,
 } from "../lib/offlineCache";
 import { countOf, currentUserId, requireUserId, supabase } from "../lib/supabase";
+import { isAuthorizedAdminEmail } from "../lib/adminAccess";
 import type { Comment, MediaType, Post, PostStatus } from "../types/models";
 import { fetchBlockedUserIds } from "./blocksService";
 import { uploadPostMedia } from "./storageService";
@@ -706,11 +707,17 @@ export interface CreatePostInput {
 export async function createPost(input: CreatePostInput): Promise<Post> {
   const userId = await requireUserId();
   if (!input.schoolId) {
-    const { data: isGlobalAdmin, error: adminCheckError } = await supabase.rpc("is_global_admin", {});
-    if (adminCheckError) {
-      throw new Error("Could not verify admin permissions. Please try again.");
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError) throw new Error("Could not verify your account. Please try again.");
+    let hasGlobalAdminAccess = isAuthorizedAdminEmail(authData.user?.email);
+    if (!hasGlobalAdminAccess) {
+      const { data: isGlobalAdmin, error: adminCheckError } = await supabase.rpc("is_global_admin", {});
+      if (adminCheckError) {
+        throw new Error("Could not verify admin permissions. Please try again.");
+      }
+      hasGlobalAdminAccess = isGlobalAdmin === true;
     }
-    if (isGlobalAdmin !== true) {
+    if (!hasGlobalAdminAccess) {
       throw new Error("Choose your school in your profile before publishing a gist.");
     }
   }
