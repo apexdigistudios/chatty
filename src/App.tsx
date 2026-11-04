@@ -29,6 +29,7 @@ import { ShoutoutsPage } from "./pages/ShoutoutsPage";
 import { ShoutoutCreatePage } from "./pages/ShoutoutCreatePage";
 import { SafetyPage } from "./pages/admin/SafetyPage";
 import { SpotlightPage } from "./pages/SpotlightPage";
+import { SharedContentPage } from "./pages/SharedContentPage";
 import { LegalPage } from "./pages/LegalPage";
 import { useGistStore } from "./store/gistStore";
 import { springs } from "./theme/tokens";
@@ -52,6 +53,8 @@ function AnimatedRoutes() {
           <Route path="/explore" element={<ExplorePage />} />
           <Route path="/trending" element={<HomePage />} />
           <Route path="/spotlight" element={<SpotlightPage />} />
+          <Route path="/posts/:id" element={<SharedContentPage kind="post" />} />
+          <Route path="/confessions/:id" element={<SharedContentPage kind="confession" />} />
           <Route path="/login" element={<AuthWizardPage />} />
           <Route path="/register" element={<AuthWizardPage />} />
           <Route path="/privacy" element={<LegalPage kind="privacy" />} />

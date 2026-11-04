@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { EyeOff, Lock, MessageCircle, MoreHorizontal, Share2, ShieldCheck } from "lucide-react";
+import { EyeOff, ImagePlus, Lock, MessageCircle, MoreHorizontal, Share2, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { describeError } from "../../lib/supabase";
 import { timeAgo } from "../../lib/time";
@@ -15,6 +15,8 @@ import { ReportMenu } from "./ReportMenu";
 import { AnimatedReaction } from "../common/AnimatedReaction";
 import { Avatar } from "../ui/Avatar";
 import { SafeImage } from "../common/SafeImage";
+import { UniversalShareModal } from "../share/UniversalShareModal";
+import { isNativeSharePreferred, sharePreviewUrl } from "../../lib/shareLinks";
 
 interface ReactionMeta {
   kind: ReactionKind;
@@ -56,6 +58,7 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
     confession.schoolId ? state.schools.find((item) => item.id === confession.schoolId) : undefined
   );
   const [menuOpen, setMenuOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const requireAuth = () => {
     if (user) return true;
@@ -80,12 +83,21 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
   };
 
   const share = async () => {
-    try {
-      await navigator.clipboard.writeText(`${window.location.origin}/confessions?c=${confession.id}`);
-      toast("Confession link copied. Identity stays hidden.", "info");
-    } catch {
-      toast("Sharing is ready when you are.", "brand");
+    const url = sharePreviewUrl("confession", confession.id);
+    if (isNativeSharePreferred()) {
+      try {
+        await navigator.share({
+          title: "Anonymous confession on Gist me",
+          text: "Click to read and reply anonymously.",
+          url,
+        });
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        console.error("Could not open the native share sheet.", error);
+      }
     }
+    setShareOpen(true);
   };
 
   const status = pending ? confession.moderationStatus : "approved";
@@ -228,6 +240,14 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
           <Share2 size={16} strokeWidth={2.4} aria-hidden />
           <span>Share</span>
         </button>
+        <button
+          type="button"
+          onClick={() => setShareOpen(true)}
+          className="flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold text-ink-muted transition-colors hover:bg-page hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm"
+        >
+          <ImagePlus size={16} strokeWidth={2.4} aria-hidden />
+          <span>Make card</span>
+        </button>
         <span className={cn("ml-auto flex items-center gap-1.5 pr-1 text-[10px] font-bold uppercase tracking-wider", pending ? "text-warning-deep" : "text-ink-muted")}>
           <ShieldCheck size={12} strokeWidth={2.5} aria-hidden />
           {pending ? status : "Reviewed by admins"}
@@ -242,6 +262,19 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
         schoolId={null}
         requireAuth={requireAuth}
       />
+      {shareOpen && (
+        <UniversalShareModal
+          data={{
+            kind: "confession",
+            content: confession.content,
+            url: sharePreviewUrl("confession", confession.id),
+            schoolName: school?.name ?? "Gist me",
+            schoolCrestUrl: school?.crestUrl,
+            title: "Anonymous confession on Gist me",
+          }}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
     </article>
   );
 }

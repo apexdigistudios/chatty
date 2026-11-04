@@ -1,0 +1,2 @@
+[functions.share-preview]
+verify_jwt = false

@@ -13,6 +13,8 @@ import type { Confession, Post } from "../types/models";
 import { useToast } from "../components/ui/Toast";
 import { Avatar } from "../components/ui/Avatar";
 import { rotateBySeed } from "../lib/feedRotation";
+import { isNativeSharePreferred, sharePreviewUrl } from "../lib/shareLinks";
+import { UniversalShareModal, type ShareCardData } from "../components/share/UniversalShareModal";
 
 type SpotlightItem =
   | { kind: "post"; key: string; videoUrl: string; post: Post }
@@ -34,6 +36,7 @@ export function SpotlightPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shareData, setShareData] = useState<ShareCardData | null>(null);
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
@@ -84,38 +87,51 @@ export function SpotlightPage() {
   }, [load]);
 
   const share = async (post: Post) => {
-    const url = `${window.location.origin}/profile/${post.authorId}?gist=${post.id}`;
-    if (typeof navigator.share === "function") {
+    const url = sharePreviewUrl("post", post.id);
+    const school = schools.find((item) => item.id === post.schoolId);
+    const data: ShareCardData = {
+      kind: "post",
+      content: post.content,
+      url,
+      schoolName: school?.name ?? post.schoolName,
+      schoolCrestUrl: school?.crestUrl ?? post.schoolCrest,
+      title: `Gist from ${post.schoolShort}`,
+      onShared: () => void recordPostShare(post.id).catch((cause: unknown) => console.error("Could not record this gist share.", cause)),
+    };
+    if (isNativeSharePreferred()) {
       try {
         await navigator.share({ title: "Spotlight on Gist me", text: post.content.slice(0, 120), url });
-        void recordPostShare(post.id).catch((cause: unknown) => console.error("Could not record this gist share.", cause));
+        data.onShared?.();
         return;
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
+        console.error("Could not open the native share sheet.", cause);
       }
     }
-    try {
-      await navigator.clipboard.writeText(url);
-      toast("Gist link copied to clipboard.", "info");
-      void recordPostShare(post.id).catch((cause: unknown) => console.error("Could not record this gist share.", cause));
-    } catch {
-      toast("Gist link is ready to share.", "brand");
-    }
+    setShareData(data);
   };
 
   const shareConfession = async (confession: Confession) => {
-    const url = `${window.location.origin}/confessions?c=${confession.id}`;
-    try {
-      if (typeof navigator.share === "function") {
-        await navigator.share({ title: "Anonymous confession on Gist me", url });
+    const url = sharePreviewUrl("confession", confession.id);
+    const school = schools.find((item) => item.id === confession.schoolId);
+    const data: ShareCardData = {
+      kind: "confession",
+      content: confession.content,
+      url,
+      schoolName: school?.name ?? "Gist me",
+      schoolCrestUrl: school?.crestUrl,
+      title: "Anonymous confession on Gist me",
+    };
+    if (isNativeSharePreferred()) {
+      try {
+        await navigator.share({ title: data.title, text: "Click to read and reply anonymously.", url });
         return;
+      } catch (cause) {
+        if (cause instanceof DOMException && cause.name === "AbortError") return;
+        console.error("Could not open the native share sheet.", cause);
       }
-      await navigator.clipboard.writeText(url);
-      toast("Confession link copied. Identity stays hidden.", "info");
-    } catch (cause) {
-      if (cause instanceof DOMException && cause.name === "AbortError") return;
-      toast("Confession link is ready to share.", "brand");
     }
+    setShareData(data);
   };
 
   const scrollSlide = (direction: -1 | 1) => {
@@ -252,6 +268,7 @@ export function SpotlightPage() {
           </div>
         </div>
       )}
+      {shareData && <UniversalShareModal data={shareData} onClose={() => setShareData(null)} />}
     </div>
   );
 }

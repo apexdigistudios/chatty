@@ -111,6 +111,17 @@ export async function fetchApprovedConfessions(limit = 40): Promise<Confession[]
   return attachReactions(data ?? []);
 }
 
+export async function fetchApprovedConfession(id: string): Promise<Confession | null> {
+  const { data, error } = await supabase
+    .from("public_confessions")
+    .select("id, school_id, category, content, created_at, published_at, seed_username, seed_full_name, seed_avatar_url, is_seed, media_urls, media_types")
+    .eq("id", id)
+    .maybeSingle<RawPublicConfession>();
+  if (error) throw new Error(error.message);
+  const [confession] = await attachReactions(data ? [data] : []);
+  return confession ?? null;
+}
+
 /** The signed-in author's own submissions (any moderation status). */
 export async function fetchMyConfessions(): Promise<Confession[]> {
   const userId = await requireUserId();

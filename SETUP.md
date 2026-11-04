@@ -110,6 +110,31 @@ It adds nested replies and per-comment likes to post comments, plus an anonymous
 safe comments table and likes for approved confessions. New replies must remain in
 the same post or confession thread, and confession authors remain hidden.
 
+### A11 · Universal social share previews
+
+Deploy `supabase/functions/share-preview` with the Supabase CLI after configuring
+`SITE_ORIGIN` to the canonical public app URL if it differs from
+`https://www.gistme.online`. Its public read-only endpoint renders OpenGraph and
+Twitter metadata for active gists and approved confessions, then opens the
+corresponding `/posts/:id` or `/confessions/:id` app route. The function has JWT
+verification disabled so social crawlers can request previews without signing in;
+it uses the project anon key and existing public row-level-security policies.
+
+Deploy it with:
+
+```bash
+supabase functions deploy share-preview
+```
+
+For a different canonical domain, set the Edge Function secret with
+`supabase secrets set SITE_ORIGIN=https://your-domain.example` before deployment.
+The deployment project must match the `VITE_SUPABASE_URL` used by the app build.
+
+Feed share links use this endpoint whenever `VITE_SUPABASE_URL` is configured.
+Without that deployment, links still open the in-app content route, but third-party
+crawlers receive the app's static metadata. The share dialog can export a
+customizable PNG card in the browser without an additional image-rendering package.
+
 ### B · Fresh project
 
 1. Create a project at [supabase.com](https://supabase.com).

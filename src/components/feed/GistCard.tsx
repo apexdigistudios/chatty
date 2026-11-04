@@ -43,6 +43,8 @@ import { SpotlightModal } from "../spotlight/SpotlightModal";
 import { ReportModal } from "./ReportModal";
 import { ProfileHoverCard } from "../profile/ProfileHoverCard";
 import { AnimatedReaction } from "../common/AnimatedReaction";
+import { UniversalShareModal } from "../share/UniversalShareModal";
+import { isNativeSharePreferred, sharePreviewUrl } from "../../lib/shareLinks";
 
 function renderHashtags(content: string) {
   const parts: Array<{ value: string; tag: string | null }> = [];
@@ -91,6 +93,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
   const [saved, setSaved] = useState(() => isPostSaved(post.id));
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [textExpanded, setTextExpanded] = useState(false);
   const [textOverflows, setTextOverflows] = useState(false);
   const [seededLikeCount, setSeededLikeCount] = useState(post.likeCount);
@@ -180,8 +183,8 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
   };
 
   const share = async () => {
-    const url = `${window.location.origin}/profile/${post.authorId}?gist=${post.id}`;
-    if (typeof navigator.share === "function") {
+    const url = sharePreviewUrl("post", post.id);
+    if (isNativeSharePreferred()) {
       try {
         await navigator.share({ title: "Gist on Gist me", text: post.content.slice(0, 120), url });
         void recordPostShare(post.id).catch((error: unknown) => {
@@ -190,17 +193,10 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
         return;
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
+        console.error("Could not open the native share sheet.", error);
       }
     }
-    try {
-      await navigator.clipboard.writeText(url);
-      toast("Gist link copied to clipboard.", "info");
-      void recordPostShare(post.id).catch((error: unknown) => {
-        console.error("Could not record this gist share.", error);
-      });
-    } catch {
-      toast("Gist link is ready to share.", "brand");
-    }
+    setShareOpen(true);
   };
 
   const quickSave = () => {
@@ -545,6 +541,20 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
 
       {spotlightOpen && <SpotlightModal post={post} onClose={() => setSpotlightOpen(false)} />}
       {reportOpen && <ReportModal post={post} onClose={() => setReportOpen(false)} />}
+      {shareOpen && (
+        <UniversalShareModal
+          data={{
+            kind: "post",
+            content: post.content,
+            url: sharePreviewUrl("post", post.id),
+            schoolName: post.schoolName || post.schoolShort,
+            schoolCrestUrl: post.schoolCrest,
+            title: `Gist from ${post.schoolShort}`,
+            onShared: () => void recordPostShare(post.id).catch((error: unknown) => console.error("Could not record this gist share.", error)),
+          }}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
 
       {imageMedia.length > 0 && (
         <ImageLightbox images={imageMedia} index={lightboxIndex} onClose={() => setLightboxIndex(null)} />
