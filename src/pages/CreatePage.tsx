@@ -42,7 +42,7 @@ export function CreatePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, isGlobalAdmin, loading: authLoading } = useAuth();
   const groupParam = searchParams.get("group");
   const [postGroup, setPostGroup] = useState<SchoolGroup | null>(null);
 
@@ -73,7 +73,7 @@ export function CreatePage() {
   const hasMedia = attachments.length > 0;
   const canPublish =
     (isConfession ? hasText : hasText || hasMedia) &&
-    Boolean(schoolId) &&
+    (Boolean(schoolId) || (!isConfession && isGlobalAdmin)) &&
     !publishing &&
     !compressing;
   const canContinue =
@@ -303,10 +303,14 @@ export function CreatePage() {
 
   const publish = async () => {
     const text = content.trim();
-    if ((!text && (isConfession || attachments.length === 0)) || !schoolId || publishing || compressing) {
+    if ((!text && (isConfession || attachments.length === 0)) || publishing || compressing) {
       if (!text && (isConfession || attachments.length === 0)) {
         toast("Please add text, an image, or a video to publish.", "danger");
       }
+      return;
+    }
+    if (!schoolId && (isConfession || !isGlobalAdmin)) {
+      toast("Choose your school in your profile before publishing a gist.", "danger");
       return;
     }
     setPublishing(true);
@@ -347,7 +351,7 @@ export function CreatePage() {
           </motion.button>
           <div className="min-w-0 flex-1 text-center">
             <h1 className="truncate text-base font-black tracking-tight text-ink sm:text-lg">{step === 1 ? "Create Gist" : "Add details"}</h1>
-            <p className="truncate text-[10px] font-extrabold uppercase tracking-[0.14em] text-brand-deep">{isConfession ? "Anonymous · moderated" : `Step ${step} of 2 · ${school?.shortName ?? "no SHS linked"}`}</p>
+            <p className="truncate text-[10px] font-extrabold uppercase tracking-[0.14em] text-brand-deep">{isConfession ? "Anonymous · moderated" : `Step ${step} of 2 · ${school?.shortName ?? (isGlobalAdmin ? "Global admin" : "no SHS linked")}`}</p>
           </div>
           <motion.button
             type="button"

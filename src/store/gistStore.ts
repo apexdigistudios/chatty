@@ -273,11 +273,13 @@ export const useGistStore = create<GistState>()((set, get) => ({
         return { posts: [post, ...state.posts.filter((item) => item.id !== post.id)] };
       });
     }
-    set((state) => ({
-      schools: state.schools.map((school) =>
-        school.id === post.schoolId ? { ...school, postCount: school.postCount + 1 } : school
-      ),
-    }));
+    if (post.schoolId) {
+      set((state) => ({
+        schools: state.schools.map((school) =>
+          school.id === post.schoolId ? { ...school, postCount: school.postCount + 1 } : school
+        ),
+      }));
+    }
     return post;
   },
 

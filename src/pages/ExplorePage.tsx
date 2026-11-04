@@ -150,7 +150,7 @@ export function ExplorePage() {
                         <span className="size-1 rounded-full bg-ink-faint" aria-hidden />{timeAgo(post.createdAt)}
                       </p>
                     </div>
-                    <Link to={`/schools/${post.schoolId}`} aria-label={`Open ${post.schoolShort} community`} className="shrink-0 rounded-lg p-1.5 text-ink-faint hover:bg-page hover:text-brand-deep"><ArrowUpRight size={16} strokeWidth={2.5} aria-hidden /></Link>
+                    <Link to={post.schoolId ? `/schools/${post.schoolId}` : "/"} aria-label={post.schoolId ? `Open ${post.schoolShort} community` : "Open feed"} className="shrink-0 rounded-lg p-1.5 text-ink-faint hover:bg-page hover:text-brand-deep"><ArrowUpRight size={16} strokeWidth={2.5} aria-hidden /></Link>
                   </div>
                 ))}
               </div>
@@ -202,7 +202,7 @@ export function ExplorePage() {
                         <Users size={11} strokeWidth={2.5} aria-hidden />{school.memberCount.toLocaleString()}
                       </p>
                     </div>
-                    <button type="button" onClick={() => navigate(`/schools/${school.id}`)} className="shrink-0 rounded-xl bg-brand-deep px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-brand-contrast shadow-[0_3px_0_var(--brand-edge)] active:translate-y-[2px]">Feed</button>
+                    <button type="button" onClick={() => navigate(`/schools/${school.id}`)} className="shrink-0 rounded-xl bg-brand-deep px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-brand-contrast shadow-[0_3px_0_var(--brand-edge)] active:translate-y-0.5">Feed</button>
                   </div>
                 ))}
               </div>

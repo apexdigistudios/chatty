@@ -157,7 +157,7 @@ export interface RawPost {
   id: string;
   user_id: string;
   seed_profile_id?: string | null;
-  school_id: string;
+  school_id: string | null;
   group_id?: string | null;
   content: string;
   media_url: string | null;
@@ -197,7 +197,7 @@ interface SpotlightPromotionRow {
 }
 
 export function mapPost(row: RawPost, liked: boolean): Post {
-  const schoolName = row.school?.name ?? "School";
+  const schoolName = row.school?.name ?? (row.school_id ? "School" : "Gist me");
   const seedAuthor = row.seed_author ?? null;
   return {
     id: row.id,
@@ -208,7 +208,7 @@ export function mapPost(row: RawPost, liked: boolean): Post {
     authorSchoolId: seedAuthor?.school_id ?? row.author?.school_id ?? row.school_id,
     schoolId: row.school_id,
     schoolName,
-    schoolShort: row.school ? shortNameOf(schoolName) : "SHS",
+    schoolShort: row.school ? shortNameOf(schoolName) : row.school_id ? "SHS" : "Community",
     schoolCrest: row.school?.crest_url ?? null,
     groupId: row.group_id ?? row.group?.id ?? null,
     groupName: row.group?.name ?? null,
@@ -696,7 +696,7 @@ export async function fetchPost(postId: string): Promise<Post | null> {
 
 export interface CreatePostInput {
   content: string;
-  schoolId: string;
+  schoolId: string | null;
   /** Optional club/squad (requires migration-step9). */
   groupId?: string | null;
   files?: File[];
@@ -705,6 +705,15 @@ export interface CreatePostInput {
 
 export async function createPost(input: CreatePostInput): Promise<Post> {
   const userId = await requireUserId();
+  if (!input.schoolId) {
+    const { data: isGlobalAdmin, error: adminCheckError } = await supabase.rpc("is_global_admin", {});
+    if (adminCheckError) {
+      throw new Error("Could not verify admin permissions. Please try again.");
+    }
+    if (isGlobalAdmin !== true) {
+      throw new Error("Choose your school in your profile before publishing a gist.");
+    }
+  }
   const files = input.files ?? [];
   const content = input.content.trim();
   if (!content && files.length === 0) {

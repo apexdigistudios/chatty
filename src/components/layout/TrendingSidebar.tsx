@@ -33,7 +33,7 @@ export function TrendingSidebar() {
             {trending.map((post, index) => (
               <Link
                 key={post.id}
-                to={`/schools/${post.schoolId}`}
+                to={post.schoolId ? `/schools/${post.schoolId}` : "/"}
                 className={`flex items-start gap-3 px-3.5 py-3.5 transition-colors hover:bg-page ${index > 0 ? "border-t border-line" : ""}`}
               >
                 <SchoolBadge schoolId={post.schoolId} crestUrl={post.schoolCrest} name={post.schoolShort} size="sm" />

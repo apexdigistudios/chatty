@@ -99,7 +99,7 @@ export interface Post {
   authorName: string;
   authorAvatar: string | null;
   authorSchoolId: string | null;
-  schoolId: string;
+  schoolId: string | null;
   schoolName: string;
   schoolShort: string;
   schoolCrest: string | null;
