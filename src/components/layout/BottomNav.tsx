@@ -26,7 +26,7 @@ const navigation: NavigationItem[] = [
 ];
 
 /** Icon-only iOS floating dock. Every item shares identical sizing and press physics. */
-export function BottomNav({ alwaysVisible = false }: { alwaysVisible?: boolean }) {
+export function BottomNav({ spotlight = false }: { spotlight?: boolean }) {
   const { user, profile } = useAuth();
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
   const hidden = useScrollDirection();
@@ -34,7 +34,11 @@ export function BottomNav({ alwaysVisible = false }: { alwaysVisible?: boolean }
   return (
     <nav
       aria-label="Primary navigation"
-      className={`fixed inset-x-0 bottom-0 z-40 w-full border-t border-zinc-200/60 bg-white/65 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur-lg transition-transform duration-300 ease-in-out dark:border-white/10 dark:bg-black/40 dark:shadow-[0_-8px_24px_rgba(0,0,0,0.2)] ${alwaysVisible ? "" : "md:hidden"} ${!alwaysVisible && hidden ? "translate-y-full" : "translate-y-0"}`}
+      className={`fixed inset-x-0 bottom-0 z-40 flex w-full items-center justify-center px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-in-out md:hidden ${
+        spotlight
+          ? "border-0 bg-transparent shadow-none backdrop-blur-none"
+          : "border-t border-zinc-200/60 bg-white/65 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur-lg dark:border-white/10 dark:bg-black/40 dark:shadow-[0_-8px_24px_rgba(0,0,0,0.2)]"
+      } ${!spotlight && hidden ? "translate-y-full" : "translate-y-0"}`}
     >
       <div className="mx-auto grid w-full max-w-sm grid-cols-5 items-center justify-items-center">
         {navigation.map(({ label, to, icon: Icon, end, create, profile: isProfile }) => (
@@ -68,8 +72,12 @@ export function BottomNav({ alwaysVisible = false }: { alwaysVisible?: boolean }
                   create
                     ? "bg-[#8B5CF6] text-white shadow-[0_3px_0_#5B21B6]"
                     : isActive
-                      ? "bg-[#8B5CF6]/15 text-[#7C3AED] ring-1 ring-[#8B5CF6]/25 dark:bg-[#8B5CF6]/25 dark:text-[#A78BFA]"
-                      : "text-ink-muted group-hover:bg-black/5 group-hover:text-ink dark:group-hover:bg-white/10"
+                      ? spotlight
+                        ? "bg-black/25 text-white ring-1 ring-white/30"
+                        : "bg-[#8B5CF6]/15 text-[#7C3AED] ring-1 ring-[#8B5CF6]/25 dark:bg-[#8B5CF6]/25 dark:text-[#A78BFA]"
+                      : spotlight
+                        ? "bg-black/20 text-white hover:bg-black/40"
+                        : "text-ink-muted group-hover:bg-black/5 group-hover:text-ink dark:group-hover:bg-white/10"
                 }`}
               >
                 {isProfile && user ? (

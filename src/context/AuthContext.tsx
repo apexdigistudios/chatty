@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import { isUserGlobalAdmin } from "../lib/adminAccess";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
 import { ensureProfile, fetchMyRoles, signOut as signOutService } from "../services/profilesService";
 import type { AdminRoleRow, Profile } from "../types/models";
@@ -149,7 +150,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       profile,
       roles,
-      isGlobalAdmin: roles.some((role) => role.role === "global_admin"),
+      isGlobalAdmin:
+        roles.some((role) => role.role === "global_admin") ||
+        isUserGlobalAdmin(session?.user.email),
       moderatedSchoolIds: roles
         .filter((role) => role.role === "school_moderator" && role.school_id)
         .map((role) => role.school_id as string),

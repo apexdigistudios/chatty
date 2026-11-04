@@ -114,7 +114,7 @@ export function AdminDashboard() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user || !isUserGlobalAdmin(user.email)) {
+    if (!user || !isUserGlobalAdmin(user?.email)) {
       navigate("/", { replace: true });
       setAccessChecking(false);
       return;

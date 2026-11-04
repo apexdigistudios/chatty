@@ -3,9 +3,9 @@ export const GLOBAL_ADMIN_EMAILS = [
   "hello.gistme@gmail.com",
 ];
 
-export function isUserGlobalAdmin(email?: string | null): boolean {
+export const isUserGlobalAdmin = (email?: string | null): boolean => {
   if (!email) return false;
   return GLOBAL_ADMIN_EMAILS.includes(email.trim().toLowerCase());
-}
+};
 
 export const isAuthorizedAdminEmail = isUserGlobalAdmin;

@@ -135,10 +135,11 @@ export function SpotlightPage() {
 
   return (
     <>
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-[220px] overflow-y-auto border-r border-line bg-page px-3 md:block">
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-[220px] flex-col overflow-y-auto border-r border-gray-200 bg-white px-3 dark:border-neutral-800 dark:bg-black md:flex">
       <SidebarNav />
     </aside>
     <main className="fixed inset-0 z-30 h-dvh overflow-hidden bg-neutral-950 text-white md:left-[220px] md:w-[calc(100%-220px)]">
+      <section className="relative mx-auto h-full w-full bg-neutral-950 md:max-w-[480px] md:shadow-[0_0_48px_rgba(0,0,0,0.55)]">
       <header className="pointer-events-none absolute inset-x-0 top-0 z-30 px-3 pb-5 pt-[max(0.7rem,env(safe-area-inset-top))]">
         <div className="pointer-events-auto flex items-center justify-between">
           <Link
@@ -252,7 +253,7 @@ export function SpotlightPage() {
         </div>
       )}
       {!loading && !error && items.length > 0 && (
-        <div className="pointer-events-none absolute right-4 top-1/2 z-20 hidden -translate-y-1/2 flex-col gap-2 md:flex">
+        <div className="pointer-events-none absolute right-3 top-1/2 z-20 hidden -translate-y-1/2 flex-col gap-2 md:flex">
           <button type="button" onClick={() => scrollSlide(-1)} aria-label="Previous Spotlight video" className="pointer-events-auto flex size-11 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-lg backdrop-blur transition hover:bg-black/80">
             <ArrowUp size={20} aria-hidden />
           </button>
@@ -261,8 +262,9 @@ export function SpotlightPage() {
           </button>
         </div>
       )}
+      </section>
     </main>
-    <BottomNav alwaysVisible />
+    <BottomNav spotlight />
     </>
   );
 }
@@ -354,7 +356,7 @@ function SpotlightSlide({
         }}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
-        className="absolute inset-0 size-full object-cover"
+        className="absolute inset-0 size-full object-cover md:object-contain"
         aria-label={`Spotlight video by ${author}`}
       />
       <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/90 via-transparent to-black/20" aria-hidden />
