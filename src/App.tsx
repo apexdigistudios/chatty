@@ -18,6 +18,7 @@ import { AdminPage } from "./pages/AdminPage";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { AuthWizardPage } from "./pages/AuthWizardPage";
 import { ConfessionsPage } from "./pages/ConfessionsPage";
+import { ConfessionComposerPage } from "./pages/ConfessionComposerPage";
 import { CreatePage } from "./pages/CreatePage";
 import { ExplorePage } from "./pages/ExplorePage";
 import { HomePage } from "./pages/HomePage";
@@ -34,7 +35,7 @@ import { LegalPage } from "./pages/LegalPage";
 import { useGistStore } from "./store/gistStore";
 import { springs } from "./theme/tokens";
 
-const FULLSCREEN_PATHS = new Set(["/create", "/auth", "/login", "/register", "/shoutouts/create"]);
+const FULLSCREEN_PATHS = new Set(["/create", "/confessions/create", "/auth", "/login", "/register", "/shoutouts/create"]);
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -91,6 +92,7 @@ function Shell() {
   if (FULLSCREEN_PATHS.has(location.pathname)) {
     if (["/auth", "/login", "/register"].includes(location.pathname)) return <AuthWizardPage />;
     if (location.pathname === "/shoutouts/create") return <ShoutoutCreatePage />;
+    if (location.pathname === "/confessions/create") return <ConfessionComposerPage />;
     return <CreatePage />;
   }
 

@@ -24,9 +24,9 @@ export function ConfessionsPage() {
   const confessionsLoading = useGistStore((state) => state.confessionsLoading);
   const confessionsError = useGistStore((state) => state.confessionsError);
   const myConfessions = useGistStore((state) => state.myConfessions);
+  const myConfessionsError = useGistStore((state) => state.myConfessionsError);
   const loadConfessions = useGistStore((state) => state.loadConfessions);
   const loadMyConfessions = useGistStore((state) => state.loadMyConfessions);
-  const setComposerIntent = useGistStore((state) => state.setComposerIntent);
   const [filter, setFilter] = useState<ConfessionCategory | "All">("All");
 
   useEffect(() => {
@@ -45,18 +45,16 @@ export function ConfessionsPage() {
 
   const startConfession = () => {
     if (!user) {
-      setComposerIntent("confession");
       openAuthGate({
         title: "Submit an Anonymous Confession",
         speech:
           "Time to go undercover! Create your student account so moderators can keep spam out while your identity stays 100% hidden.",
         outfit: "detective",
-        returnTo: "/create",
+        returnTo: "/confessions/create",
       });
       return;
     }
-    setComposerIntent("confession");
-    navigate("/create");
+    navigate("/confessions/create");
   };
 
   return (
@@ -96,16 +94,24 @@ export function ConfessionsPage() {
         ))}
       </div>
 
-      {mine.length > 0 && (
+      {user && (mine.length > 0 || myConfessionsError) && (
         <section className="mt-8" aria-labelledby="pending-heading">
           <div className="mb-3 flex items-center gap-2">
             <span className="flex size-8 items-center justify-center rounded-xl bg-warning-wash text-warning-deep"><Lock size={15} strokeWidth={2.5} aria-hidden /></span>
             <h2 id="pending-heading" className="text-sm font-extrabold text-ink">Your submissions</h2>
             <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-ink-muted">{mine.length} in review</span>
           </div>
-          <div className="space-y-4">
-            {mine.map((confession) => <ConfessionCard key={confession.id} confession={confession} pending />)}
-          </div>
+          {myConfessionsError ? (
+            <div className="flex items-center gap-3 rounded-2xl border-2 border-danger-soft bg-danger-wash px-3.5 py-3">
+              <WifiOff size={16} className="shrink-0 text-danger-deep" aria-hidden />
+              <p className="min-w-0 flex-1 text-xs font-semibold text-danger-deep">{myConfessionsError}</p>
+              <Button size="sm" variant="outline" onClick={() => void loadMyConfessions()}>Retry</Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {mine.map((confession) => <ConfessionCard key={confession.id} confession={confession} pending />)}
+            </div>
+          )}
         </section>
       )}
 

@@ -97,9 +97,11 @@ interface GistState {
   confessionsLoading: boolean;
   confessionsError: string | null;
   myConfessions: Confession[];
+  myConfessionsError: string | null;
   loadConfessions: () => Promise<void>;
   loadMyConfessions: () => Promise<void>;
   submitConfession: (input: { content: string; category: ConfessionCategory; schoolId: string | null }) => Promise<Confession>;
+  publishConfessionLocally: (confession: Confession) => void;
   toggleReaction: (confessionId: string, kind: ReactionKind) => Promise<void>;
 
   /* composer intent */
@@ -455,6 +457,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
   confessionsLoading: false,
   confessionsError: null,
   myConfessions: [],
+  myConfessionsError: null,
 
   loadConfessions: async () => {
     set({ confessionsLoading: true, confessionsError: null });
@@ -467,19 +470,36 @@ export const useGistStore = create<GistState>()((set, get) => ({
   },
 
   loadMyConfessions: async () => {
+    set({ myConfessionsError: null });
     try {
       const myConfessions = await confessionsService.fetchMyConfessions();
-      set({ myConfessions });
-    } catch {
-      set({ myConfessions: [] });
+      set({ myConfessions, myConfessionsError: null });
+    } catch (error) {
+      set({ myConfessionsError: describeError(error, "Could not load your submissions.") });
     }
   },
 
   submitConfession: async (input) => {
     const confession = await confessionsService.submitConfession(input);
-    set((state) => ({ myConfessions: [confession, ...state.myConfessions] }));
+    set((state) => ({
+      confessions: confession.moderationStatus === "approved"
+        ? [confession, ...state.confessions.filter((item) => item.id !== confession.id)]
+            .sort((left, right) => Date.parse(right.publishedAt ?? right.createdAt) - Date.parse(left.publishedAt ?? left.createdAt))
+        : state.confessions,
+      myConfessions: [confession, ...state.myConfessions.filter((item) => item.id !== confession.id)],
+      myConfessionsError: null,
+    }));
     return confession;
   },
+
+  publishConfessionLocally: (confession) => set((state) => {
+    const approved = { ...confession, moderationStatus: "approved" as const };
+    return {
+      confessions: [approved, ...state.confessions.filter((item) => item.id !== approved.id)]
+        .sort((left, right) => Date.parse(right.publishedAt ?? right.createdAt) - Date.parse(left.publishedAt ?? left.createdAt)),
+      myConfessions: [approved, ...state.myConfessions.filter((item) => item.id !== approved.id)],
+    };
+  }),
 
   toggleReaction: async (confessionId, kind) => {
     const apply = (list: Confession[], next: ReactionKind | null) =>

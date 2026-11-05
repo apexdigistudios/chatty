@@ -215,12 +215,15 @@ export async function fetchGlobalPendingConfessions(): Promise<Confession[]> {
   return (data ?? []).map(mapQueued);
 }
 
-export async function approveConfession(confessionId: string): Promise<void> {
-  const { error } = await supabase
-    .from("confessions")
-    .update({ moderation_status: "approved", published_at: new Date().toISOString(), reviewed_by: await requireUserId() })
-    .eq("id", confessionId);
+export async function approveConfession(confessionId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("admin_update_moderation_status", {
+    p_item_id: confessionId,
+    p_item_type: "confession",
+    p_status: "approved",
+  });
   if (error) throw new Error(error.message);
+  if (typeof data !== "string") throw new Error("Moderation approval returned no publish timestamp.");
+  return data;
 }
 
 export async function rejectConfession(confessionId: string, reason = "Declined under community guidelines"): Promise<void> {

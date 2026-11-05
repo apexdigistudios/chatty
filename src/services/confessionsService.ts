@@ -1,4 +1,5 @@
 import { currentUserId, requireUserId, supabase } from "../lib/supabase";
+import { isUserGlobalAdmin } from "../lib/adminAccess";
 import {
   emptyReactions,
   type Confession,
@@ -38,6 +39,7 @@ interface RawReaction {
  * app still works — reactions just read as zero and the bar hides itself.
  */
 let reactionsTableAvailable = true;
+let commentsTableAvailable = true;
 export const reactionsAvailable = (): boolean => reactionsTableAvailable;
 
 const isMissingTable = (code: string | undefined): boolean => code === "PGRST205" || code === "42P01";
@@ -46,14 +48,20 @@ async function attachReactions(rows: RawPublicConfession[]): Promise<Confession[
   if (rows.length === 0) return [];
 
   const ids = rows.map((row) => row.id);
+  const commentCounts = new Map<string, number>();
   const [userId, commentsResult] = await Promise.all([
     currentUserId(),
-    supabase.from("confession_comments").select("confession_id").in("confession_id", ids).returns<RawConfessionCommentCount[]>(),
+    commentsTableAvailable
+      ? supabase.from("confession_comments").select("confession_id").in("confession_id", ids).returns<RawConfessionCommentCount[]>()
+      : Promise.resolve(null),
   ]);
-  if (commentsResult.error) throw new Error(commentsResult.error.message);
-  const commentCounts = new Map<string, number>();
-  for (const comment of commentsResult.data ?? []) {
-    commentCounts.set(comment.confession_id, (commentCounts.get(comment.confession_id) ?? 0) + 1);
+  if (commentsResult?.error) {
+    if (!isMissingTable(commentsResult.error.code)) throw new Error(commentsResult.error.message);
+    commentsTableAvailable = false;
+  } else {
+    for (const comment of commentsResult?.data ?? []) {
+      commentCounts.set(comment.confession_id, (commentCounts.get(comment.confession_id) ?? 0) + 1);
+    }
   }
   let data: RawReaction[] = [];
   if (reactionsTableAvailable) {
@@ -143,14 +151,23 @@ export interface SubmitConfessionInput {
 
 export async function submitConfession(input: SubmitConfessionInput): Promise<Confession> {
   const userId = await requireUserId();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError) throw new Error(userError.message);
+  const schoolId = input.schoolId?.trim() || null;
+  const isGlobalAdmin = isUserGlobalAdmin(user?.email);
+  if (!schoolId && !isGlobalAdmin) {
+    throw new Error("Choose your school before submitting a confession.");
+  }
+  const publishedAt = isGlobalAdmin ? new Date().toISOString() : null;
   const { data, error } = await supabase
     .from("confessions")
     .insert({
       author_id: userId,
-      school_id: input.schoolId,
+      school_id: schoolId,
       category: input.category,
       content: input.content.trim(),
-      moderation_status: "pending",
+      moderation_status: isGlobalAdmin ? "approved" : "pending",
+      published_at: publishedAt,
     })
     .select("id, school_id, category, content, created_at, published_at, moderation_status")
     .single<RawPublicConfession>();

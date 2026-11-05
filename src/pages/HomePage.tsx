@@ -151,7 +151,7 @@ export function HomePage() {
     > = visiblePosts.map((post) => ({ kind: "post", id: post.id, createdAt: post.createdAt, post }));
     if (includeConfessions && !(activeTab === "My School" && !profile?.schoolId)) {
       for (const confession of confessions) {
-        if (schoolFilter && confession.schoolId !== schoolFilter) continue;
+        if (schoolFilter && confession.schoolId !== schoolFilter && confession.schoolId !== null) continue;
         items.push({
           kind: "confession",
           id: confession.id,
@@ -165,8 +165,9 @@ export function HomePage() {
   }, [activeTab, confessions, feedSchoolId, profile?.schoolId, rotationSeed, visiblePosts]);
 
   const startComposing = (type: "gist" | "confession") => {
+    const returnTo = type === "confession" ? "/confessions/create" : "/create";
     if (!user) {
-      setComposerIntent(type, feedSchoolId ?? null);
+      if (type === "gist") setComposerIntent(type, feedSchoolId ?? null);
       openAuthGate({
         title: type === "confession" ? "Drop an Anonymous Confession!" : "Share a Campus Gist!",
         speech:
@@ -174,13 +175,13 @@ export function HomePage() {
             ? "Time to go undercover! Create your secret student pass in 30 seconds to submit confessions."
             : "Grab your secret @nickname and SHS crest in 30 seconds to post to the campus feed!",
         outfit: type === "confession" ? "detective" : "shs_welcome",
-        returnTo: "/create",
+        returnTo,
         prefillSchoolId: feedSchoolId ?? null,
       });
       return;
     }
-    setComposerIntent(type, feedSchoolId ?? profile?.schoolId ?? null);
-    navigate("/create");
+    if (type === "gist") setComposerIntent(type, feedSchoolId ?? profile?.schoolId ?? null);
+    navigate(returnTo);
   };
 
   const showingConfessions = activeTab === "Confessions";

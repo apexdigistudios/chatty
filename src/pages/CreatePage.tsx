@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { motion } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, EyeOff, Filter, FlipHorizontal, Globe2, Hash, ImagePlus, Loader2, Send, ShieldAlert, Smile, Volume2, VolumeX, Zap, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Filter, FlipHorizontal, Globe2, Hash, ImagePlus, Loader2, Send, Smile, Volume2, VolumeX, Zap, X } from "lucide-react";
 import { Avatar } from "../components/ui/Avatar";
 import { ImageLightbox } from "../components/ui/ImageLightbox";
 import { ProgressiveImage } from "../components/ui/ProgressiveImage";
@@ -20,7 +20,7 @@ import { isUserGlobalAdmin } from "../lib/adminAccess";
 import { isVideoMime, readVideoMetadata } from "../lib/video";
 import { useGistStore } from "../store/gistStore";
 import { springs } from "../theme/tokens";
-import { CONFESSION_CATEGORIES, MAX_POST_LENGTH, type ConfessionCategory, type SchoolGroup } from "../types/models";
+import { MAX_POST_LENGTH, type SchoolGroup } from "../types/models";
 import { cn } from "../utils/cn";
 
 const MAX_IMAGES = 5;
@@ -47,10 +47,7 @@ export function CreatePage() {
   const groupParam = searchParams.get("group");
   const [postGroup, setPostGroup] = useState<SchoolGroup | null>(null);
 
-  const composerType = useGistStore((state) => state.composerType);
-  const setComposerIntent = useGistStore((state) => state.setComposerIntent);
   const createPost = useGistStore((state) => state.createPost);
-  const submitConfession = useGistStore((state) => state.submitConfession);
   const schools = useGistStore((state) => state.schools);
   const loadSchools = useGistStore((state) => state.loadSchools);
 
@@ -61,8 +58,6 @@ export function CreatePage() {
   const [step, setStep] = useState<1 | 2>(1);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
-  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
-  const [confessionCategory, setConfessionCategory] = useState<ConfessionCategory>("School Secret");
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewFilter, setPreviewFilter] = useState<"none" | "vivid" | "mono">("none");
   const [previewFlipped, setPreviewFlipped] = useState(false);
@@ -76,21 +71,19 @@ export function CreatePage() {
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const previewUrls = useRef(new Set<string>());
 
-  const [confessionMode, setConfessionMode] = useState(composerType === "confession");
-  const isConfession = confessionMode;
   const isGlobalAdminAuthor = isGlobalAdmin || isUserGlobalAdmin(user?.email);
-  const schoolId = !isConfession && isGlobalAdminAuthor ? null : profile?.schoolId ?? null;
+  const schoolId = isGlobalAdminAuthor ? null : profile?.schoolId ?? null;
   const school = useMemo(() => schoolId ? schools.find((item) => item.id === schoolId) ?? null : null, [schoolId, schools]);
   const remaining = MAX_POST_LENGTH - content.length;
   const hasText = content.trim().length > 0;
   const hasMedia = attachments.length > 0;
   const canPublish =
-    (isConfession ? hasText : hasText || hasMedia) &&
-    (Boolean(schoolId) || (!isConfession && isGlobalAdminAuthor)) &&
+    (hasText || hasMedia) &&
+    (Boolean(schoolId) || isGlobalAdminAuthor) &&
     !publishing &&
     !compressing;
   const canContinue =
-    (isConfession ? hasText : hasText || hasMedia) &&
+    (hasText || hasMedia) &&
     !publishing &&
     !compressing;
   const activeAttachment = attachments[previewIndex] ?? attachments[0] ?? null;
@@ -140,10 +133,6 @@ export function CreatePage() {
   }, [schools.length, loadSchools]);
 
   useEffect(() => {
-    setConfessionMode(composerType === "confession");
-  }, [composerType]);
-
-  useEffect(() => {
     if (previewIndex >= attachments.length) setPreviewIndex(Math.max(0, attachments.length - 1));
   }, [attachments.length, previewIndex]);
 
@@ -170,7 +159,7 @@ export function CreatePage() {
     el.style.height = "auto";
     el.style.height = `${Math.max(step === 1 ? 64 : 112, el.scrollHeight)}px`;
   }, [step]);
-  useLayoutEffect(() => syncHeight(), [content, isConfession, step, syncHeight]);
+  useLayoutEffect(() => syncHeight(), [content, step, syncHeight]);
 
   const cancel = useCallback(() => {
     if (window.history.state?.idx > 0) navigate(-1);
@@ -303,33 +292,27 @@ export function CreatePage() {
 
   const publish = async () => {
     const text = content.trim();
-    if ((!text && (isConfession || attachments.length === 0)) || publishing || compressing) {
-      if (!text && (isConfession || attachments.length === 0)) {
+    if ((!text && attachments.length === 0) || publishing || compressing) {
+      if (!text && attachments.length === 0) {
         toast("Please add text, an image, or a video to publish.", "danger");
       }
       return;
     }
-    if (!schoolId && (isConfession || !isGlobalAdminAuthor)) {
+    if (!schoolId && !isGlobalAdminAuthor) {
       toast("Choose your school in your profile before publishing a gist.", "danger");
       return;
     }
     setPublishing(true);
     try {
-      if (isConfession) {
-        await submitConfession({ content: text.slice(0, MAX_POST_LENGTH), category: confessionCategory, schoolId });
-        toast("Confession submitted for moderator review.", "brand");
-        navigate("/confessions");
-      } else {
-        await createPost({
-          content: text.slice(0, MAX_POST_LENGTH),
-          schoolId,
-          groupId: postGroup?.schoolId === schoolId ? postGroup.id : null,
-          files: attachments.map((item) => item.file),
-          videoDurations: attachments.map((item) => item.duration ?? null),
-        });
-        toast("Gist published to the feed!", "success");
-        navigate("/");
-      }
+      await createPost({
+        content: text.slice(0, MAX_POST_LENGTH),
+        schoolId,
+        groupId: postGroup?.schoolId === schoolId ? postGroup.id : null,
+        files: attachments.map((item) => item.file),
+        videoDurations: attachments.map((item) => item.duration ?? null),
+      });
+      toast("Gist published to the feed!", "success");
+      navigate("/");
     } catch (error) {
       toast(describeError(error), "danger");
     } finally {
@@ -372,37 +355,8 @@ export function CreatePage() {
             <button type="button" onClick={cancel} aria-label="Close creator" className="flex size-11 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md">
               <X size={21} strokeWidth={2.7} aria-hidden />
             </button>
-            <p className="text-sm font-black text-white">{isConfession ? "New confession" : "Create gist"}</p>
-            {isConfession ? (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setCategoryPickerOpen((open) => !open)}
-                  aria-expanded={categoryPickerOpen}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-black/45 px-3 text-[10px] font-extrabold text-white backdrop-blur-md"
-                >
-                  {confessionCategory}
-                  <ChevronDown size={14} aria-hidden />
-                </button>
-                {categoryPickerOpen && (
-                  <div className="absolute right-0 top-full z-50 mt-2 min-w-52 rounded-2xl border border-white/15 bg-neutral-900/95 p-1.5 shadow-2xl backdrop-blur-xl">
-                    {CONFESSION_CATEGORIES.map((category) => (
-                      <button
-                        key={category}
-                        type="button"
-                        onClick={() => {
-                          setConfessionCategory(category);
-                          setCategoryPickerOpen(false);
-                        }}
-                        className="block min-h-11 w-full rounded-xl px-3 text-left text-xs font-bold text-white hover:bg-white/10"
-                      >
-                        {category}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : <span className="size-11" aria-hidden />}
+            <p className="text-sm font-black text-white">Create gist</p>
+            <span className="size-11" aria-hidden />
           </header>
 
           <main className="absolute inset-0 z-10 flex items-center justify-center">
@@ -459,9 +413,9 @@ export function CreatePage() {
             ) : (
               <div className="relative z-10 flex max-w-sm flex-col items-center px-8 pb-[calc(11rem+env(safe-area-inset-bottom))] text-center sm:pb-0">
                 <span className="flex size-20 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white/75">
-                  {isConfession ? <EyeOff size={28} aria-hidden /> : <ImagePlus size={28} aria-hidden />}
+                  <ImagePlus size={28} aria-hidden />
                 </span>
-                <h1 className="mt-5 text-2xl font-black tracking-tight">{isConfession ? "Create your confession" : "Create your gist"}</h1>
+                <h1 className="mt-5 text-2xl font-black tracking-tight">Create your gist</h1>
                 <p className="mt-2 text-sm font-semibold leading-relaxed text-white/65">
                   Add a photo or video, or start with a caption. Your campus is waiting.
                 </p>
@@ -490,13 +444,9 @@ export function CreatePage() {
 
             <div className="absolute bottom-[calc(8.5rem+env(safe-area-inset-bottom))] left-4 right-16 z-20">
               <div className="mb-2 flex items-center gap-2">
-                {isConfession ? (
-                  <span className="flex size-9 items-center justify-center rounded-full bg-purple-600/90"><EyeOff size={17} aria-hidden /></span>
-                ) : (
-                  <Avatar name={profile?.username ?? "you"} src={profile?.avatarUrl} size="sm" />
-                )}
-                <span className="truncate text-xs font-extrabold text-white">{isConfession ? "Anonymous Student" : profile?.fullName || `@${profile?.username ?? "student"}`}</span>
-                {!isConfession && profile?.fullName && <span className="truncate text-[10px] font-semibold text-white/65">@{profile.username}</span>}
+                <Avatar name={profile?.username ?? "you"} src={profile?.avatarUrl} size="sm" />
+                <span className="truncate text-xs font-extrabold text-white">{profile?.fullName || `@${profile?.username ?? "student"}`}</span>
+                {profile?.fullName && <span className="truncate text-[10px] font-semibold text-white/65">@{profile.username}</span>}
               </div>
               <textarea
                 ref={textRef}
@@ -504,7 +454,7 @@ export function CreatePage() {
                 onChange={(event) => setContent(event.target.value.slice(0, MAX_POST_LENGTH))}
                 maxLength={MAX_POST_LENGTH}
                 rows={2}
-                placeholder={isConfession ? "Share an anonymous confession…" : "Add a caption or #hashtag…"}
+                placeholder="Add a caption or #hashtag…"
                 aria-label="Gist caption"
                 className="max-h-24 w-full resize-none bg-transparent text-sm font-semibold leading-relaxed text-white outline-none placeholder:text-white/65"
               />
@@ -516,7 +466,7 @@ export function CreatePage() {
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                disabled={isConfession || compressing}
+                disabled={compressing}
                 className="flex min-h-12 flex-col items-center justify-center gap-1 text-[10px] font-extrabold text-white disabled:opacity-40"
               >
                 <span className="flex size-11 items-center justify-center rounded-xl bg-white/10"><ImagePlus size={19} aria-hidden /></span>
@@ -525,7 +475,7 @@ export function CreatePage() {
               <button
                 type="button"
                 onClick={() => cameraRef.current?.click()}
-                disabled={isConfession || compressing}
+                disabled={compressing}
                 aria-label={compressing ? "Preparing media" : "Record or upload media"}
                 className="flex size-[68px] shrink-0 items-center justify-center rounded-full border-[5px] border-white bg-[#8B5CF6] shadow-[0_0_0_3px_rgba(139,92,246,.35)] transition-transform active:scale-95 disabled:opacity-50"
               >
@@ -578,10 +528,10 @@ export function CreatePage() {
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    {isConfession ? <EyeOff size={16} className="text-purple-300" aria-hidden /> : <Avatar name={profile?.username ?? "you"} src={profile?.avatarUrl} size="sm" />}
-                    <span className="truncate text-xs font-extrabold text-white">{isConfession ? "Anonymous Student" : profile?.fullName || `@${profile?.username ?? "student"}`}</span>
+                    <Avatar name={profile?.username ?? "you"} src={profile?.avatarUrl} size="sm" />
+                    <span className="truncate text-xs font-extrabold text-white">{profile?.fullName || `@${profile?.username ?? "student"}`}</span>
                   </div>
-                  {isGlobalAdminAuthor && !isConfession ? (
+                  {isGlobalAdminAuthor ? (
                     <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-purple-300/25 bg-purple-500/15 px-2.5 py-1 text-[10px] font-extrabold text-purple-200">
                       <Globe2 size={12} aria-hidden /> All Schools / Global Admin
                     </span>
@@ -595,12 +545,12 @@ export function CreatePage() {
                 <span className={cn("shrink-0 text-[10px] font-extrabold tabular-nums", remaining <= 25 ? "text-red-300" : "text-white/50")}>{content.length}/{MAX_POST_LENGTH}</span>
               </div>
 
-              {postGroup && !isConfession && (
+              {postGroup && (
                 <div className="mt-3 flex items-center gap-2 rounded-xl border border-purple-300/20 bg-purple-500/10 px-3 py-2 text-xs font-bold text-purple-200">
                   <span aria-hidden>{postGroup.emoji}</span> Posting into {postGroup.name}
                 </div>
               )}
-              {step === 2 && !schoolId && !isGlobalAdminAuthor && !isConfession && (
+              {step === 2 && !schoolId && !isGlobalAdminAuthor && (
                 <p role="status" className="mt-3 rounded-xl border border-amber-300/20 bg-amber-400/10 px-3 py-2 text-xs font-bold text-amber-200">
                   Link your school in your profile before publishing.
                 </p>
@@ -612,12 +562,11 @@ export function CreatePage() {
                 onChange={(event) => setContent(event.target.value.slice(0, MAX_POST_LENGTH))}
                 maxLength={MAX_POST_LENGTH}
                 rows={4}
-                placeholder={isConfession ? "Share an anonymous confession…" : "Write a caption, add #hashtags, and tell everyone the gist…"}
+                placeholder="Write a caption, add #hashtags, and tell everyone the gist…"
                 aria-label="Gist caption and hashtags"
                 className="mt-4 min-h-28 w-full resize-y rounded-2xl border border-white/10 bg-white/5 p-3 text-sm font-semibold leading-relaxed text-white outline-none placeholder:text-white/40 focus:border-purple-400"
               />
-              {!isConfession && (
-                <section className="mt-3 rounded-2xl border border-white/10 bg-white/3 p-3" aria-label="Hashtag suggestions">
+              <section className="mt-3 rounded-2xl border border-white/10 bg-white/3 p-3" aria-label="Hashtag suggestions">
                   <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-white/55"><Hash size={12} aria-hidden /> Hashtags</p>
                   {content && <p className="mt-2 whitespace-pre-wrap wrap-break-word text-xs font-semibold text-white/75">{highlightedCaption}</p>}
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -625,50 +574,9 @@ export function CreatePage() {
                       <button key={tag} type="button" onClick={() => insertHashtag(tag)} className="min-h-8 rounded-full border border-purple-300/20 bg-purple-500/10 px-3 text-[10px] font-extrabold text-purple-200">#{tag}</button>
                     ))}
                   </div>
-                </section>
-              )}
+              </section>
 
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/3 p-3">
-                <div>
-                  <p className="text-xs font-extrabold text-white">Is Confession?</p>
-                  <p className="mt-0.5 text-[10px] font-semibold text-white/50">Anonymous and reviewed before publishing</p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={isConfession}
-                  onClick={() => {
-                    if (!isConfession && attachments.length > 0) {
-                      toast("Remove media attachments before switching to confession mode.", "info");
-                      return;
-                    }
-                    const next = !isConfession;
-                    setConfessionMode(next);
-                    setComposerIntent(next ? "confession" : "gist", profile?.schoolId ?? null);
-                  }}
-                  className={cn("relative h-7 w-12 rounded-full transition-colors", isConfession ? "bg-purple-500" : "bg-white/20")}
-                >
-                  <span className={cn("absolute top-1 size-5 rounded-full bg-white transition-transform", isConfession ? "left-6" : "left-1")} />
-                </button>
-                {isConfession && (
-                  <div className="flex w-full flex-wrap gap-2">
-                    {CONFESSION_CATEGORIES.map((category) => (
-                      <button
-                        key={category}
-                        type="button"
-                        onClick={() => setConfessionCategory(category)}
-                        aria-pressed={confessionCategory === category}
-                        className={cn("rounded-full border px-3 py-1.5 text-[10px] font-extrabold", confessionCategory === category ? "border-purple-300 bg-purple-500/20 text-purple-100" : "border-white/10 bg-white/5 text-white/60")}
-                      >
-                        {category}
-                      </button>
-                    ))}
-                    <p className="w-full text-[10px] font-semibold text-white/50">Confessions are text-only and reviewed before going live.</p>
-                  </div>
-                )}
-              </div>
-
-              {attachments.length > 0 && !isConfession && (
+              {attachments.length > 0 && (
                 <div className="mt-4">
                   <p className="mb-2 text-[10px] font-extrabold uppercase tracking-wider text-white/55">Media · up to 5 photos and 3 videos</p>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -689,12 +597,6 @@ export function CreatePage() {
                   </div>
                 </div>
               )}
-              {isConfession && (
-                <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-300/20 bg-amber-400/10 px-3 py-2.5 text-[11px] font-semibold leading-relaxed text-amber-100">
-                  <ShieldAlert size={15} className="mt-0.5 shrink-0" aria-hidden />
-                  Your nickname and avatar stay hidden. A moderator reviews the confession before it appears.
-                </div>
-              )}
             </div>
 
             <footer className="flex shrink-0 items-center gap-3 border-t border-white/10 bg-neutral-950 px-4 py-3">
@@ -708,7 +610,7 @@ export function CreatePage() {
                 className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#8B5CF6] px-4 text-sm font-black text-white shadow-[0_4px_0_#5B21B6] disabled:pointer-events-none disabled:opacity-45"
               >
                 {publishing ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Send size={15} aria-hidden />}
-                {publishing ? "Publishing…" : isConfession ? "Publish confession" : "Post"}
+                {publishing ? "Publishing…" : "Post"}
               </motion.button>
             </footer>
           </motion.section>
