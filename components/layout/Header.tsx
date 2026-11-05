@@ -11,12 +11,12 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
  * Sticky brand bar. Mobile keeps only the search trigger (per Step 9 polish);
  * the signed-in avatar now lives exclusively in the navigation shell.
  */
-export function Header() {
+export function Header({ hidden = false }: { hidden?: boolean }) {
   const { user } = useAuth();
 
   return (
     <header
-      className="sticky top-0 z-50 border-b border-line/60 bg-white/80 px-3 py-2.5 backdrop-blur-md dark:border-neutral-800/50 dark:bg-neutral-950/80 sm:px-4 md:py-3"
+      className={`sticky top-0 z-50 border-b border-line/60 bg-white/80 px-3 py-2.5 backdrop-blur-md transition-transform duration-300 ease-in-out dark:border-neutral-800/50 dark:bg-neutral-950/80 sm:px-4 md:py-3 ${hidden ? "-translate-y-full md:translate-y-0" : "translate-y-0"}`}
       style={{ paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}
     >
       <div className="mx-auto flex w-full max-w-[1320px] items-center gap-3 md:gap-6">

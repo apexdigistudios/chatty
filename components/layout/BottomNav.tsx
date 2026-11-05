@@ -8,7 +8,6 @@ import { useAuth } from "@/context/AuthContext";
 import { useAuthGateStore } from "@/store/authGateStore";
 import { springs } from "@/theme/tokens";
 import { Avatar } from "@/components/ui/Avatar";
-import { useScrollDirection } from "@/hooks/useScrollDirection";
 
 interface NavigationItem {
   label: string;
@@ -28,10 +27,9 @@ const navigation: NavigationItem[] = [
 ];
 
 /** Icon-only iOS floating dock. Every item shares identical sizing and press physics. */
-export function BottomNav({ spotlight = false }: { spotlight?: boolean }) {
+export function BottomNav({ spotlight = false, hidden = false }: { spotlight?: boolean; hidden?: boolean }) {
   const { user, profile } = useAuth();
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
-  const hidden = useScrollDirection();
 
   return (
     <nav
@@ -40,7 +38,7 @@ export function BottomNav({ spotlight = false }: { spotlight?: boolean }) {
         spotlight
           ? "border-0 bg-transparent shadow-none backdrop-blur-none"
           : "border-t border-zinc-200/60 bg-white/65 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur-lg dark:border-white/10 dark:bg-black/40 dark:shadow-[0_-8px_24px_rgba(0,0,0,0.2)]"
-      } ${!spotlight && hidden ? "translate-y-full" : "translate-y-0"}`}
+      } ${hidden ? "translate-y-full" : "translate-y-0"}`}
     >
       <div className="mx-auto grid w-full max-w-sm grid-cols-5 items-center justify-items-center">
         {navigation.map(({ label, to, icon: Icon, end, create, profile: isProfile }) => (

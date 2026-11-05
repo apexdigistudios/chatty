@@ -1,41 +1,68 @@
 import { useEffect, useState } from "react";
 
-/** Hides app chrome on downward scroll and restores it as soon as scrolling reverses. */
-export function useScrollDirection(): boolean {
+/** Hides mobile navigation on downward page scroll and restores it on reversal. */
+export function useScrollDirection(resetKey?: string): boolean {
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
     let previousY = window.scrollY;
-    let distance = 0;
-    let lastDirection = 0;
+    let downDistance = 0;
+    let frame = 0;
 
     const handleScroll = () => {
-      const currentY = Math.max(0, window.scrollY);
-      const delta = currentY - previousY;
-      previousY = currentY;
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const currentY = Math.max(0, window.scrollY);
+        const delta = currentY - previousY;
+        previousY = currentY;
 
-      if (currentY < 48) {
-        distance = 0;
-        lastDirection = 0;
-        setHidden(false);
-        return;
-      }
+        if (currentY <= 8) {
+          downDistance = 0;
+          setHidden(false);
+          return;
+        }
 
-      const direction = Math.sign(delta);
-      if (direction === 0) return;
-      if (direction !== lastDirection) distance = 0;
-      lastDirection = direction;
-      distance += Math.abs(delta);
+        if (delta < 0) {
+          downDistance = 0;
+          setHidden(false);
+          return;
+        }
 
-      if (distance >= 8) {
-        setHidden(direction > 0);
-        distance = 0;
-      }
+        if (delta > 0) {
+          downDistance += delta;
+          if (downDistance >= 12) {
+            downDistance = 0;
+            setHidden(true);
+          }
+        }
+      });
+    };
+
+    const syncAfterNavigation = () => {
+      setHidden(false);
+      downDistance = 0;
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        previousY = window.scrollY;
+      });
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+    window.addEventListener("popstate", syncAfterNavigation);
+    window.addEventListener("pageshow", syncAfterNavigation);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("popstate", syncAfterNavigation);
+      window.removeEventListener("pageshow", syncAfterNavigation);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [resetKey]);
+
+  useEffect(() => {
+    setHidden(false);
+  }, [resetKey]);
 
   return hidden;
 }

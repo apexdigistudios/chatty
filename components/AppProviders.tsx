@@ -19,6 +19,7 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
+import { useScrollDirection } from "@/hooks/useScrollDirection";
 
 const FULLSCREEN_PATHS = new Set([
   "/create",
@@ -32,6 +33,7 @@ const FULLSCREEN_PATHS = new Set([
 function RoutedApp({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { loading } = useAuth();
+  const navigationHidden = useScrollDirection(pathname);
   const loadFeed = useGistStore((state) => state.loadFeed);
   const loadSchools = useGistStore((state) => state.loadSchools);
   const initialFeedStarted = useRef(false);
@@ -43,10 +45,6 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
   }, [loadSchools]);
 
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
-
-  useEffect(() => {
     if (!isSupabaseConfigured || loading || initialFeedStarted.current) return;
     initialFeedStarted.current = true;
     void loadFeed().finally(() => setInitialFeedReady(true));
@@ -56,7 +54,7 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
 
   const content = FULLSCREEN_PATHS.has(pathname)
     ? children
-    : <AppLayout>{children}</AppLayout>;
+    : <AppLayout navigationHidden={navigationHidden}>{children}</AppLayout>;
 
   return (
     <MotionConfig reducedMotion="user">
