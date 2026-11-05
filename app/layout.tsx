@@ -1,0 +1,69 @@
+import type { Metadata, Viewport } from "next";
+import Script from "next/script";
+import { Suspense } from "react";
+import "@fontsource-variable/nunito";
+import "@/app/globals.css";
+import { AppProviders } from "@/components/AppProviders";
+
+export const metadata: Metadata = {
+  metadataBase: new URL("https://www.gistme.online"),
+  title: "Gist me - Ghana SHS Community",
+  description:
+    "Gist me is the social network for Ghanaian SHS students. Find your school community and join the conversation.",
+  applicationName: "Gist me",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [{ url: "/logo.png", type: "image/png" }, { url: "/favicon.svg", type: "image/svg+xml" }],
+    apple: "/logo.png",
+  },
+  openGraph: {
+    siteName: "Gist me",
+    title: "Gist me - Ghana SHS Community",
+    description:
+      "Find your school community and join the conversation on Gist me, the social network for Ghanaian SHS students.",
+    type: "website",
+    url: "https://www.gistme.online/",
+    images: [{ url: "/logo.png", alt: "Gist me Logo" }],
+  },
+  twitter: {
+    card: "summary",
+    title: "Gist me - Ghana SHS Community",
+    description: "Find your school community and join the conversation on Gist me.",
+    images: [{ url: "/logo.png", alt: "Gist me Logo" }],
+  },
+  alternates: { canonical: "https://www.gistme.online/" },
+  robots: { index: true, follow: true },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#F4F4F5",
+};
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="en">
+      <body>
+        <Script
+          id="theme-bootstrap"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `try {
+              const mode = localStorage.getItem("lets-gist-theme") || "system";
+              const dark = mode === "dark" || (mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+              document.documentElement.classList.toggle("dark", dark);
+              document.documentElement.dataset.theme = dark ? "dark" : "light";
+              document.documentElement.style.colorScheme = dark ? "dark" : "light";
+              document.querySelector('meta[name="theme-color"]').content = dark ? "#121215" : "#F4F4F5";
+            } catch (_) {}`,
+          }}
+        />
+        <Suspense fallback={null}>
+          <AppProviders>{children}</AppProviders>
+        </Suspense>
+      </body>
+    </html>
+  );
+}

@@ -1,7 +1,8 @@
 # Gist me — Setup (Step 07 · Supabase backend)
 
-Mobile-first social network for Ghanaian SHS students. React + TypeScript + Vite,
-Tailwind CSS v4, Motion, Zustand, and **Supabase** (Postgres, Auth, Storage, Realtime).
+Mobile-first social network for Ghanaian SHS students. Next.js App Router,
+TypeScript, Tailwind CSS v4, Motion, Zustand, and **Supabase** (Postgres, Auth,
+Storage, Realtime).
 There is no mock data: every screen reads and writes the live database.
 
 ---
@@ -112,18 +113,11 @@ the same post or confession thread, and confession authors remain hidden.
 
 ### A11 · Server-rendered social share metadata
 
-The Vercel serverless route in `api/share.ts` fetches active posts and approved
-confessions from Supabase and injects OpenGraph/Twitter metadata into the built
-application HTML on the initial request. Vercel routes `/posts/:id` and
-`/confessions/:id` through this handler so social crawlers receive metadata
-without client-side rendering. Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` in the
-Vercel project environment; set `SITE_ORIGIN` if the canonical domain differs
-from `https://www.gistme.online`.
-
-Feed share links use this endpoint whenever `VITE_SUPABASE_URL` is configured.
-Without that deployment, links still open the in-app content route, but third-party
-crawlers receive the app's static metadata. The share dialog can export a
-customizable PNG card in the browser without an additional image-rendering package.
+The Next.js App Router metadata generators for `/posts/:id` and
+`/confessions/:id` query Supabase on the server and return native Open Graph and
+Twitter metadata. Configure `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` in the deployment environment. The share dialog
+can also export a customizable PNG card in the browser.
 
 ### B · Fresh project
 
@@ -153,8 +147,8 @@ For a different project, copy `.env.example` and fill in from
 **Project Settings → API**:
 
 ```
-VITE_SUPABASE_URL=https://<project-ref>.supabase.co
-VITE_SUPABASE_ANON_KEY=<anon public key>
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon public key>
 ```
 
 Until these exist the app renders a setup screen instead of the feed.
@@ -193,29 +187,22 @@ school's moderators; reports on confessions always go to the global queue.
 ## 6 · Project structure
 
 ```
-schema.sql                       # Run once in Supabase SQL Editor
-src/
-├── lib/supabase.ts              # Client, env guard, error helpers
-├── lib/{time,media}.ts          # timeAgo, default avatar, crest colours
-├── types/models.ts              # DB enums, row types, UI view models
-├── services/
-│   ├── postsService.ts          # fetchFeed · createPost (+upload) · toggleLike · comments
-│   ├── confessionsService.ts    # submitConfession · fetchApprovedConfessions · reactions
-│   ├── moderationService.ts     # school & global reports, remove/flag/restore, confession queue
-│   ├── schoolsService.ts        # fetchSchools · createSchoolCommunity · claimSchool
-│   ├── profilesService.ts       # profile CRUD, roles, auth helpers
-│   └── storageService.ts        # letsgist-media uploads
-├── context/AuthContext.tsx      # session, profile, roles
-├── hooks/useModeration.ts       # canModerate(schoolId)
-├── store/gistStore.ts           # Zustand cache over the services
-├── components/moderation/ManageCommunityPanel.tsx
-└── pages/                       # Home, Explore, Create, Schools, SchoolPage, Confessions, Profile, Admin, Auth
+app/                         # Next.js App Router routes and layouts
+components/                  # Shared UI, navigation, and feature components
+context/AuthContext.tsx      # session, profile, roles
+hooks/useModeration.ts       # canModerate(schoolId)
+lib/supabase.ts              # Client, env guard, error helpers
+lib/{time,media}.ts          # timeAgo, default avatar, crest colours
+services/                    # Supabase data access and integrations
+store/gistStore.ts           # Zustand cache over the services
+types/models.ts              # DB enums, row types, UI view models
+views/                       # Client-side page content rendered by app routes
 ```
 
 ## 7 · Scripts
 
 | Command           | Purpose                    |
 | ----------------- | -------------------------- |
-| `npm run dev`     | Dev server with HMR        |
-| `npm run build`   | Production bundle          |
-| `npm run preview` | Preview the built bundle   |
+| `npm run dev`     | Next.js development server |
+| `npm run build`   | Production App Router build |
+| `npm start`       | Run the production server  |
