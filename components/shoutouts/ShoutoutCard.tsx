@@ -12,6 +12,7 @@ import { Card, CardBody } from "@/components/ui/Card";
 import { PostalEnvelope } from "@/components/shoutouts/PostalEnvelope";
 import { cn } from "@/utils/cn";
 import type { School } from "@/types/models";
+import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 
 interface ShoutoutCardProps {
   shoutout: Shoutout;
@@ -104,14 +105,31 @@ export function ShoutoutCard({ shoutout, mode, school, senderSchoolName, onOpen,
                   animate={{ opacity: 1, y: 0, rotateX: 0 }}
                   transition={springs.bouncy}
                 >
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-brand-deep">
+                  <p className="flex flex-wrap items-center gap-1 text-[10px] font-black uppercase tracking-[0.14em] text-brand-deep">
                     From {shoutout.senderName}
+                    <VerifiedBadge
+                      isVerified={shoutout.senderIsVerified}
+                      verifiedExpiresAt={shoutout.senderVerifiedExpiresAt}
+                      verifiedTitle={shoutout.senderVerifiedTitle}
+                      isAdmin={shoutout.senderIsAdmin}
+                      role={shoutout.senderRole}
+                    />
                   </p>
-                  <p className="mt-1.5 whitespace-pre-wrap break-words text-sm font-semibold leading-relaxed text-ink-soft">
+                  <p className="mt-1.5 whitespace-pre-wrap wrap-break-word text-sm font-semibold leading-relaxed text-ink-soft">
                     {shoutout.message}
                   </p>
                   <p className="mt-2 text-[11px] font-semibold text-ink-muted">
-                    To {shoutout.recipientName} · {shoutout.recipientClass || "SHS student"} · {recipientShort}
+                    To {shoutout.recipientName}
+                    {shoutout.recipientUserId && (
+                      <VerifiedBadge
+                        isVerified={shoutout.recipientIsVerified}
+                        verifiedExpiresAt={shoutout.recipientVerifiedExpiresAt}
+                        verifiedTitle={shoutout.recipientVerifiedTitle}
+                        isAdmin={shoutout.recipientIsAdmin}
+                        role={shoutout.recipientRole}
+                      />
+                    )}
+                    {" · "}{shoutout.recipientClass || "SHS student"} · {recipientShort}
                   </p>
                   {mode === "inbox" && onReply && (
                     <Button size="sm" variant="outline" className="mt-3" leftIcon={<Send size={13} strokeWidth={2.6} aria-hidden />} onClick={() => onReply(shoutout)}>

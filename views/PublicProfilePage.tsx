@@ -21,6 +21,8 @@ import { fetchFollowSummary, followUser, unfollowUser, type FollowSummary } from
 import { springs } from "@/theme/tokens";
 import type { Post, PublicProfile } from "@/types/models";
 import { SafeImage } from "@/components/common/SafeImage";
+import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
+import { hasActiveVerification, isGlobalAdminProfile, verificationTitle } from "@/lib/verification";
 
 /** Facebook-style public student profile: `/profile/:userId`. */
 export function PublicProfilePage() {
@@ -215,7 +217,16 @@ export function PublicProfilePage() {
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <div className="min-w-0">
-              <h1 className="truncate text-2xl font-black tracking-tight text-ink">@{profile.username}</h1>
+              <h1 className="flex items-center gap-1.5 truncate text-2xl font-black tracking-tight text-ink">
+                @{profile.username}
+                <VerifiedBadge
+                  isVerified={profile.isVerified}
+                  verifiedExpiresAt={profile.verifiedExpiresAt}
+                  verifiedTitle={profile.verifiedTitle}
+                  isAdmin={profile.isAdmin}
+                  role={profile.role}
+                />
+              </h1>
               {profile.fullName && <p className="truncate text-xs font-bold text-ink-muted">{profile.fullName}</p>}
             </div>
             <Badge tone="neutral" className="px-2 py-0.5 text-[9px]">
@@ -223,6 +234,18 @@ export function PublicProfilePage() {
               Student
             </Badge>
           </div>
+          {hasActiveVerification(profile) && (
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-black text-ink-muted">
+                {verificationTitle(profile)}
+              </span>
+              {profile.verifiedExpiresAt && !isGlobalAdminProfile(profile) && (
+                <span className="text-[10px] font-semibold text-ink-muted">
+                  Verified until {new Date(profile.verifiedExpiresAt).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+          )}
 
           <div className="mt-2.5">
             {profile.schoolName ? (

@@ -44,6 +44,7 @@ import { PostActionMenu } from "@/components/feed/PostActionMenu";
 import { SpotlightModal } from "@/components/spotlight/SpotlightModal";
 import { ReportModal } from "@/components/feed/ReportModal";
 import { ProfileHoverCard } from "@/components/profile/ProfileHoverCard";
+import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { AnimatedReaction } from "@/components/common/AnimatedReaction";
 import { shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLinks";
 
@@ -288,6 +289,13 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
             >
               {post.authorFullName || `@${post.authorName}`}
             </Link>
+            <VerifiedBadge
+              isVerified={post.authorIsVerified}
+              verifiedExpiresAt={post.authorVerifiedExpiresAt}
+              verifiedTitle={post.authorVerifiedTitle}
+              isAdmin={post.authorIsAdmin}
+              role={post.authorRole}
+            />
             {post.authorFullName && (
               <span className="truncate text-[10px] font-semibold text-ink-muted">@{post.authorName}</span>
             )}

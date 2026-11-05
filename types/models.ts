@@ -43,6 +43,11 @@ export interface ProfileRow {
   bio: string;
   full_name?: string | null;
   class_form?: string | null;
+  is_verified?: boolean | null;
+  verified_title?: string | null;
+  verified_expires_at?: string | null;
+  is_admin?: boolean | null;
+  role?: string | null;
   created_at: string;
 }
 
@@ -73,6 +78,11 @@ export interface Profile {
   /** Optional identity fields managed in Account Settings, not onboarding. */
   fullName?: string | null;
   classForm?: string | null;
+  isVerified?: boolean;
+  verifiedTitle?: string | null;
+  verifiedExpiresAt?: string | null;
+  isAdmin?: boolean;
+  role?: string | null;
   createdAt: string;
 }
 
@@ -98,6 +108,11 @@ export interface Post {
   isSeed?: boolean;
   authorName: string;
   authorFullName?: string | null;
+  authorIsVerified?: boolean;
+  authorVerifiedTitle?: string | null;
+  authorVerifiedExpiresAt?: string | null;
+  authorIsAdmin?: boolean;
+  authorRole?: string | null;
   authorAvatar: string | null;
   authorSchoolId: string | null;
   schoolId: string | null;
@@ -150,6 +165,11 @@ export interface PublicProfile {
   bio: string;
   fullName?: string | null;
   classForm?: string | null;
+  isVerified?: boolean;
+  verifiedTitle?: string | null;
+  verifiedExpiresAt?: string | null;
+  isAdmin?: boolean;
+  role?: string | null;
   schoolId: string | null;
   schoolName: string | null;
   schoolShort: string | null;
@@ -176,10 +196,20 @@ export interface Shoutout {
   id: string;
   senderId: string;
   senderName: string;
+  senderIsVerified?: boolean;
+  senderVerifiedTitle?: string | null;
+  senderVerifiedExpiresAt?: string | null;
+  senderIsAdmin?: boolean;
+  senderRole?: string | null;
   senderSchoolId: string | null;
   recipientUserId: string | null;
   recipientSchoolId: string;
   recipientName: string;
+  recipientIsVerified?: boolean;
+  recipientVerifiedTitle?: string | null;
+  recipientVerifiedExpiresAt?: string | null;
+  recipientIsAdmin?: boolean;
+  recipientRole?: string | null;
   recipientClass: string;
   message: string;
   envelopeTheme: string;
@@ -199,6 +229,11 @@ export interface Comment {
   authorId: string;
   authorName: string;
   authorAvatar: string | null;
+  authorIsVerified?: boolean;
+  authorVerifiedTitle?: string | null;
+  authorVerifiedExpiresAt?: string | null;
+  authorIsAdmin?: boolean;
+  authorRole?: string | null;
   authorSchoolId: string | null;
   authorSchoolShort: string | null;
   content: string;
@@ -227,6 +262,11 @@ export interface Confession {
   seedUsername?: string | null;
   seedFullName?: string | null;
   seedAvatarUrl?: string | null;
+  seedIsVerified?: boolean;
+  seedVerifiedTitle?: string | null;
+  seedVerifiedExpiresAt?: string | null;
+  seedIsAdmin?: boolean;
+  seedRole?: string | null;
   mediaUrls?: string[];
   mediaTypes?: MediaType[];
 }

@@ -18,6 +18,7 @@ import { ReportMenu } from "@/components/feed/ReportMenu";
 import { AnimatedReaction } from "@/components/common/AnimatedReaction";
 import { Avatar } from "@/components/ui/Avatar";
 import { SafeImage } from "@/components/common/SafeImage";
+import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { copyShareLink, shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLinks";
 
 interface ReactionMeta {
@@ -122,6 +123,15 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
               <p className="text-sm font-extrabold text-ink">
                 {confession.seedUsername ? confession.seedFullName || `@${confession.seedUsername}` : "Anonymous"}
               </p>
+              {confession.seedUsername && (
+                <VerifiedBadge
+                  isVerified={confession.seedIsVerified}
+                  verifiedExpiresAt={confession.seedVerifiedExpiresAt}
+                  verifiedTitle={confession.seedVerifiedTitle}
+                  isAdmin={confession.seedIsAdmin}
+                  role={confession.seedRole}
+                />
+              )}
               {confession.seedUsername ? (
                 confession.seedFullName && <span className="text-[11px] font-semibold text-ink-muted">@{confession.seedUsername}</span>
               ) : (

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link, useNavigate } from "@/lib/router";
-import { ArrowUpRight, BookOpen, Bookmark, Camera, Check, ChevronDown, EyeOff, Heart, LayoutGrid, Loader2, Lock, LogIn, LogOut, Mailbox, MessageCircle, Monitor, Moon, Plus, ShieldCheck, Sparkles, Sun, Video, X } from "lucide-react";
+import { ArrowUpRight, BookOpen, Bookmark, BriefcaseBusiness, Camera, Check, ChevronDown, EyeOff, Heart, LayoutGrid, Loader2, Lock, LogIn, LogOut, Mailbox, MessageCircle, Monitor, Moon, Plus, ShieldCheck, Sparkles, Sun, Video, X } from "lucide-react";
 import { MascotCharacter } from "@/components/auth/MascotCharacter";
 import { GistCard } from "@/components/feed/GistCard";
 import { Avatar } from "@/components/ui/Avatar";
@@ -34,14 +34,17 @@ import { FollowListModal } from "@/components/profile/FollowListModal";
 import { fetchFollowSummary, type FollowSummary } from "@/services/followsService";
 import { fetchPostsByIds } from "@/services/postsService";
 import { readSavedPostIds, subscribeToSavedPosts } from "@/lib/savedPosts";
+import { hasActiveVerification, isGlobalAdminProfile } from "@/lib/verification";
+import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 
-type ProfileTab = "Gists" | "Videos" | "Liked" | "Saved";
+type ProfileTab = "Gists" | "Videos" | "Liked" | "Saved" | "Brand Deals";
 type UsernameAvailability = "idle" | "checking" | "available" | "taken" | "invalid" | "error";
 const TABS: Array<{ id: ProfileTab; label: string; icon: typeof MessageCircle }> = [
   { id: "Gists", label: "Gists", icon: LayoutGrid },
   { id: "Videos", label: "Videos", icon: Video },
   { id: "Liked", label: "Liked gists", icon: Heart },
   { id: "Saved", label: "Saved gists", icon: Bookmark },
+  { id: "Brand Deals", label: "Brand deals", icon: BriefcaseBusiness },
 ];
 
 const GUIDELINES = [
@@ -54,7 +57,7 @@ const GUIDELINES = [
 export function ProfilePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, profile, loading: authLoading, setProfile, signOut } = useAuth();
+  const { user, profile, loading: authLoading, setProfile, signOut, isGlobalAdmin } = useAuth();
   const { mode, resolvedTheme, setMode, toggleTheme } = useTheme();
   const schools = useGistStore((state) => state.schools);
   const setComposerIntent = useGistStore((state) => state.setComposerIntent);
@@ -82,6 +85,13 @@ export function ProfilePage() {
   const coverRef = useRef<HTMLInputElement>(null);
 
   const mySchool = useMemo(() => schools.find((school) => school.id === profile?.schoolId) ?? null, [schools, profile?.schoolId]);
+  const activeVerification = hasActiveVerification({
+    isVerified: profile?.isVerified,
+    verifiedExpiresAt: profile?.verifiedExpiresAt,
+    isAdmin: profile?.isAdmin || isGlobalAdmin,
+    role: profile?.role,
+  });
+  const profileTabs = activeVerification ? TABS : TABS.filter(({ id }) => id !== "Brand Deals");
 
   // Guests are never forcefully redirected; we render an inviting Student Pass gate below.
 
@@ -482,6 +492,32 @@ export function ProfilePage() {
             <Badge tone="success" className="px-2.5 py-0.5 text-[10px]">Online</Badge>
             {profile.classForm && <Badge tone="brand" className="px-2.5 py-0.5 text-[10px]">{profile.classForm}</Badge>}
           </div>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            {activeVerification ? (
+              <>
+                <VerifiedBadge
+                  isVerified={profile.isVerified}
+                  verifiedExpiresAt={profile.verifiedExpiresAt}
+                  verifiedTitle={profile.verifiedTitle}
+                  isAdmin={profile.isAdmin || isGlobalAdmin}
+                  role={profile.role}
+                  showTitle
+                />
+                {profile.verifiedExpiresAt && !isGlobalAdminProfile({
+                  isAdmin: profile.isAdmin || isGlobalAdmin,
+                  role: profile.role,
+                }) && (
+                  <span className="text-[10px] font-semibold text-ink-muted">
+                    Expires {new Date(profile.verifiedExpiresAt).toLocaleDateString()}
+                  </span>
+                )}
+              </>
+            ) : (
+              <Link to="/get-verified" className="inline-flex items-center gap-1 text-[11px] font-extrabold text-brand-deep hover:underline">
+                <ShieldCheck size={14} aria-hidden /> Get verified
+              </Link>
+            )}
+          </div>
 
           <AnimatePresence initial={false}>
             {editing && (
@@ -616,8 +652,8 @@ export function ProfilePage() {
         </div>
       )}
 
-      <div role="tablist" aria-label="Profile sections" className="mt-5 grid grid-cols-4 border-b border-line">
-        {TABS.map(({ id, label, icon: Icon }) => (
+      <div role="tablist" aria-label="Profile sections" className={cn("mt-5 grid border-b border-line", activeVerification ? "grid-cols-5" : "grid-cols-4")}>
+        {profileTabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             type="button"
@@ -679,6 +715,16 @@ export function ProfilePage() {
               <Empty title="No saved gists yet" detail="Save a gist from its options menu to keep it here." action="Browse feed" onAction={() => navigate("/")} />
             )}
           </div>
+        )}
+
+        {tab === "Brand Deals" && activeVerification && (
+          <section aria-labelledby="brand-deals-heading" className="rounded-2xl border-2 border-line bg-page p-5 text-center sm:p-7">
+            <BriefcaseBusiness size={26} className="mx-auto text-brand-deep" aria-hidden />
+            <h2 id="brand-deals-heading" className="mt-3 text-base font-black text-ink">Brand Deals & Partnerships</h2>
+            <p className="mx-auto mt-2 max-w-md text-xs font-semibold leading-relaxed text-ink-muted">
+              Your verified account has access to this hub. Partnership opportunities will appear here when available.
+            </p>
+          </section>
         )}
 
         {settingsOpen && (

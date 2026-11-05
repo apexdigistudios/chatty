@@ -14,10 +14,12 @@ const PROFILE_SELECT = "id, username, school_id, avatar_url, bio, created_at";
 const IDENTITY_SELECT = `${PROFILE_SELECT}, full_name, class_form`;
 const COVER_SELECT = `${PROFILE_SELECT}, cover_url`;
 const IDENTITY_COVER_SELECT = `${IDENTITY_SELECT}, cover_url`;
+const VERIFICATION_SELECT = ", is_verified, verified_title, verified_expires_at, is_admin, role";
 
 /** Step 10 profile identity columns are optional until migration-step10.sql runs. */
 let identitySupportPromise: Promise<boolean> | null = null;
 let coverSupportPromise: Promise<boolean> | null = null;
+let verificationSupportPromise: Promise<boolean> | null = null;
 function supportsProfileIdentity(): Promise<boolean> {
   if (!identitySupportPromise) {
     identitySupportPromise = (async () => {
@@ -48,15 +50,35 @@ function supportsProfileCover(): Promise<boolean> {
   return coverSupportPromise;
 }
 
+function supportsProfileVerification(): Promise<boolean> {
+  if (!verificationSupportPromise) {
+    verificationSupportPromise = (async () => {
+      const { error } = await supabase
+        .from("profiles")
+        .select("is_verified, verified_title, verified_expires_at, is_admin, role")
+        .limit(1);
+      if (error && (error.code === "42703" || error.code === "PGRST204")) return false;
+      if (error) throw new Error(error.message);
+      return true;
+    })();
+  }
+  return verificationSupportPromise;
+}
+
 async function profileSelect(): Promise<string> {
-  const [identity, cover] = await Promise.all([
+  const [identity, cover, verification] = await Promise.all([
     supportsProfileIdentity(),
     supportsProfileCover(),
+    supportsProfileVerification(),
   ]);
-  if (identity && cover) return IDENTITY_COVER_SELECT;
-  if (identity) return IDENTITY_SELECT;
-  if (cover) return COVER_SELECT;
-  return PROFILE_SELECT;
+  const select = identity && cover
+    ? IDENTITY_COVER_SELECT
+    : identity
+      ? IDENTITY_SELECT
+      : cover
+        ? COVER_SELECT
+        : PROFILE_SELECT;
+  return verification ? `${select}${VERIFICATION_SELECT}` : select;
 }
 
 export function mapProfile(row: ProfileRow): Profile {
@@ -69,6 +91,11 @@ export function mapProfile(row: ProfileRow): Profile {
     bio: row.bio ?? "",
     fullName: row.full_name ?? null,
     classForm: row.class_form ?? null,
+    isVerified: row.is_verified ?? false,
+    verifiedTitle: row.verified_title ?? null,
+    verifiedExpiresAt: row.verified_expires_at ?? null,
+    isAdmin: row.is_admin ?? false,
+    role: row.role ?? null,
     createdAt: row.created_at,
   };
 }
@@ -192,6 +219,11 @@ export async function fetchPublicProfile(userId: string): Promise<PublicProfile 
           bio: data.bio ?? "",
           fullName: data.full_name ?? null,
           classForm: data.class_form ?? null,
+          isVerified: data.is_verified ?? false,
+          verifiedTitle: data.verified_title ?? null,
+          verifiedExpiresAt: data.verified_expires_at ?? null,
+          isAdmin: data.is_admin ?? false,
+          role: data.role ?? null,
           schoolId: data.school_id,
           schoolName: data.school?.name ?? null,
           schoolShort: data.school ? shortNameOf(data.school.name) : null,

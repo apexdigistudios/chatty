@@ -11,9 +11,14 @@ import { isUserGlobalAdmin } from "@/lib/adminAccess";
 import type { Comment, CommentThreadTarget, MediaType, Post, PostStatus } from "@/types/models";
 import { fetchBlockedUserIds } from "@/services/blocksService";
 import { uploadPostMedia } from "@/services/storageService";
+import { hasActiveVerification } from "@/lib/verification";
 
 const AUTHOR_SELECT = "author:profiles(id, username, avatar_url, school_id)";
 const AUTHOR_IDENTITY_SELECT = "author:profiles(id, username, full_name, avatar_url, school_id)";
+const AUTHOR_VERIFICATION_SELECT =
+  "author:profiles(id, username, avatar_url, school_id, is_verified, verified_title, verified_expires_at, is_admin, role)";
+const AUTHOR_IDENTITY_VERIFICATION_SELECT =
+  "author:profiles(id, username, full_name, avatar_url, school_id, is_verified, verified_title, verified_expires_at, is_admin, role)";
 const VIDEO_DURATION_SELECT = "video_duration_seconds";
 
 const BASE_POST_SELECT = `id, user_id, school_id, content, media_url, post_type, status, created_at,
@@ -48,7 +53,7 @@ function supportsPostAuthorIdentity(): Promise<boolean> {
   return postAuthorIdentitySupportPromise;
 }
 
-function supportsColumn(table: "posts" | "post_media", column: string): Promise<boolean> {
+function supportsColumn(table: "posts" | "post_media" | "profiles", column: string): Promise<boolean> {
   const key = `${table}.${column}`;
   const checks = columnSupportPromises;
   let check = checks.get(key);
@@ -162,7 +167,7 @@ function supportsSeedEngagement(): Promise<boolean> {
 }
 
 async function selectForGroups(): Promise<string> {
-  const [groups, video, videoDuration, hidden, shares, seededEngagement, authorIdentity, seededViews] = await Promise.all([
+  const [groups, video, videoDuration, hidden, shares, seededEngagement, authorIdentity, seededViews, authorVerification] = await Promise.all([
     supportsSchoolGroups(),
     supportsColumn("posts", "media_type"),
     supportsColumn("posts", "video_duration_seconds"),
@@ -171,12 +176,14 @@ async function selectForGroups(): Promise<string> {
     supportsSeedEngagement(),
     supportsPostAuthorIdentity(),
     supportsColumn("posts", "seed_views_count"),
+    supportsColumn("profiles", "is_verified"),
   ]);
   const seedProfiles = await supportsSeedProfiles();
   const baseSelect = groups ? GROUP_POST_SELECT : BASE_POST_SELECT;
-  const select = authorIdentity
-    ? baseSelect.replace(AUTHOR_SELECT, AUTHOR_IDENTITY_SELECT)
-    : baseSelect;
+  const authorSelect = authorVerification
+    ? authorIdentity ? AUTHOR_IDENTITY_VERIFICATION_SELECT : AUTHOR_VERIFICATION_SELECT
+    : authorIdentity ? AUTHOR_IDENTITY_SELECT : AUTHOR_SELECT;
+  const select = baseSelect.replace(AUTHOR_SELECT, authorSelect);
   return `${select}${seedProfiles ? SEED_AUTHOR_SELECT : ""}${video ? ", media_type" : ""}${videoDuration ? `, ${VIDEO_DURATION_SELECT}` : ""}${hidden ? ", is_hidden" : ""}${shares ? ", post_shares(count)" : ""}${seededEngagement ? ", seed_likes_count, seed_comments_count" : ""}${seededViews ? ", seed_views_count" : ""}`;
 }
 
@@ -194,7 +201,18 @@ export interface RawPost {
   status: PostStatus;
   is_hidden?: boolean;
   created_at: string;
-  author: { id: string; username: string; full_name?: string | null; avatar_url: string | null; school_id?: string | null } | null;
+  author: {
+    id: string;
+    username: string;
+    full_name?: string | null;
+    avatar_url: string | null;
+    school_id?: string | null;
+    is_verified?: boolean | null;
+    verified_title?: string | null;
+    verified_expires_at?: string | null;
+    is_admin?: boolean | null;
+    role?: string | null;
+  } | null;
   seed_author?: { id: string; username: string; full_name: string; avatar_url: string | null; school_id: string } | null;
   school: { id: string; name: string; crest_url: string | null } | null;
   group?: { id: string; name: string; emoji: string } | null;
@@ -233,6 +251,11 @@ export function mapPost(row: RawPost, liked: boolean): Post {
     isSeed: Boolean(seedAuthor),
     authorName: seedAuthor?.username ?? row.author?.username ?? "student",
     authorFullName: seedAuthor?.full_name ?? row.author?.full_name ?? null,
+    authorIsVerified: row.author?.is_verified ?? false,
+    authorVerifiedTitle: row.author?.verified_title ?? null,
+    authorVerifiedExpiresAt: row.author?.verified_expires_at ?? null,
+    authorIsAdmin: row.author?.is_admin ?? false,
+    authorRole: row.author?.role ?? null,
     authorAvatar: seedAuthor?.avatar_url ?? row.author?.avatar_url ?? null,
     authorSchoolId: seedAuthor?.school_id ?? row.author?.school_id ?? row.school_id,
     schoolId: row.school_id,
@@ -337,6 +360,20 @@ export interface FeedQuery {
 
 export function sortPostsNewestFirst(posts: Post[]): Post[] {
   return [...posts].sort((left, right) => {
+    const spotlightDifference = Number(right.spotlightStatus === "active") - Number(left.spotlightStatus === "active");
+    if (spotlightDifference) return spotlightDifference;
+    const verificationDifference = Number(hasActiveVerification({
+      isVerified: right.authorIsVerified,
+      verifiedExpiresAt: right.authorVerifiedExpiresAt,
+      isAdmin: right.authorIsAdmin,
+      role: right.authorRole,
+    })) - Number(hasActiveVerification({
+      isVerified: left.authorIsVerified,
+      verifiedExpiresAt: left.authorVerifiedExpiresAt,
+      isAdmin: left.authorIsAdmin,
+      role: left.authorRole,
+    }));
+    if (verificationDifference) return verificationDifference;
     const dateDifference = Date.parse(right.createdAt) - Date.parse(left.createdAt);
     return dateDifference || right.id.localeCompare(left.id);
   });
@@ -932,6 +969,14 @@ export async function permanentlyDeletePost(postId: string): Promise<void> {
 
 const COMMENT_AUTHOR_SELECT = `id, user_id, parent_id, content, created_at,
   author:profiles(id, username, avatar_url, school_id, school:schools!school_id(name))`;
+const COMMENT_VERIFICATION_AUTHOR_SELECT = `id, user_id, parent_id, content, created_at,
+  author:profiles(id, username, avatar_url, school_id, is_verified, verified_title, verified_expires_at, is_admin, role, school:schools!school_id(name))`;
+
+async function commentSelect(): Promise<string> {
+  return (await supportsColumn("profiles", "is_verified"))
+    ? COMMENT_VERIFICATION_AUTHOR_SELECT
+    : COMMENT_AUTHOR_SELECT;
+}
 
 interface RawComment {
   id: string;
@@ -946,6 +991,11 @@ interface RawComment {
     username: string;
     avatar_url: string | null;
     school_id: string | null;
+    is_verified?: boolean | null;
+    verified_title?: string | null;
+    verified_expires_at?: string | null;
+    is_admin?: boolean | null;
+    role?: string | null;
     school: { name: string } | null;
   } | null;
 }
@@ -970,6 +1020,11 @@ function mapComment(
     authorId: row.user_id,
     authorName: row.author?.username ?? "student",
     authorAvatar: row.author?.avatar_url ?? null,
+    authorIsVerified: row.author?.is_verified ?? false,
+    authorVerifiedTitle: row.author?.verified_title ?? null,
+    authorVerifiedExpiresAt: row.author?.verified_expires_at ?? null,
+    authorIsAdmin: row.author?.is_admin ?? false,
+    authorRole: row.author?.role ?? null,
     authorSchoolId: row.author?.school_id ?? null,
     authorSchoolShort: row.author?.school ? shortNameOf(row.author.school.name) : null,
     content: row.content,
@@ -980,16 +1035,17 @@ function mapComment(
 }
 
 export async function fetchComments(target: CommentThreadTarget): Promise<Comment[]> {
+  const authorSelect = await commentSelect();
   const result = target.type === "post"
     ? await supabase
         .from("comments")
-        .select(`${COMMENT_AUTHOR_SELECT}, post_id`)
+        .select(`${authorSelect}, post_id`)
         .eq("post_id", target.id)
         .order("created_at", { ascending: true })
         .returns<RawComment[]>()
     : await supabase
         .from("confession_comments")
-        .select(`${COMMENT_AUTHOR_SELECT}, confession_id`)
+        .select(`${authorSelect}, confession_id`)
         .eq("confession_id", target.id)
         .order("created_at", { ascending: true })
         .returns<RawComment[]>();
@@ -1064,18 +1120,20 @@ export async function addComment(
     content: content.trim(),
   };
   if (target.type === "post") {
+    const authorSelect = await commentSelect();
     const { data, error } = await supabase
       .from("comments")
       .insert({ ...values, post_id: target.id })
-      .select(COMMENT_AUTHOR_SELECT)
+      .select(authorSelect)
       .single<RawComment>();
     if (error) throw new Error(error.message);
     return mapComment(data, target, [], userId);
   }
+  const authorSelect = await commentSelect();
   const { data, error } = await supabase
     .from("confession_comments")
     .insert({ ...values, confession_id: target.id })
-    .select(COMMENT_AUTHOR_SELECT)
+    .select(authorSelect)
     .single<RawComment>();
   if (error) throw new Error(error.message);
   return mapComment(data, target, [], userId);

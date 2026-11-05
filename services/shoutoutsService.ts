@@ -46,6 +46,50 @@ function mapShoutout(row: RawShoutout): Shoutout {
   };
 }
 
+interface RawVerificationProfile {
+  id: string;
+  is_verified: boolean | null;
+  verified_title: string | null;
+  verified_expires_at: string | null;
+  is_admin: boolean | null;
+  role: string | null;
+}
+
+async function mapShoutouts(rows: RawShoutout[]): Promise<Shoutout[]> {
+  if (rows.length === 0) return [];
+  const profileIds = [...new Set(rows.flatMap((row) =>
+    [row.sender_id, row.recipient_user_id].filter((id): id is string => Boolean(id))
+  ))];
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, is_verified, verified_title, verified_expires_at, is_admin, role")
+    .in("id", profileIds)
+    .returns<RawVerificationProfile[]>();
+  if (error) {
+    if (error.code === "42703" || error.code === "PGRST204") return rows.map(mapShoutout);
+    throw new Error(error.message);
+  }
+  const profiles = new Map((data ?? []).map((profile) => [profile.id, profile]));
+  return rows.map((row) => {
+    const shoutout = mapShoutout(row);
+    const sender = profiles.get(row.sender_id);
+    const recipient = row.recipient_user_id ? profiles.get(row.recipient_user_id) : undefined;
+    return {
+      ...shoutout,
+      senderIsVerified: sender?.is_verified ?? false,
+      senderVerifiedTitle: sender?.verified_title ?? null,
+      senderVerifiedExpiresAt: sender?.verified_expires_at ?? null,
+      senderIsAdmin: sender?.is_admin ?? false,
+      senderRole: sender?.role ?? null,
+      recipientIsVerified: recipient?.is_verified ?? false,
+      recipientVerifiedTitle: recipient?.verified_title ?? null,
+      recipientVerifiedExpiresAt: recipient?.verified_expires_at ?? null,
+      recipientIsAdmin: recipient?.is_admin ?? false,
+      recipientRole: recipient?.role ?? null,
+    };
+  });
+}
+
 export interface CreateShoutoutInput {
   recipientSchoolId: string;
   recipientName: string;
@@ -132,7 +176,7 @@ export async function fetchInbox(profile: Profile | null): Promise<Shoutout[]> {
     }
   }
   rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
-  return rows.map(mapShoutout);
+  return mapShoutouts(rows);
 }
 
 /** Outbox: every letter this student has dispatched, with its delivery stage. */
@@ -148,7 +192,7 @@ export async function fetchOutbox(): Promise<Shoutout[]> {
     if (error.code === "PGRST205" || error.code === "42P01") return [];
     throw new Error(error.message);
   }
-  return (data ?? []).map(mapShoutout);
+  return mapShoutouts(data ?? []);
 }
 
 /** Moves a letter forward one delivery stage and persists timestamps in Supabase. */

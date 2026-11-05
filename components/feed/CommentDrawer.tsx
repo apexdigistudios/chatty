@@ -17,6 +17,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { SchoolTag } from "@/components/ui/SchoolBadge";
 import { useToast } from "@/components/ui/Toast";
+import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 
 const QUICK_REPLIES = ["Chale, facts!", "No size at all!", "Herh, campus gist!", "Big respect!"] as const;
 
@@ -161,6 +162,13 @@ export function CommentDrawer() {
               >
                 @{comment.authorName}
               </Link>
+              <VerifiedBadge
+                isVerified={comment.authorIsVerified}
+                verifiedExpiresAt={comment.authorVerifiedExpiresAt}
+                verifiedTitle={comment.authorVerifiedTitle}
+                isAdmin={comment.authorIsAdmin}
+                role={comment.authorRole}
+              />
               {comment.authorSchoolShort && (
                 <SchoolTag schoolId={comment.authorSchoolId} name={comment.authorSchoolShort} size="xs" nameClassName="text-[10px] font-bold text-ink-muted" />
               )}
