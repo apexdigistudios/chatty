@@ -337,12 +337,10 @@ export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
     }
   }
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("profiles")
     .update(update)
-    .eq("id", userId)
-    .select(await profileSelect())
-    .single<ProfileRow>();
+    .eq("id", userId);
   if (error) {
     if (error.code === "23505") throw new Error("That nickname is already taken.");
     if (error.message.includes("You can only change your username once every 7 days.")) {
@@ -350,7 +348,20 @@ export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
     }
     throw new Error(error.message);
   }
-  return mapProfile(data);
+
+  const savedProfile = await fetchProfile(userId);
+  if (!savedProfile) throw new Error("Your profile could not be reloaded after saving.");
+
+  const matchesUpdate =
+    (update.username === undefined || savedProfile.username === update.username) &&
+    (update.bio === undefined || savedProfile.bio === update.bio) &&
+    (update.avatar_url === undefined || savedProfile.avatarUrl === update.avatar_url) &&
+    (update.cover_url === undefined || savedProfile.coverUrl === update.cover_url) &&
+    (update.school_id === undefined || savedProfile.schoolId === update.school_id) &&
+    (update.full_name === undefined || savedProfile.fullName === update.full_name) &&
+    (update.class_form === undefined || savedProfile.classForm === update.class_form);
+  if (!matchesUpdate) throw new Error("Your profile update was not saved. Please try again.");
+  return savedProfile;
 }
 
 export async function uploadMyAvatar(file: File): Promise<string> {

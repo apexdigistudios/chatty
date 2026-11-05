@@ -9,12 +9,18 @@ import { TrendingSidebar } from "@/components/layout/TrendingSidebar";
 
 interface AppLayoutProps {
   children: ReactNode;
-  navigationHidden: boolean;
+  headerHidden: boolean;
+  bottomNavHidden: boolean;
   fullscreen: boolean;
 }
 
 /** Fluid mobile, tablet two-column, and large-screen three-column shell. */
-export function AppLayout({ children, navigationHidden, fullscreen }: AppLayoutProps) {
+export function AppLayout({
+  children,
+  headerHidden,
+  bottomNavHidden,
+  fullscreen,
+}: AppLayoutProps) {
   const pathname = usePathname();
   const isSpotlight = pathname === "/spotlight";
   const page = (
@@ -28,7 +34,7 @@ export function AppLayout({ children, navigationHidden, fullscreen }: AppLayoutP
 
   return (
     <div className="min-h-dvh overflow-x-clip bg-page text-ink transition-colors duration-200">
-      <Header hidden={navigationHidden} fullscreen={fullscreen} />
+      <Header hidden={headerHidden} />
       <div className={`mx-auto grid w-full max-w-[1360px] grid-cols-1 gap-0 overflow-x-clip px-0 sm:px-4 md:gap-5 md:px-5 lg:gap-5 lg:px-6 xl:gap-7 ${fullscreen ? "contents" : columns}`}>
         <div className={`min-w-0 ${fullscreen ? "hidden" : "hidden md:block"}`}>
           <SidebarNav />
@@ -44,7 +50,7 @@ export function AppLayout({ children, navigationHidden, fullscreen }: AppLayoutP
           <TrendingSidebar />
         </div>
       </div>
-      <BottomNav hidden={navigationHidden} fullscreen={fullscreen} />
+      <BottomNav hidden={bottomNavHidden} fullscreen={fullscreen} />
     </div>
   );
 }

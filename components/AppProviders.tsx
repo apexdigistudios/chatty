@@ -52,6 +52,8 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
   if (!isSupabaseConfigured) return <SetupGate />;
 
   const fullscreen = FULLSCREEN_PATHS.has(pathname);
+  const isHome = pathname === "/";
+  const isSpotlight = pathname === "/spotlight";
 
   return (
     <MotionConfig reducedMotion="user">
@@ -61,7 +63,11 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
         <>
           <NotificationListener />
           <OfflineSyncListener />
-          <AppLayout navigationHidden={navigationHidden} fullscreen={fullscreen}>
+          <AppLayout
+            headerHidden={navigationHidden && isSpotlight}
+            bottomNavHidden={navigationHidden && (isHome || isSpotlight)}
+            fullscreen={fullscreen}
+          >
             {children}
           </AppLayout>
           <AuthGateModal />
