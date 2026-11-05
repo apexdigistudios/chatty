@@ -154,6 +154,7 @@ export function PublicProfilePage() {
 
   const likesReceived = posts.reduce((sum, post) => sum + post.likeCount, 0);
   const joined = new Date(profile.createdAt).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const websiteHref = profile.website ? safeWebsiteUrl(profile.website) : null;
 
   return (
     <div className="mx-auto w-full max-w-[740px] min-w-0 px-4 pb-10 pt-5 sm:px-6 sm:pt-7 lg:px-5">
@@ -270,6 +271,11 @@ export function PublicProfilePage() {
           <p className="mt-3 max-w-xl text-sm font-semibold leading-relaxed text-ink-soft">
             {profile.bio || "This student hasn't added a bio yet."}
           </p>
+          {websiteHref && (
+            <a href={websiteHref} target="_blank" rel="noreferrer" className="mt-2 inline-block max-w-full truncate text-xs font-extrabold text-accent-deep hover:underline">
+              {profile.website}
+            </a>
+          )}
 
           {profile.classForm && <Badge tone="brand" className="mt-2 px-2 py-0.5 text-[10px]">{profile.classForm}</Badge>}
           <p className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-ink-muted">
@@ -330,4 +336,13 @@ export function PublicProfilePage() {
       </section>
     </div>
   );
+}
+
+function safeWebsiteUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }

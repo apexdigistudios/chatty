@@ -19,6 +19,7 @@ const VERIFICATION_SELECT = ", is_verified, verified_title, verified_expires_at,
 /** Step 10 profile identity columns are optional until migration-step10.sql runs. */
 let identitySupportPromise: Promise<boolean> | null = null;
 let coverSupportPromise: Promise<boolean> | null = null;
+let websiteSupportPromise: Promise<boolean> | null = null;
 let verificationSupportPromise: Promise<boolean> | null = null;
 function supportsProfileIdentity(): Promise<boolean> {
   if (!identitySupportPromise) {
@@ -50,6 +51,21 @@ function supportsProfileCover(): Promise<boolean> {
   return coverSupportPromise;
 }
 
+function supportsProfileWebsite(): Promise<boolean> {
+  if (!websiteSupportPromise) {
+    websiteSupportPromise = (async () => {
+      try {
+        const { error } = await supabase.from("profiles").select("website").limit(1);
+        if (error && (error.code === "42703" || error.code === "PGRST204")) return false;
+        return true;
+      } catch {
+        return false;
+      }
+    })();
+  }
+  return websiteSupportPromise;
+}
+
 function supportsProfileVerification(): Promise<boolean> {
   if (!verificationSupportPromise) {
     verificationSupportPromise = (async () => {
@@ -66,18 +82,20 @@ function supportsProfileVerification(): Promise<boolean> {
 }
 
 async function profileSelect(): Promise<string> {
-  const [identity, cover, verification] = await Promise.all([
+  const [identity, cover, website, verification] = await Promise.all([
     supportsProfileIdentity(),
     supportsProfileCover(),
+    supportsProfileWebsite(),
     supportsProfileVerification(),
   ]);
-  const select = identity && cover
+  const baseSelect = identity && cover
     ? IDENTITY_COVER_SELECT
     : identity
       ? IDENTITY_SELECT
       : cover
         ? COVER_SELECT
         : PROFILE_SELECT;
+  const select = website ? `${baseSelect}, website` : baseSelect;
   return verification ? `${select}${VERIFICATION_SELECT}` : select;
 }
 
@@ -91,6 +109,7 @@ export function mapProfile(row: ProfileRow): Profile {
     bio: row.bio ?? "",
     fullName: row.full_name ?? null,
     classForm: row.class_form ?? null,
+    website: row.website ?? null,
     isVerified: row.is_verified ?? false,
     verifiedTitle: row.verified_title ?? null,
     verifiedExpiresAt: row.verified_expires_at ?? null,
@@ -219,6 +238,7 @@ export async function fetchPublicProfile(userId: string): Promise<PublicProfile 
           bio: data.bio ?? "",
           fullName: data.full_name ?? null,
           classForm: data.class_form ?? null,
+          website: data.website ?? null,
           isVerified: data.is_verified ?? false,
           verifiedTitle: data.verified_title ?? null,
           verifiedExpiresAt: data.verified_expires_at ?? null,
@@ -256,6 +276,7 @@ export async function fetchPublicProfile(userId: string): Promise<PublicProfile 
           bio: "",
           fullName: seedProfile.full_name,
           classForm: null,
+          website: null,
           schoolId: seedProfile.school_id,
           schoolName: seedProfile.school?.name ?? null,
           schoolShort: seedProfile.school ? shortNameOf(seedProfile.school.name) : null,
@@ -286,6 +307,7 @@ export interface ProfilePatch {
   schoolId?: string | null;
   fullName?: string | null;
   classForm?: string | null;
+  website?: string | null;
 }
 
 export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
@@ -317,6 +339,14 @@ export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
     }
   }
   if (patch.bio !== undefined) update.bio = patch.bio.trim();
+  if (patch.website !== undefined) {
+    const website = patch.website?.trim() ?? "";
+    const supportsWebsite = await supportsProfileWebsite();
+    if (website && !supportsWebsite) {
+      throw new Error("Profile website links need the profile_identity_and_cover.sql migration to be applied first.");
+    }
+    if (supportsWebsite) update.website = website || null;
+  }
   if (patch.avatarUrl !== undefined) update.avatar_url = patch.avatarUrl;
   if (patch.coverUrl !== undefined) {
     if (!(await supportsProfileCover())) {
@@ -355,6 +385,7 @@ export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
   const matchesUpdate =
     (update.username === undefined || savedProfile.username === update.username) &&
     (update.bio === undefined || savedProfile.bio === update.bio) &&
+    (update.website === undefined || savedProfile.website === update.website) &&
     (update.avatar_url === undefined || savedProfile.avatarUrl === update.avatar_url) &&
     (update.cover_url === undefined || savedProfile.coverUrl === update.cover_url) &&
     (update.school_id === undefined || savedProfile.schoolId === update.school_id) &&

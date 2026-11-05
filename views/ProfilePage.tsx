@@ -74,6 +74,7 @@ export function ProfilePage() {
   const [draftUsername, setDraftUsername] = useState("");
   const [usernameAvailability, setUsernameAvailability] = useState<UsernameAvailability>("idle");
   const [draftBio, setDraftBio] = useState("");
+  const [draftWebsite, setDraftWebsite] = useState("");
   const [draftFullName, setDraftFullName] = useState("");
   const [draftClassForm, setDraftClassForm] = useState("");
   const [draftAvatar, setDraftAvatar] = useState<string | null>(null);
@@ -91,6 +92,7 @@ export function ProfilePage() {
     isAdmin: profile?.isAdmin || isGlobalAdmin,
     role: profile?.role,
   });
+  const websiteHref = profile?.website ? safeExternalUrl(profile.website) : null;
   const profileTabs = activeVerification ? TABS : TABS.filter(({ id }) => id !== "Brand Deals");
 
   // Guests are never forcefully redirected; we render an inviting Student Pass gate below.
@@ -184,6 +186,7 @@ export function ProfilePage() {
     if (!profile) return;
     setDraftUsername(profile.username);
     setDraftBio(profile.bio);
+    setDraftWebsite(profile.website ?? "");
     setDraftFullName(profile.fullName ?? "");
     setDraftClassForm(profile.classForm ?? "");
     setDraftAvatar(profile.avatarUrl);
@@ -247,6 +250,7 @@ export function ProfilePage() {
       const updated = await updateMyProfile({
         username: draftUsername,
         bio: draftBio,
+        website: draftWebsite,
         fullName: draftFullName,
         classForm: draftClassForm,
         ...(avatarUrl ? { avatarUrl } : {}),
@@ -268,7 +272,7 @@ export function ProfilePage() {
 
   if (authLoading || (user && !profile)) {
     return (
-      <div className="mx-auto w-full max-w-[740px] min-w-0 px-4 pt-6 sm:px-6">
+      <div className="profile-light mx-auto w-full max-w-[740px] min-w-0 px-4 pt-6 sm:px-6">
         <div className="h-56 animate-pulse rounded-3xl border-2 border-line bg-card motion-reduce:animate-none" />
       </div>
     );
@@ -276,7 +280,7 @@ export function ProfilePage() {
 
   if (!user || !profile) {
     return (
-      <div className="mx-auto w-full max-w-[740px] min-w-0 space-y-4 px-4 pb-10 pt-5 sm:px-6 sm:pt-7">
+      <div className="profile-light mx-auto w-full max-w-[740px] min-w-0 space-y-4 px-4 pb-10 pt-5 sm:px-6 sm:pt-7">
         <Card className="overflow-hidden">
           <div className="relative h-20 bg-linear-to-r from-[#8B5CF6] via-[#6D28D9] to-[#0F0F11]">
             <span className="absolute right-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white">
@@ -396,9 +400,9 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[740px] min-w-0 px-4 pb-10 pt-5 sm:px-6 sm:pt-7 lg:px-5 xl:px-7">
-      <Card className="relative overflow-hidden">
-        <div className="relative h-32 w-full bg-linear-to-br from-[#8B5CF6] via-[#6D28D9] to-[#0F0F11] sm:h-44 md:h-60">
+    <div className="profile-light mx-auto w-full max-w-[740px] min-w-0 px-4 pb-10 pt-5 sm:px-6 sm:pt-7 lg:px-5 xl:px-7">
+      <Card className="relative overflow-hidden rounded-3xl">
+        <div className="relative h-36 w-full bg-linear-to-br from-[#8B5CF6] via-[#6D28D9] to-[#0F0F11] sm:h-48 md:h-60">
           <div className="absolute inset-0 overflow-hidden">
             {profile.coverUrl && (
               <SafeImage
@@ -415,9 +419,9 @@ export function ProfilePage() {
             type="button"
             onClick={() => editing && avatarRef.current?.click()}
             aria-label={editing ? "Upload new avatar" : "Profile avatar"}
-            className="absolute bottom-0 left-4 z-20 block translate-y-1/2 rounded-full border-4 border-card shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+            className="absolute bottom-0 left-4 z-20 block translate-y-1/2 rounded-full border-4 border-white shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:left-6"
           >
-            <Avatar name={profile.username} src={editing ? draftAvatar : profile.avatarUrl} size="2xl" online />
+            <Avatar name={profile.username} src={editing ? draftAvatar : profile.avatarUrl} size="3xl" online />
             {editing && (
               <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/55 text-white">
                 <Camera size={22} strokeWidth={2.5} aria-hidden />
@@ -450,11 +454,18 @@ export function ProfilePage() {
             </>
           )}
         </div>
-        <CardBody className="px-4 pb-5 pt-14 sm:px-6 sm:pt-14">
+        <CardBody className="px-4 pb-6 pt-16 sm:px-6 sm:pt-18">
           <input ref={avatarRef} type="file" accept="image/*" onChange={pickAvatar} className="sr-only" aria-label="Upload avatar" />
           <ProfileHeader
             username={profile.username}
             fullName={profile.fullName ?? null}
+            isVerified={profile.isVerified}
+            verifiedExpiresAt={profile.verifiedExpiresAt}
+            verifiedTitle={profile.verifiedTitle}
+            isAdmin={profile.isAdmin || isGlobalAdmin}
+            role={profile.role}
+            websiteHref={websiteHref}
+            website={profile.website}
             schoolBadge={
               mySchool ? (
                 <button
@@ -495,14 +506,12 @@ export function ProfilePage() {
           <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
             {activeVerification ? (
               <>
-                <VerifiedBadge
-                  isVerified={profile.isVerified}
-                  verifiedExpiresAt={profile.verifiedExpiresAt}
-                  verifiedTitle={profile.verifiedTitle}
-                  isAdmin={profile.isAdmin || isGlobalAdmin}
-                  role={profile.role}
-                  showTitle
-                />
+                <span className="text-[10px] font-black text-ink-muted">
+                  {profile.verifiedTitle || (isGlobalAdminProfile({
+                    isAdmin: profile.isAdmin || isGlobalAdmin,
+                    role: profile.role,
+                  }) ? "Global Admin" : "Verified")}
+                </span>
                 {profile.verifiedExpiresAt && !isGlobalAdminProfile({
                   isAdmin: profile.isAdmin || isGlobalAdmin,
                   role: profile.role,
@@ -574,6 +583,10 @@ export function ProfilePage() {
                   <label className="block">
                     <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Campus bio</span>
                     <textarea value={draftBio} onChange={(event) => setDraftBio(event.target.value.slice(0, 160))} maxLength={160} rows={2} className="w-full resize-none rounded-xl border-2 border-line bg-card p-2.5 text-xs font-semibold text-ink outline-none focus:border-brand" />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Website (optional)</span>
+                    <input type="text" inputMode="url" value={draftWebsite} onChange={(event) => setDraftWebsite(event.target.value.slice(0, 200))} maxLength={200} placeholder="https://example.com" className="h-10 w-full rounded-xl border-2 border-line bg-card px-3 text-xs font-semibold text-ink outline-none focus:border-brand" />
                   </label>
                   <div className="flex items-center gap-2 pt-1">
                     <Button type="submit" size="sm" disabled={saving} leftIcon={saving ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Check size={14} strokeWidth={3} aria-hidden />}>Save profile</Button>
@@ -855,6 +868,15 @@ export function ProfilePage() {
       {followList && <FollowListModal profileId={profile.id} relation={followList} onClose={() => setFollowList(null)} />}
     </div>
   );
+}
+
+function safeExternalUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 function Empty({ title, detail, action, onAction }: { title: string; detail: string; action: string; onAction: () => void }) {

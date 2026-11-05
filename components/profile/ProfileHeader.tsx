@@ -2,10 +2,18 @@
 
 import type { ReactNode } from "react";
 import { Pencil, Settings, Users } from "lucide-react";
+import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 
 interface ProfileHeaderProps {
   username: string;
   fullName: string | null;
+  isVerified?: boolean;
+  verifiedExpiresAt?: string | null;
+  verifiedTitle?: string | null;
+  isAdmin?: boolean;
+  role?: string | null;
+  websiteHref?: string | null;
+  website?: string | null;
   schoolBadge: ReactNode;
   bio: string;
   gistCount: number;
@@ -21,6 +29,13 @@ interface ProfileHeaderProps {
 export function ProfileHeader({
   username,
   fullName,
+  isVerified,
+  verifiedExpiresAt,
+  verifiedTitle,
+  isAdmin,
+  role,
+  websiteHref,
+  website,
   schoolBadge,
   bio,
   gistCount,
@@ -33,15 +48,32 @@ export function ProfileHeader({
   onShoutouts,
 }: ProfileHeaderProps) {
   return (
-    <div className="flex min-w-0 flex-col items-center text-center">
-      <h1 className="mt-3 max-w-full truncate text-2xl font-black tracking-tight text-ink sm:text-[28px]">
-        {fullName || `@${username}`}
+    <div className="flex min-w-0 flex-col items-center px-1 text-center sm:px-2">
+      <h1 className="mt-2 flex max-w-full items-center justify-center gap-1.5 truncate text-2xl font-black tracking-tight text-ink sm:text-[28px]">
+        <span className="truncate">{fullName || `@${username}`}</span>
+        <VerifiedBadge
+          isVerified={isVerified}
+          verifiedExpiresAt={verifiedExpiresAt}
+          verifiedTitle={verifiedTitle}
+          isAdmin={isAdmin}
+          role={role}
+        />
       </h1>
-      {fullName && <p className="mt-0.5 truncate text-sm font-bold text-ink-muted">@{username}</p>}
+      {fullName && <p className="mt-1 max-w-full truncate text-sm font-bold text-ink-muted">@{username}</p>}
       <div className="mt-3 max-w-full">{schoolBadge}</div>
-      <p className="mt-3 max-w-xl text-sm font-semibold leading-relaxed text-ink-soft">
+      <p className="mt-3 max-w-xl text-sm font-semibold leading-relaxed text-ink-soft sm:text-[15px]">
         {bio || "No bio yet — tell your campus who you are."}
       </p>
+      {websiteHref && website && (
+        <a
+          href={websiteHref}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 max-w-full truncate text-xs font-extrabold text-brand-deep hover:underline"
+        >
+          {website}
+        </a>
+      )}
 
       <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
         <button

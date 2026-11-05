@@ -10,11 +10,17 @@ import { useAuthGateStore } from "@/store/authGateStore";
 import { useToast } from "@/components/ui/Toast";
 import { Avatar } from "@/components/ui/Avatar";
 import { FollowButton } from "@/components/profile/FollowButton";
+import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 
 interface ProfileHoverCardProps {
   userId: string;
   username: string;
   fullName?: string | null;
+  isVerified?: boolean;
+  verifiedExpiresAt?: string | null;
+  verifiedTitle?: string | null;
+  isAdmin?: boolean;
+  role?: string | null;
   avatarUrl: string | null;
   schoolName: string;
   isSeed?: boolean;
@@ -27,6 +33,11 @@ export function ProfileHoverCard({
   userId,
   username,
   fullName,
+  isVerified,
+  verifiedExpiresAt,
+  verifiedTitle,
+  isAdmin,
+  role,
   avatarUrl,
   schoolName,
   isSeed = false,
@@ -117,12 +128,21 @@ export function ProfileHoverCard({
           <span className="flex items-start gap-3">
             <Avatar name={username} src={avatarUrl} size="lg" />
             <span className="min-w-0 flex-1">
-              <Link
-                to={`/profile/${userId}`}
-                className="block truncate text-sm font-black text-ink hover:text-brand-deep hover:underline"
-              >
-                {fullName || `@${username}`}
-              </Link>
+              <span className="flex min-w-0 items-center gap-1">
+                <Link
+                  to={`/profile/${userId}`}
+                  className="truncate text-sm font-black text-ink hover:text-brand-deep hover:underline"
+                >
+                  {fullName || `@${username}`}
+                </Link>
+                <VerifiedBadge
+                  isVerified={isVerified}
+                  verifiedExpiresAt={verifiedExpiresAt}
+                  verifiedTitle={verifiedTitle}
+                  isAdmin={isAdmin}
+                  role={role}
+                />
+              </span>
               {fullName && <span className="block truncate text-[10px] font-semibold text-ink-muted">@{username}</span>}
               <span className="mt-0.5 block truncate text-xs font-semibold text-ink-muted">{schoolName}</span>
             </span>

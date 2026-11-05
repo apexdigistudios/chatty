@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
 
+export const SPOTLIGHT_SCROLL_DIRECTION_EVENT = "gist:spotlight-scroll-direction";
+
+export function reportSpotlightScrollDirection(hidden: boolean): void {
+  window.dispatchEvent(new CustomEvent<boolean>(SPOTLIGHT_SCROLL_DIRECTION_EVENT, { detail: hidden }));
+}
+
 /** Hides mobile navigation on downward page scroll and restores it on reversal. */
 export function useScrollDirection(resetKey?: string): boolean {
   const [hidden, setHidden] = useState(false);

@@ -176,4 +176,21 @@
   &::-webkit-scrollbar {
     display: none;
   }
+
+  .profile-light {
+    color-scheme: light;
+    background-color: #ffffff;
+    color: #18181b;
+    --page-bg: #ffffff;
+    --surface: #ffffff;
+    --surface-raised: #ffffff;
+    --surface-deep: #ffffff;
+    --surface-muted: #fafafa;
+    --border-color: #e4e4e7;
+    --border-strong: #18181b;
+    --text-main: #0f0f11;
+    --text-body: #18181b;
+    --text-muted: #71717a;
+    --text-faint: #a1a1aa;
+  }
 }

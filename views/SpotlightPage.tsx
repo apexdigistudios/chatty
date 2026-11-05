@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type UIEvent } from "react";
 import { ArrowDown, ArrowLeft, ArrowUp, Heart, MessageCircle, RefreshCw, Share2, Volume2, VolumeX, Zap } from "lucide-react";
 import { Link } from "@/lib/router";
 import { useAuth } from "@/context/AuthContext";
@@ -14,8 +14,10 @@ import { useGistStore } from "@/store/gistStore";
 import type { Confession, Post } from "@/types/models";
 import { useToast } from "@/components/ui/Toast";
 import { Avatar } from "@/components/ui/Avatar";
+import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { rotateBySeed } from "@/lib/feedRotation";
 import { shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLinks";
+import { reportSpotlightScrollDirection } from "@/hooks/useScrollDirection";
 
 type SpotlightItem =
   | { kind: "post"; key: string; videoUrl: string; post: Post }
@@ -31,6 +33,9 @@ export function SpotlightPage() {
   const openComments = useGistStore((state) => state.openComments);
   const commentsByThread = useGistStore((state) => state.commentsByThread);
   const slideListRef = useRef<HTMLDivElement>(null);
+  const previousSlideScrollTop = useRef(0);
+  const slideScrollDownDistance = useRef(0);
+  const slideScrollFrame = useRef(0);
   const schools = useGistStore((state) => state.schools);
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
   const [items, setItems] = useState<SpotlightItem[]>([]);
@@ -125,6 +130,35 @@ export function SpotlightPage() {
     list.scrollBy({ top: direction * list.clientHeight, behavior: "smooth" });
   };
 
+  const handleSlideScroll = (event: UIEvent<HTMLDivElement>) => {
+    const list = event.currentTarget;
+    if (slideScrollFrame.current) return;
+    slideScrollFrame.current = window.requestAnimationFrame(() => {
+      slideScrollFrame.current = 0;
+      const currentTop = Math.max(0, list.scrollTop);
+      const delta = currentTop - previousSlideScrollTop.current;
+      previousSlideScrollTop.current = currentTop;
+
+      if (currentTop <= 8 || delta < 0) {
+        slideScrollDownDistance.current = 0;
+        reportSpotlightScrollDirection(false);
+        return;
+      }
+
+      if (delta > 0) {
+        slideScrollDownDistance.current += delta;
+        if (slideScrollDownDistance.current >= 12) {
+          slideScrollDownDistance.current = 0;
+          reportSpotlightScrollDirection(true);
+        }
+      }
+    });
+  };
+
+  useEffect(() => () => {
+    if (slideScrollFrame.current) window.cancelAnimationFrame(slideScrollFrame.current);
+  }, []);
+
   return (
     <div className="relative flex h-[calc(100dvh-4rem)] w-full overflow-hidden bg-neutral-950 text-white">
       <section className="relative h-full min-w-0 flex-1 bg-neutral-950">
@@ -169,7 +203,7 @@ export function SpotlightPage() {
           </p>
         </div>
       ) : (
-        <div ref={slideListRef} className="h-full snap-y snap-mandatory overflow-y-auto overscroll-contain [scrollbar-width:none]">
+        <div ref={slideListRef} onScroll={handleSlideScroll} className="h-full snap-y snap-mandatory overflow-y-auto overscroll-contain [scrollbar-width:none]">
           {items.map((item) => {
             const threadId = item.kind === "post" ? item.post.id : item.confession.id;
             const cachedCount = commentsByThread[`${item.kind}:${threadId}`]?.length;
@@ -372,6 +406,24 @@ function SpotlightSlide({
       <div className="absolute bottom-[calc(6rem+env(safe-area-inset-bottom))] left-4 right-19 z-10 space-y-2 text-white md:bottom-24">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-black">{author}</span>
+          {post && (
+            <VerifiedBadge
+              isVerified={post.authorIsVerified}
+              verifiedExpiresAt={post.authorVerifiedExpiresAt}
+              verifiedTitle={post.authorVerifiedTitle}
+              isAdmin={post.authorIsAdmin}
+              role={post.authorRole}
+            />
+          )}
+          {confession?.seedUsername && (
+            <VerifiedBadge
+              isVerified={confession.seedIsVerified}
+              verifiedExpiresAt={confession.seedVerifiedExpiresAt}
+              verifiedTitle={confession.seedVerifiedTitle}
+              isAdmin={confession.seedIsAdmin}
+              role={confession.seedRole}
+            />
+          )}
           {username && author !== `@${username}` && <span className="text-[11px] font-semibold text-white/75">@{username}</span>}
           {confession && <span className="text-[11px] font-bold text-white/75">· Anonymous confession</span>}
         </div>

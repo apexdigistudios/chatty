@@ -12,6 +12,7 @@ import { ProgressiveImage } from "@/components/ui/ProgressiveImage";
 import { SchoolBadge } from "@/components/ui/SchoolBadge";
 import { describeError } from "@/lib/supabase";
 import { timeAgo } from "@/lib/time";
+import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { fetchPopularProfiles, searchProfiles, type ProfileSearchHit } from "@/services/profilesService";
 import { fetchFeed, fetchPopularGists } from "@/services/postsService";
 import { useGistStore } from "@/store/gistStore";
@@ -148,6 +149,13 @@ export function ExplorePage() {
                         <SchoolBadge schoolId={post.schoolId} crestUrl={post.schoolCrest} name={post.schoolShort} size="xs" />
                         {post.schoolShort}
                         <span className="size-1 rounded-full bg-ink-faint" aria-hidden />@{post.authorName}
+                        <VerifiedBadge
+                          isVerified={post.authorIsVerified}
+                          verifiedExpiresAt={post.authorVerifiedExpiresAt}
+                          verifiedTitle={post.authorVerifiedTitle}
+                          isAdmin={post.authorIsAdmin}
+                          role={post.authorRole}
+                        />
                         <span className="size-1 rounded-full bg-ink-faint" aria-hidden />{post.likeCount} likes
                         <span className="size-1 rounded-full bg-ink-faint" aria-hidden />{timeAgo(post.createdAt)}
                       </p>
@@ -171,7 +179,16 @@ export function ExplorePage() {
                     <CardBody className="flex items-center gap-3 px-3.5 py-3.5">
                       <Avatar name={student.username} src={student.avatarUrl} size="lg" />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[13px] font-extrabold text-ink">@{student.username}</p>
+                        <p className="flex min-w-0 items-center gap-1.5 truncate text-[13px] font-extrabold text-ink">
+                          <span className="truncate">@{student.username}</span>
+                          <VerifiedBadge
+                            isVerified={student.isVerified}
+                            verifiedExpiresAt={student.verifiedExpiresAt}
+                            verifiedTitle={student.verifiedTitle}
+                            isAdmin={student.isAdmin}
+                            role={student.role}
+                          />
+                        </p>
                         <p className="truncate text-[11px] font-semibold text-ink-muted">{student.schoolShort ?? "No school yet"}</p>
                         {student.bio && <p className="mt-0.5 line-clamp-1 text-[10px] font-semibold text-ink-muted">{student.bio}</p>}
                         {!debounced && student.followersCount !== undefined && <p className="mt-0.5 text-[10px] font-bold text-brand-deep">{student.followersCount.toLocaleString()} followers</p>}

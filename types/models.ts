@@ -43,6 +43,7 @@ export interface ProfileRow {
   bio: string;
   full_name?: string | null;
   class_form?: string | null;
+  website?: string | null;
   is_verified?: boolean | null;
   verified_title?: string | null;
   verified_expires_at?: string | null;
@@ -78,6 +79,7 @@ export interface Profile {
   /** Optional identity fields managed in Account Settings, not onboarding. */
   fullName?: string | null;
   classForm?: string | null;
+  website?: string | null;
   isVerified?: boolean;
   verifiedTitle?: string | null;
   verifiedExpiresAt?: string | null;
@@ -165,6 +167,7 @@ export interface PublicProfile {
   bio: string;
   fullName?: string | null;
   classForm?: string | null;
+  website?: string | null;
   isVerified?: boolean;
   verifiedTitle?: string | null;
   verifiedExpiresAt?: string | null;

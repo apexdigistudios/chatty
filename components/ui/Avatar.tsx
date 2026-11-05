@@ -5,7 +5,7 @@ import { defaultAvatarUrl } from "@/lib/media";
 import { cn } from "@/utils/cn";
 import { SafeImage } from "@/components/common/SafeImage";
 
-export type AvatarSize = "sm" | "md" | "lg" | "xl" | "2xl";
+export type AvatarSize = "sm" | "md" | "lg" | "xl" | "2xl" | "3xl";
 
 export interface AvatarProps {
   /** Username / display name — seeds the generated avatar when no photo exists. */
@@ -24,6 +24,7 @@ const sizeClasses: Record<AvatarSize, string> = {
   lg: "size-12",
   xl: "size-16",
   "2xl": "size-24",
+  "3xl": "size-28",
 };
 
 const dotClasses: Record<AvatarSize, string> = {
@@ -32,6 +33,7 @@ const dotClasses: Record<AvatarSize, string> = {
   lg: "size-3.5 border-[3px]",
   xl: "size-4 border-[3px]",
   "2xl": "size-5 border-[3px]",
+  "3xl": "size-6 border-4",
 };
 
 /** Circular student avatar: uploaded photo, else the DiceBear illustration stored at signup. */

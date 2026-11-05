@@ -18,7 +18,7 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { useGistStore } from "@/store/gistStore";
-import { useScrollDirection } from "@/hooks/useScrollDirection";
+import { SPOTLIGHT_SCROLL_DIRECTION_EVENT, useScrollDirection } from "@/hooks/useScrollDirection";
 
 const FULLSCREEN_PATHS = new Set([
   "/create",
@@ -33,6 +33,7 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { loading } = useAuth();
   const navigationHidden = useScrollDirection(pathname);
+  const [spotlightNavigationHidden, setSpotlightNavigationHidden] = useState(false);
   const loadFeed = useGistStore((state) => state.loadFeed);
   const loadSchools = useGistStore((state) => state.loadSchools);
   const initialFeedStarted = useRef(false);
@@ -49,6 +50,18 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
     void loadFeed().finally(() => setInitialFeedReady(true));
   }, [loading, loadFeed]);
 
+  useEffect(() => {
+    const handleSpotlightScroll = (event: Event) => {
+      setSpotlightNavigationHidden((event as CustomEvent<boolean>).detail);
+    };
+    window.addEventListener(SPOTLIGHT_SCROLL_DIRECTION_EVENT, handleSpotlightScroll);
+    return () => window.removeEventListener(SPOTLIGHT_SCROLL_DIRECTION_EVENT, handleSpotlightScroll);
+  }, []);
+
+  useEffect(() => {
+    setSpotlightNavigationHidden(false);
+  }, [pathname]);
+
   if (!isSupabaseConfigured) return <SetupGate />;
 
   const fullscreen = FULLSCREEN_PATHS.has(pathname);
@@ -64,8 +77,8 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
           <NotificationListener />
           <OfflineSyncListener />
           <AppLayout
-            headerHidden={navigationHidden && isSpotlight}
-            bottomNavHidden={navigationHidden && (isHome || isSpotlight)}
+            headerHidden={spotlightNavigationHidden && isSpotlight}
+            bottomNavHidden={isSpotlight ? spotlightNavigationHidden : navigationHidden && isHome}
             fullscreen={fullscreen}
           >
             {children}
