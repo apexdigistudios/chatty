@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, MotionConfig, motion } from "framer-motion";
+import { AnimatePresence, MotionConfig } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AuthGateModal } from "@/components/auth/AuthGateModal";
@@ -18,7 +18,6 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { useGistStore } from "@/store/gistStore";
-import { springs } from "@/theme/tokens";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
 
 const FULLSCREEN_PATHS = new Set([
@@ -52,9 +51,7 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
 
   if (!isSupabaseConfigured) return <SetupGate />;
 
-  const content = FULLSCREEN_PATHS.has(pathname)
-    ? children
-    : <AppLayout navigationHidden={navigationHidden}>{children}</AppLayout>;
+  const fullscreen = FULLSCREEN_PATHS.has(pathname);
 
   return (
     <MotionConfig reducedMotion="user">
@@ -64,18 +61,9 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
         <>
           <NotificationListener />
           <OfflineSyncListener />
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={pathname}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={springs.gentle}
-              className="min-h-[calc(100dvh-4rem)]"
-            >
-              {content}
-            </motion.div>
-          </AnimatePresence>
+          <AppLayout navigationHidden={navigationHidden} fullscreen={fullscreen}>
+            {children}
+          </AppLayout>
           <AuthGateModal />
           <CommentDrawer />
           <NotificationDrawer />

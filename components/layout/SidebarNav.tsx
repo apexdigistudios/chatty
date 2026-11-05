@@ -1,8 +1,10 @@
 'use client';
 
 import { motion } from "framer-motion";
+import NextLink from "next/link";
+import { usePathname } from "next/navigation";
 import { EyeOff, GraduationCap, Home, LogOut, Mailbox, PlusCircle, Search, ShieldAlert, ShieldCheck, Sparkles, User, Zap, type LucideIcon } from "lucide-react";
-import { Link, NavLink, useNavigate } from "@/lib/router";
+import { useNavigate } from "@/lib/router";
 import { useAuth } from "@/context/AuthContext";
 import { useAuthGateStore } from "@/store/authGateStore";
 import { useGistStore } from "@/store/gistStore";
@@ -42,10 +44,15 @@ function SidebarLink({
   badge,
   onClickIntercept,
 }: SidebarItem & { onClickIntercept?: () => boolean }) {
+  const pathname = usePathname();
+  const isActive = end || to === "/"
+    ? pathname === to
+    : pathname === to || pathname.startsWith(`${to}/`);
+
   return (
-    <NavLink
-      to={to}
-      end={end}
+    <NextLink
+      href={to}
+      aria-current={isActive ? "page" : undefined}
       onClick={(event) => {
         if (onClickIntercept && onClickIntercept()) {
           event.preventDefault();
@@ -53,7 +60,6 @@ function SidebarLink({
       }}
       className="block rounded-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
     >
-      {({ isActive }) => (
         <motion.span
           whileTap={{ y: 3, boxShadow: "0px 1px 0px var(--border-strong)" }}
           transition={springs.snappy}
@@ -70,9 +76,8 @@ function SidebarLink({
           {badge && (
             <span className="ml-auto rounded-full bg-warning-wash px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-warning-deep">{badge}</span>
           )}
-        </motion.span>
-      )}
-    </NavLink>
+    </motion.span>
+    </NextLink>
   );
 }
 
@@ -99,10 +104,10 @@ export function SidebarNav() {
 
   return (
     <nav aria-label="Main navigation" className="sticky top-[88px] py-7">
-      <Link to="/" aria-label="Gist me home" className="mb-6 flex items-center gap-2.5 rounded-xl px-3 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft">
+      <NextLink href="/" aria-label="Gist me home" className="mb-6 flex items-center gap-2.5 rounded-xl px-3 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft">
         <BrandLogo className="h-8 w-auto max-w-8 shrink-0 object-contain" />
         <span className="truncate text-base font-black tracking-tight text-ink">Gist me</span>
-      </Link>
+      </NextLink>
       <p className="mb-3 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-ink-muted">Your space</p>
       <div className="space-y-2">
         {primary.map((item) => (
@@ -146,8 +151,8 @@ export function SidebarNav() {
       <div className="mt-7 border-t-2 border-line pt-4">
         {user && profile ? (
           <div className="rounded-2xl border-2 border-line bg-card p-2.5">
-            <Link
-              to="/profile"
+            <NextLink
+              href="/profile"
               className="flex items-center gap-2.5 rounded-xl px-1 py-1 transition-colors hover:bg-page"
             >
               <Avatar name={profile.username} src={profile.avatarUrl} size="md" ring online />
@@ -157,7 +162,7 @@ export function SidebarNav() {
                   {mySchool?.shortName ?? "No SHS yet"}
                 </span>
               </span>
-            </Link>
+            </NextLink>
             <div className="mt-2 flex items-center gap-1.5">
               <ThemeToggle className="h-8 min-h-8 flex-1 justify-center p-0" />
               <button
@@ -174,12 +179,12 @@ export function SidebarNav() {
           <div className="rounded-2xl border-2 border-line bg-card p-3 text-center">
             <p className="text-xs font-extrabold text-ink">Join your SHS</p>
             <p className="mt-0.5 text-[10px] font-semibold text-ink-muted">Post, like and represent your campus.</p>
-            <Link
-              to="/auth?mode=signup"
+            <NextLink
+              href="/auth?mode=signup"
               className="mt-2 inline-flex h-9 w-full items-center justify-center rounded-xl bg-[#8B5CF6] text-[10px] font-extrabold uppercase tracking-wider text-white shadow-[0_3px_0_#5B21B6]"
             >
               Get started
-            </Link>
+            </NextLink>
           </div>
         )}
         <p className="mt-4 px-1 text-[10px] font-semibold leading-relaxed text-ink-muted">

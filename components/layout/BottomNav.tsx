@@ -1,9 +1,10 @@
 'use client';
 
 import { motion } from "framer-motion";
+import NextLink from "next/link";
+import { usePathname } from "next/navigation";
 import { GraduationCap, Home, PlusCircle, User, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { NavLink } from "@/lib/router";
 import { useAuth } from "@/context/AuthContext";
 import { useAuthGateStore } from "@/store/authGateStore";
 import { springs } from "@/theme/tokens";
@@ -27,43 +28,56 @@ const navigation: NavigationItem[] = [
 ];
 
 /** Icon-only iOS floating dock. Every item shares identical sizing and press physics. */
-export function BottomNav({ spotlight = false, hidden = false }: { spotlight?: boolean; hidden?: boolean }) {
+export function BottomNav({
+  spotlight = false,
+  hidden = false,
+  fullscreen = false,
+}: {
+  spotlight?: boolean;
+  hidden?: boolean;
+  fullscreen?: boolean;
+}) {
+  const pathname = usePathname();
   const { user, profile } = useAuth();
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
 
   return (
     <nav
       aria-label="Primary navigation"
-      className={`fixed inset-x-0 bottom-0 z-40 flex w-full items-center justify-center px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-in-out md:hidden ${
+      aria-hidden={fullscreen}
+      className={`${fullscreen ? "hidden" : "fixed"} inset-x-0 bottom-0 z-40 w-full items-center justify-center px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-in-out md:hidden ${
         spotlight
           ? "border-0 bg-transparent shadow-none backdrop-blur-none"
           : "border-t border-zinc-200/60 bg-white/65 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur-lg dark:border-white/10 dark:bg-black/40 dark:shadow-[0_-8px_24px_rgba(0,0,0,0.2)]"
-      } ${hidden ? "translate-y-full" : "translate-y-0"}`}
+      } ${fullscreen ? "" : "flex"} ${hidden && !fullscreen ? "translate-y-full" : "translate-y-0"}`}
     >
       <div className="mx-auto grid w-full max-w-sm grid-cols-5 items-center justify-items-center">
-        {navigation.map(({ label, to, icon: Icon, end, create, profile: isProfile }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            aria-label={label}
-            title={label}
-            onClick={(event) => {
-              if ((create || isProfile) && !user) {
-                event.preventDefault();
-                openAuthGate({
-                  title: isProfile ? "Your SHS Student Pass" : "Drop a Campus Gist!",
-                  speech: isProfile
-                    ? "Create your secret student pass in 30 seconds to see your profile and campus gists!"
-                    : "Grab your undercover @nickname in 30 seconds to post gists, photos and confessions!",
-                  outfit: isProfile ? "detective" : "shs_welcome",
-                  returnTo: to,
-                });
-              }
-            }}
-            className="group relative flex size-12 items-center justify-center rounded-full outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
-          >
-            {({ isActive }) => (
+        {navigation.map(({ label, to, icon: Icon, end, create, profile: isProfile }) => {
+          const isActive = end || to === "/"
+            ? pathname === to
+            : pathname === to || pathname.startsWith(`${to}/`);
+          return (
+            <NextLink
+              key={to}
+              href={to}
+              aria-label={label}
+              title={label}
+              onClick={(event) => {
+                if ((create || isProfile) && !user) {
+                  event.preventDefault();
+                  openAuthGate({
+                    title: isProfile ? "Your SHS Student Pass" : "Drop a Campus Gist!",
+                    speech: isProfile
+                      ? "Create your secret student pass in 30 seconds to see your profile and campus gists!"
+                      : "Grab your undercover @nickname in 30 seconds to post gists, photos and confessions!",
+                    outfit: isProfile ? "detective" : "shs_welcome",
+                    returnTo: to,
+                  });
+                }
+              }}
+              aria-current={isActive ? "page" : undefined}
+              className="group relative flex size-12 items-center justify-center rounded-full outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+            >
               <motion.span
                 whileHover={{ y: -2, boxShadow: create ? "0px 5px 0px #5B21B6" : "0px 4px 0px var(--border-color)" }}
                 whileTap={{ y: 2, scale: 0.94, boxShadow: create ? "0px 1px 0px #5B21B6" : "0px 1px 0px var(--border-color)" }}
@@ -86,9 +100,9 @@ export function BottomNav({ spotlight = false, hidden = false }: { spotlight?: b
                   <Icon size={22} strokeWidth={isActive || create ? 2.65 : 2.3} aria-hidden />
                 )}
               </motion.span>
-            )}
-          </NavLink>
-        ))}
+            </NextLink>
+          );
+        })}
       </div>
     </nav>
   );

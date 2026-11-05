@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
-import { Suspense } from "react";
 import "@fontsource-variable/nunito";
 import "@/app/globals.css";
 import { AppProviders } from "@/components/AppProviders";
@@ -60,9 +59,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             } catch (_) {}`,
           }}
         />
-        <Suspense fallback={null}>
-          <AppProviders>{children}</AppProviders>
-        </Suspense>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

@@ -1,7 +1,7 @@
 'use client';
 
 import { Search, Sparkles } from "lucide-react";
-import { Link } from "@/lib/router";
+import NextLink from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -11,17 +11,17 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
  * Sticky brand bar. Mobile keeps only the search trigger (per Step 9 polish);
  * the signed-in avatar now lives exclusively in the navigation shell.
  */
-export function Header({ hidden = false }: { hidden?: boolean }) {
+export function Header({ hidden = false, fullscreen = false }: { hidden?: boolean; fullscreen?: boolean }) {
   const { user } = useAuth();
 
   return (
     <header
-      className={`sticky top-0 z-50 border-b border-line/60 bg-white/80 px-3 py-2.5 backdrop-blur-md transition-transform duration-300 ease-in-out dark:border-neutral-800/50 dark:bg-neutral-950/80 sm:px-4 md:py-3 ${hidden ? "-translate-y-full md:translate-y-0" : "translate-y-0"}`}
+      className={`${fullscreen ? "hidden" : "sticky"} top-0 z-50 border-b border-line/60 bg-white/80 px-3 py-2.5 backdrop-blur-md transition-transform duration-300 ease-in-out dark:border-neutral-800/50 dark:bg-neutral-950/80 sm:px-4 md:py-3 ${hidden && !fullscreen ? "-translate-y-full md:translate-y-0" : "translate-y-0"}`}
       style={{ paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}
     >
       <div className="mx-auto flex w-full max-w-[1320px] items-center gap-3 md:gap-6">
-        <Link
-          to="/"
+        <NextLink
+          href="/"
           className="flex min-w-0 shrink-0 items-center gap-2 rounded-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:gap-2.5"
           aria-label="Gist me home"
         >
@@ -32,27 +32,27 @@ export function Header({ hidden = false }: { hidden?: boolean }) {
           <span className="hidden rounded-lg bg-brand-wash px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-brand-deep min-[380px]:inline">
             SHS
           </span>
-        </Link>
+        </NextLink>
 
         {/* Desktop search field */}
-        <Link
-          to="/explore"
+        <NextLink
+          href="/explore"
           aria-label="Search gists and schools"
           className="ml-auto hidden h-10 min-w-0 max-w-[430px] flex-1 items-center gap-2.5 rounded-2xl border-2 border-line bg-page px-3.5 text-sm font-semibold text-ink-muted transition-colors hover:border-brand hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:flex md:ml-0"
         >
           <Search size={17} strokeWidth={2.5} aria-hidden />
           <span className="truncate">Search gists, students, schools…</span>
-        </Link>
+        </NextLink>
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2 md:ml-auto">
           {/* Mobile: only the search icon trigger */}
-          <Link
-            to="/explore"
+          <NextLink
+            href="/explore"
             aria-label="Search gists, students and schools"
             className="flex size-11 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:hidden"
           >
             <Search size={19} strokeWidth={2.5} aria-hidden />
-          </Link>
+          </NextLink>
 
           <NotificationBell />
 
@@ -61,13 +61,13 @@ export function Header({ hidden = false }: { hidden?: boolean }) {
           </div>
 
           {!user && (
-            <Link
-              to="/auth?mode=signup"
+            <NextLink
+              href="/auth?mode=signup"
               className="hidden h-11 items-center gap-1.5 rounded-2xl bg-[#8B5CF6] px-3.5 text-xs font-extrabold uppercase tracking-wider text-white shadow-[0_3px_0_#5B21B6] transition-transform hover:bg-[#7C3AED] active:translate-y-0.5 sm:inline-flex"
             >
               <Sparkles size={14} strokeWidth={2.7} aria-hidden />
               <span>Get Started</span>
-            </Link>
+            </NextLink>
           )}
         </div>
       </div>

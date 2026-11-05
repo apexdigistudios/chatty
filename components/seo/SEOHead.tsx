@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from "react";
-import { useLocation } from "@/lib/router";
+import { usePathname } from "next/navigation";
 import { SEO_KEYWORDS_CONTENT } from "@/constants/seoKeywords";
 
 export interface SEOHeadProps {
@@ -105,7 +105,7 @@ export function SEOHead({
   keywords,
   noIndex,
 }: SEOHeadProps = {}) {
-  const { pathname } = useLocation();
+  const pathname = usePathname();
 
   useEffect(() => {
     const sharedConfession = pathname !== "/confessions/create" && /^\/confessions\/[^/]+$/.test(pathname);
