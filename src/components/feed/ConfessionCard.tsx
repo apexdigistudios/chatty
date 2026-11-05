@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { EyeOff, ImagePlus, Lock, MessageCircle, MoreHorizontal, Share2, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { describeError } from "../../lib/supabase";
@@ -15,7 +16,6 @@ import { ReportMenu } from "./ReportMenu";
 import { AnimatedReaction } from "../common/AnimatedReaction";
 import { Avatar } from "../ui/Avatar";
 import { SafeImage } from "../common/SafeImage";
-import { UniversalShareModal } from "../share/UniversalShareModal";
 import { isNativeSharePreferred, sharePreviewUrl } from "../../lib/shareLinks";
 
 interface ReactionMeta {
@@ -50,6 +50,7 @@ interface ConfessionCardProps {
 /** Anonymous confession card — reads from the public view, never exposes the author. */
 export function ConfessionCard({ confession, pending = false }: ConfessionCardProps) {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
   const toggleReaction = useGistStore((state) => state.toggleReaction);
@@ -58,7 +59,6 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
     confession.schoolId ? state.schools.find((item) => item.id === confession.schoolId) : undefined
   );
   const [menuOpen, setMenuOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
 
   const requireAuth = () => {
     if (user) return true;
@@ -97,7 +97,13 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
         console.error("Could not open the native share sheet.", error);
       }
     }
-    setShareOpen(true);
+    try {
+      await navigator.clipboard.writeText(url);
+      toast("Confession link copied.", "success");
+    } catch (error) {
+      toast("Could not copy the confession link.", "danger");
+      console.error("Could not copy confession link.", error);
+    }
   };
 
   const status = pending ? confession.moderationStatus : "approved";
@@ -240,18 +246,15 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
           <Share2 size={16} strokeWidth={2.4} aria-hidden />
           <span>Share</span>
         </button>
-        <button
+        {!pending && <button
           type="button"
-          onClick={() => setShareOpen(true)}
+          onClick={() => navigate(`/confessions/${encodeURIComponent(confession.id)}/card`)}
           className="flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold text-ink-muted transition-colors hover:bg-page hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm"
         >
           <ImagePlus size={16} strokeWidth={2.4} aria-hidden />
           <span>Make card</span>
-        </button>
-        <span className={cn("ml-auto flex items-center gap-1.5 pr-1 text-[10px] font-bold uppercase tracking-wider", pending ? "text-warning-deep" : "text-ink-muted")}>
-          <ShieldCheck size={12} strokeWidth={2.5} aria-hidden />
-          {pending ? status : "Reviewed by admins"}
-        </span>
+        </button>}
+        {pending && <span className="ml-auto flex items-center gap-1.5 pr-1 text-[10px] font-bold uppercase tracking-wider text-warning-deep"><ShieldCheck size={12} strokeWidth={2.5} aria-hidden />{status}</span>}
       </div>
 
       <ReportMenu
@@ -262,19 +265,6 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
         schoolId={null}
         requireAuth={requireAuth}
       />
-      {shareOpen && (
-        <UniversalShareModal
-          data={{
-            kind: "confession",
-            content: confession.content,
-            url: sharePreviewUrl("confession", confession.id),
-            schoolName: school?.name ?? "Gist me",
-            schoolCrestUrl: school?.crestUrl,
-            title: "Anonymous confession on Gist me",
-          }}
-          onClose={() => setShareOpen(false)}
-        />
-      )}
     </article>
   );
 }

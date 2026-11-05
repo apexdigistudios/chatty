@@ -1,8 +1,12 @@
 {
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
+  "functions": {
+    "api/share.ts": {
+      "includeFiles": "dist/index.html"
     }
+  },
+  "rewrites": [
+    { "source": "/posts/:id", "destination": "/api/share?kind=post&id=:id" },
+    { "source": "/confessions/:id", "destination": "/api/share?kind=confession&id=:id" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

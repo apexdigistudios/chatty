@@ -43,7 +43,6 @@ import { SpotlightModal } from "../spotlight/SpotlightModal";
 import { ReportModal } from "./ReportModal";
 import { ProfileHoverCard } from "../profile/ProfileHoverCard";
 import { AnimatedReaction } from "../common/AnimatedReaction";
-import { UniversalShareModal } from "../share/UniversalShareModal";
 import { isNativeSharePreferred, sharePreviewUrl } from "../../lib/shareLinks";
 
 function renderHashtags(content: string) {
@@ -93,7 +92,6 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
   const [saved, setSaved] = useState(() => isPostSaved(post.id));
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
   const [textExpanded, setTextExpanded] = useState(false);
   const [textOverflows, setTextOverflows] = useState(false);
   const [seededLikeCount, setSeededLikeCount] = useState(post.likeCount);
@@ -196,7 +194,14 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
         console.error("Could not open the native share sheet.", error);
       }
     }
-    setShareOpen(true);
+    try {
+      await navigator.clipboard.writeText(url);
+      toast("Gist link copied.", "success");
+      void recordPostShare(post.id).catch((error: unknown) => console.error("Could not record this gist share.", error));
+    } catch (error) {
+      toast("Could not copy the gist link.", "danger");
+      console.error("Could not copy gist link.", error);
+    }
   };
 
   const quickSave = () => {
@@ -541,21 +546,6 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
 
       {spotlightOpen && <SpotlightModal post={post} onClose={() => setSpotlightOpen(false)} />}
       {reportOpen && <ReportModal post={post} onClose={() => setReportOpen(false)} />}
-      {shareOpen && (
-        <UniversalShareModal
-          data={{
-            kind: "post",
-            content: post.content,
-            url: sharePreviewUrl("post", post.id),
-            schoolName: post.schoolName || post.schoolShort,
-            schoolCrestUrl: post.schoolCrest,
-            title: `Gist from ${post.schoolShort}`,
-            onShared: () => void recordPostShare(post.id).catch((error: unknown) => console.error("Could not record this gist share.", error)),
-          }}
-          onClose={() => setShareOpen(false)}
-        />
-      )}
-
       {imageMedia.length > 0 && (
         <ImageLightbox images={imageMedia} index={lightboxIndex} onClose={() => setLightboxIndex(null)} />
       )}

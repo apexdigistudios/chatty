@@ -19,6 +19,7 @@ import { AdminDashboard } from "./pages/AdminDashboard";
 import { AuthWizardPage } from "./pages/AuthWizardPage";
 import { ConfessionsPage } from "./pages/ConfessionsPage";
 import { ConfessionComposerPage } from "./pages/ConfessionComposerPage";
+import { ConfessionShareCardPage } from "./pages/ConfessionShareCardPage";
 import { CreatePage } from "./pages/CreatePage";
 import { ExplorePage } from "./pages/ExplorePage";
 import { HomePage } from "./pages/HomePage";
@@ -55,6 +56,7 @@ function AnimatedRoutes() {
           <Route path="/trending" element={<HomePage />} />
           <Route path="/spotlight" element={<SpotlightPage />} />
           <Route path="/posts/:id" element={<SharedContentPage kind="post" />} />
+          <Route path="/confessions/:id/card" element={<ConfessionShareCardPage />} />
           <Route path="/confessions/:id" element={<SharedContentPage kind="confession" />} />
           <Route path="/login" element={<AuthWizardPage />} />
           <Route path="/register" element={<AuthWizardPage />} />

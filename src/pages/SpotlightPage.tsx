@@ -14,7 +14,6 @@ import { useToast } from "../components/ui/Toast";
 import { Avatar } from "../components/ui/Avatar";
 import { rotateBySeed } from "../lib/feedRotation";
 import { isNativeSharePreferred, sharePreviewUrl } from "../lib/shareLinks";
-import { UniversalShareModal, type ShareCardData } from "../components/share/UniversalShareModal";
 
 type SpotlightItem =
   | { kind: "post"; key: string; videoUrl: string; post: Post }
@@ -36,7 +35,6 @@ export function SpotlightPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [shareData, setShareData] = useState<ShareCardData | null>(null);
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
@@ -88,50 +86,44 @@ export function SpotlightPage() {
 
   const share = async (post: Post) => {
     const url = sharePreviewUrl("post", post.id);
-    const school = schools.find((item) => item.id === post.schoolId);
-    const data: ShareCardData = {
-      kind: "post",
-      content: post.content,
-      url,
-      schoolName: school?.name ?? post.schoolName,
-      schoolCrestUrl: school?.crestUrl ?? post.schoolCrest,
-      title: `Gist from ${post.schoolShort}`,
-      onShared: () => void recordPostShare(post.id).catch((cause: unknown) => console.error("Could not record this gist share.", cause)),
-    };
     if (isNativeSharePreferred()) {
       try {
         await navigator.share({ title: "Spotlight on Gist me", text: post.content.slice(0, 120), url });
-        data.onShared?.();
+        void recordPostShare(post.id).catch((cause: unknown) => console.error("Could not record this gist share.", cause));
         return;
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
         console.error("Could not open the native share sheet.", cause);
       }
     }
-    setShareData(data);
+    try {
+      await navigator.clipboard.writeText(url);
+      toast("Gist link copied.", "success");
+      void recordPostShare(post.id).catch((cause: unknown) => console.error("Could not record this gist share.", cause));
+    } catch (cause) {
+      toast("Could not copy the gist link.", "danger");
+      console.error("Could not copy gist link.", cause);
+    }
   };
 
   const shareConfession = async (confession: Confession) => {
     const url = sharePreviewUrl("confession", confession.id);
-    const school = schools.find((item) => item.id === confession.schoolId);
-    const data: ShareCardData = {
-      kind: "confession",
-      content: confession.content,
-      url,
-      schoolName: school?.name ?? "Gist me",
-      schoolCrestUrl: school?.crestUrl,
-      title: "Anonymous confession on Gist me",
-    };
     if (isNativeSharePreferred()) {
       try {
-        await navigator.share({ title: data.title, text: "Click to read and reply anonymously.", url });
+        await navigator.share({ title: "Anonymous confession on Gist me", text: "Click to read and reply anonymously.", url });
         return;
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
         console.error("Could not open the native share sheet.", cause);
       }
     }
-    setShareData(data);
+    try {
+      await navigator.clipboard.writeText(url);
+      toast("Confession link copied.", "success");
+    } catch (cause) {
+      toast("Could not copy the confession link.", "danger");
+      console.error("Could not copy confession link.", cause);
+    }
   };
 
   const scrollSlide = (direction: -1 | 1) => {
@@ -268,7 +260,6 @@ export function SpotlightPage() {
           </div>
         </div>
       )}
-      {shareData && <UniversalShareModal data={shareData} onClose={() => setShareData(null)} />}
     </div>
   );
 }
