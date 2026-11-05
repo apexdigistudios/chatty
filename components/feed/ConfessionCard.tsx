@@ -18,7 +18,7 @@ import { ReportMenu } from "@/components/feed/ReportMenu";
 import { AnimatedReaction } from "@/components/common/AnimatedReaction";
 import { Avatar } from "@/components/ui/Avatar";
 import { SafeImage } from "@/components/common/SafeImage";
-import { isNativeSharePreferred, sharePreviewUrl } from "@/lib/shareLinks";
+import { copyShareLink, shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLinks";
 
 interface ReactionMeta {
   kind: ReactionKind;
@@ -86,22 +86,14 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
 
   const share = async () => {
     const url = sharePreviewUrl("confession", confession.id);
-    if (isNativeSharePreferred()) {
-      try {
-        await navigator.share({
-          title: "Anonymous confession on Gist me",
-          text: "Click to read and reply anonymously.",
-          url,
-        });
-        return;
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        console.error("Could not open the native share sheet.", error);
-      }
-    }
     try {
-      await navigator.clipboard.writeText(url);
-      toast("Confession link copied.", "success");
+      const result = await shareOrCopyLink({
+        title: "Anonymous confession on Gist me",
+        text: "Click to read and reply anonymously.",
+        url,
+      });
+      if (result === "cancelled") return;
+      if (result === "copied") toast("Confession link copied.", "success");
     } catch (error) {
       toast("Could not copy the confession link.", "danger");
       console.error("Could not copy confession link.", error);

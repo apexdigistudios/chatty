@@ -45,7 +45,7 @@ import { SpotlightModal } from "@/components/spotlight/SpotlightModal";
 import { ReportModal } from "@/components/feed/ReportModal";
 import { ProfileHoverCard } from "@/components/profile/ProfileHoverCard";
 import { AnimatedReaction } from "@/components/common/AnimatedReaction";
-import { isNativeSharePreferred, sharePreviewUrl } from "@/lib/shareLinks";
+import { shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLinks";
 
 function renderHashtags(content: string) {
   const parts: Array<{ value: string; tag: string | null }> = [];
@@ -184,21 +184,14 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
 
   const share = async () => {
     const url = sharePreviewUrl("post", post.id);
-    if (isNativeSharePreferred()) {
-      try {
-        await navigator.share({ title: "Gist on Gist me", text: post.content.slice(0, 120), url });
-        void recordPostShare(post.id).catch((error: unknown) => {
-          console.error("Could not record this gist share.", error);
-        });
-        return;
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        console.error("Could not open the native share sheet.", error);
-      }
-    }
     try {
-      await navigator.clipboard.writeText(url);
-      toast("Gist link copied.", "success");
+      const result = await shareOrCopyLink({
+        title: "Gist on Gist me",
+        text: post.content.slice(0, 120),
+        url,
+      });
+      if (result === "cancelled") return;
+      if (result === "copied") toast("Gist link copied.", "success");
       void recordPostShare(post.id).catch((error: unknown) => console.error("Could not record this gist share.", error));
     } catch (error) {
       toast("Could not copy the gist link.", "danger");

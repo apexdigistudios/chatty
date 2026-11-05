@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, Copy, Download, MessageCircle, Share2 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
+import { copyShareLink } from "@/lib/shareLinks";
 
 type CardTheme = "pink" | "purple" | "midnight" | "school";
 
@@ -128,7 +129,16 @@ async function createCardImage(data: ConfessionShareCardData, themeId: CardTheme
     lineHeight = fontSize * 1.3;
     if (lines.length * lineHeight <= textHeight) break;
   }
-  context.fillStyle = "#18181b";
+    const maxLines = Math.floor(textHeight / lineHeight);
+    if (lines.length > maxLines) {
+      lines = lines.slice(0, maxLines);
+      let lastLine = lines[maxLines - 1] ?? "";
+      while (lastLine && context.measureText(`${lastLine}…`).width > 790) {
+        lastLine = Array.from(lastLine).slice(0, -1).join("");
+      }
+      lines[maxLines - 1] = `${lastLine.trimEnd()}…`;
+    }
+    context.fillStyle = "#18181b";
   context.font = `700 ${fontSize}px Arial, sans-serif`;
   context.textBaseline = "top";
   const textBlockHeight = lines.length * lineHeight;
@@ -189,7 +199,7 @@ export function ConfessionShareCard({
 
   const copyLink = async () => {
     try {
-      await navigator.clipboard.writeText(data.url);
+      await copyShareLink(data.url);
       toast("Confession link copied.", "success");
     } catch (error) {
       toast("Could not copy the confession link.", "danger");
@@ -224,8 +234,12 @@ export function ConfessionShareCard({
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
-      toast("Could not open the share sheet.", "danger");
       console.error("Could not share confession card.", error);
+      try {
+        await copyLink();
+      } catch {
+        toast("Could not open the share sheet or copy the confession link.", "danger");
+      }
     }
   };
 
@@ -250,7 +264,7 @@ export function ConfessionShareCard({
               ? <img src={data.schoolCrestUrl} alt="" className="mt-4 size-12 shrink-0 rounded-full border border-zinc-200 object-cover" crossOrigin="anonymous" />
               : <span className="mt-4 flex size-12 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-black text-violet-800">{data.schoolName.slice(0, 3).toUpperCase()}</span>}
             <p className="mt-2 max-w-full shrink-0 truncate text-[10px] font-bold text-zinc-500">{data.schoolName}</p>
-            <p style={{ fontSize: `clamp(0.75rem, ${previewFontSize}px, 1rem)` }} className="mt-4 min-h-0 w-full flex-1 overflow-hidden whitespace-pre-wrap wrap-break-word font-extrabold leading-snug">“{cardText}”</p>
+            <p style={{ fontSize: `clamp(0.75rem, ${previewFontSize}px, 1rem)`, display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 16 }} className="mt-4 min-h-0 w-full flex-1 overflow-hidden whitespace-pre-wrap wrap-break-word font-extrabold leading-snug">“{cardText}”</p>
             <p className="mt-2 shrink-0 pt-3 text-xs font-black text-violet-800">Gist me</p>
             <p className="mt-1 shrink-0 text-[9px] font-semibold text-zinc-500">Send an anonymous confession</p>
           </div>

@@ -21,7 +21,7 @@ import { useAuth } from "@/context/AuthContext";
 import { downloadMedia } from "@/lib/download";
 import { isPostSaved, toggleSavedPost } from "@/lib/savedPosts";
 import { describeError } from "@/lib/supabase";
-import { sharePreviewUrl } from "@/lib/shareLinks";
+import { copyShareLink, sharePreviewUrl } from "@/lib/shareLinks";
 import { recordPostShare } from "@/services/followsService";
 import { permanentlyDeletePost, seedPostEngagement } from "@/services/postsService";
 import { springs } from "@/theme/tokens";
@@ -112,9 +112,7 @@ export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onSh
 
   const copyLink = async () => {
     try {
-      await navigator.clipboard.writeText(
-        sharePreviewUrl("post", post.id)
-      );
+      await copyShareLink(sharePreviewUrl("post", post.id));
       toast("Link copied to clipboard.", "info");
       void recordPostShare(post.id).catch((error: unknown) => {
         console.error("Could not record this gist share.", error);

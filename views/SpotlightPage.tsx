@@ -15,7 +15,7 @@ import type { Confession, Post } from "@/types/models";
 import { useToast } from "@/components/ui/Toast";
 import { Avatar } from "@/components/ui/Avatar";
 import { rotateBySeed } from "@/lib/feedRotation";
-import { isNativeSharePreferred, sharePreviewUrl } from "@/lib/shareLinks";
+import { shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLinks";
 
 type SpotlightItem =
   | { kind: "post"; key: string; videoUrl: string; post: Post }
@@ -88,19 +88,14 @@ export function SpotlightPage() {
 
   const share = async (post: Post) => {
     const url = sharePreviewUrl("post", post.id);
-    if (isNativeSharePreferred()) {
-      try {
-        await navigator.share({ title: "Spotlight on Gist me", text: post.content.slice(0, 120), url });
-        void recordPostShare(post.id).catch((cause: unknown) => console.error("Could not record this gist share.", cause));
-        return;
-      } catch (cause) {
-        if (cause instanceof DOMException && cause.name === "AbortError") return;
-        console.error("Could not open the native share sheet.", cause);
-      }
-    }
     try {
-      await navigator.clipboard.writeText(url);
-      toast("Gist link copied.", "success");
+      const result = await shareOrCopyLink({
+        title: "Spotlight on Gist me",
+        text: post.content.slice(0, 120),
+        url,
+      });
+      if (result === "cancelled") return;
+      if (result === "copied") toast("Gist link copied.", "success");
       void recordPostShare(post.id).catch((cause: unknown) => console.error("Could not record this gist share.", cause));
     } catch (cause) {
       toast("Could not copy the gist link.", "danger");
@@ -110,18 +105,14 @@ export function SpotlightPage() {
 
   const shareConfession = async (confession: Confession) => {
     const url = sharePreviewUrl("confession", confession.id);
-    if (isNativeSharePreferred()) {
-      try {
-        await navigator.share({ title: "Anonymous confession on Gist me", text: "Click to read and reply anonymously.", url });
-        return;
-      } catch (cause) {
-        if (cause instanceof DOMException && cause.name === "AbortError") return;
-        console.error("Could not open the native share sheet.", cause);
-      }
-    }
     try {
-      await navigator.clipboard.writeText(url);
-      toast("Confession link copied.", "success");
+      const result = await shareOrCopyLink({
+        title: "Anonymous confession on Gist me",
+        text: "Click to read and reply anonymously.",
+        url,
+      });
+      if (result === "cancelled") return;
+      if (result === "copied") toast("Confession link copied.", "success");
     } catch (cause) {
       toast("Could not copy the confession link.", "danger");
       console.error("Could not copy confession link.", cause);
