@@ -21,7 +21,7 @@ import {
 } from "@/lib/imageCompression";
 import { describeError } from "@/lib/supabase";
 import { isUserGlobalAdmin } from "@/lib/adminAccess";
-import { checkUsernameAvailable, updateMyProfile, uploadMyAvatar, uploadMyCover } from "@/services/profilesService";
+import { checkUsernameAvailable, updateMyProfile, uploadMyAvatar } from "@/services/profilesService";
 import { fetchFeed, fetchLikedPosts } from "@/services/postsService";
 import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
@@ -80,10 +80,8 @@ export function ProfilePage() {
   const [draftAvatar, setDraftAvatar] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
-  const [coverUploading, setCoverUploading] = useState(false);
   const [openGuideline, setOpenGuideline] = useState<string | null>("community");
   const avatarRef = useRef<HTMLInputElement>(null);
-  const coverRef = useRef<HTMLInputElement>(null);
 
   const mySchool = useMemo(() => schools.find((school) => school.id === profile?.schoolId) ?? null, [schools, profile?.schoolId]);
   const activeVerification = hasActiveVerification({
@@ -93,6 +91,12 @@ export function ProfilePage() {
     role: profile?.role,
   });
   const websiteHref = profile?.website ? safeExternalUrl(profile.website) : null;
+  const verifiedLabel = activeVerification
+    ? profile?.verifiedTitle || (isGlobalAdminProfile({
+      isAdmin: profile?.isAdmin || isGlobalAdmin,
+      role: profile?.role,
+    }) ? "Global Admin" : null)
+    : null;
   const profileTabs = activeVerification ? TABS : TABS.filter(({ id }) => id !== "Brand Deals");
 
   // Guests are never forcefully redirected; we render an inviting Student Pass gate below.
@@ -212,23 +216,6 @@ export function ProfilePage() {
     }
   };
 
-  const pickCover = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-
-    setCoverUploading(true);
-    try {
-      const updated = await uploadMyCover(file);
-      setProfile(updated);
-      toast("Cover photo updated.", "success");
-    } catch (error) {
-      toast(describeError(error, "Upload failed. Please check your file size and format."), "danger");
-    } finally {
-      setCoverUploading(false);
-    }
-  };
-
   const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!/^[A-Za-z0-9_]{3,24}$/.test(draftUsername.replace(/^@/, ""))) {
@@ -272,7 +259,7 @@ export function ProfilePage() {
 
   if (authLoading || (user && !profile)) {
     return (
-      <div className="profile-light mx-auto w-full max-w-[740px] min-w-0 px-4 pt-6 sm:px-6">
+      <div className="mx-auto w-full max-w-[740px] min-w-0 px-4 pt-6 sm:px-6">
         <div className="h-56 animate-pulse rounded-3xl border-2 border-line bg-card motion-reduce:animate-none" />
       </div>
     );
@@ -280,7 +267,7 @@ export function ProfilePage() {
 
   if (!user || !profile) {
     return (
-      <div className="profile-light mx-auto w-full max-w-[740px] min-w-0 space-y-4 px-4 pb-10 pt-5 sm:px-6 sm:pt-7">
+      <div className="mx-auto w-full max-w-[740px] min-w-0 space-y-4 px-4 pb-10 pt-5 sm:px-6 sm:pt-7">
         <Card className="overflow-hidden">
           <div className="relative h-20 bg-linear-to-r from-[#8B5CF6] via-[#6D28D9] to-[#0F0F11]">
             <span className="absolute right-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white">
@@ -400,118 +387,97 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="profile-light mx-auto w-full max-w-[740px] min-w-0 px-4 pb-10 pt-5 sm:px-6 sm:pt-7 lg:px-5 xl:px-7">
+    <div className="mx-auto w-full max-w-[740px] min-w-0 px-4 pb-10 pt-5 sm:px-6 sm:pt-7 lg:px-5 xl:px-7">
       <Card className="relative overflow-hidden rounded-3xl">
-        <div className="relative h-36 w-full bg-linear-to-br from-[#8B5CF6] via-[#6D28D9] to-[#0F0F11] sm:h-48 md:h-60">
-          <div className="absolute inset-0 overflow-hidden">
-            {profile.coverUrl && (
-              <SafeImage
-                src={profile.coverUrl}
-                alt=""
-                className="absolute inset-0 size-full object-cover"
-                decoding="async"
-              />
-            )}
-            <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent to-black/20" aria-hidden />
-          </div>
-          <span className="absolute right-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white">SHS Student Pass</span>
-          <button
-            type="button"
-            onClick={() => editing && avatarRef.current?.click()}
-            aria-label={editing ? "Upload new avatar" : "Profile avatar"}
-            className="absolute bottom-0 left-4 z-20 block translate-y-1/2 rounded-full border-4 border-white shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:left-6"
-          >
-            <Avatar name={profile.username} src={editing ? draftAvatar : profile.avatarUrl} size="3xl" online />
-            {editing && (
-              <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/55 text-white">
-                <Camera size={22} strokeWidth={2.5} aria-hidden />
-              </span>
-            )}
-          </button>
-          {user && profile.id === user.id && (
-            <>
-              <input
-                ref={coverRef}
-                type="file"
-                accept="image/*"
-                onChange={pickCover}
-                className="sr-only"
-                aria-label="Upload cover photo"
-              />
+        <CardBody className="px-4 pb-6 pt-5 sm:px-6 sm:pt-6">
+          <input ref={avatarRef} type="file" accept="image/*" onChange={pickAvatar} className="sr-only" aria-label="Upload avatar" />
+          <div className="flex min-w-0 items-center gap-4 sm:gap-8">
+            <button
+              type="button"
+              onClick={() => editing && avatarRef.current?.click()}
+              aria-label={editing ? "Upload new avatar" : "Profile avatar"}
+              className="relative shrink-0 rounded-full border-4 border-white shadow-md outline-1 outline-line focus-visible:outline-4 focus-visible:outline-violet-300"
+            >
+              <Avatar name={profile.username} src={editing ? draftAvatar : profile.avatarUrl} size="3xl" online />
+              {editing && (
+                <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/55 text-white">
+                  <Camera size={22} strokeWidth={2.5} aria-hidden />
+                </span>
+              )}
+            </button>
+            <div className="grid min-w-0 flex-1 grid-cols-3 divide-x divide-line text-center">
+              <div className="px-1 sm:px-3">
+                <p className="text-lg font-black tabular-nums text-ink sm:text-xl">{myPosts.length}</p>
+                <p className="text-[9px] font-extrabold uppercase tracking-wide text-ink-muted sm:text-[10px]">Posts</p>
+              </div>
               <button
                 type="button"
-                onClick={() => coverRef.current?.click()}
-                disabled={coverUploading}
-                aria-label={coverUploading ? "Uploading cover photo" : "Change cover photo"}
-                className="absolute bottom-3 right-3 z-20 inline-flex size-10 items-center justify-center rounded-full bg-black/60 p-2 text-white backdrop-blur-md transition-colors hover:bg-black/80 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/50 disabled:cursor-wait disabled:opacity-70"
+                onClick={() => setFollowList("followers")}
+                aria-label={`${followSummary.followerCount} followers`}
+                className="rounded-lg px-1 text-ink transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:px-3"
               >
-                {coverUploading ? (
-                  <Loader2 size={19} className="animate-spin" aria-hidden />
-                ) : (
-                  <Camera size={19} strokeWidth={2.5} aria-hidden />
-                )}
+                <p className="text-lg font-black tabular-nums text-ink sm:text-xl">{followSummary.followerCount}</p>
+                <p className="text-[9px] font-extrabold uppercase tracking-wide text-ink-muted sm:text-[10px]">Followers</p>
               </button>
-            </>
-          )}
-        </div>
-        <CardBody className="px-4 pb-6 pt-16 sm:px-6 sm:pt-18">
-          <input ref={avatarRef} type="file" accept="image/*" onChange={pickAvatar} className="sr-only" aria-label="Upload avatar" />
-          <ProfileHeader
-            username={profile.username}
-            fullName={profile.fullName ?? null}
-            isVerified={profile.isVerified}
-            verifiedExpiresAt={profile.verifiedExpiresAt}
-            verifiedTitle={profile.verifiedTitle}
-            isAdmin={profile.isAdmin || isGlobalAdmin}
-            role={profile.role}
-            websiteHref={websiteHref}
-            website={profile.website}
-            schoolBadge={
-              mySchool ? (
-                <button
-                  type="button"
-                  onClick={() => setSettingsOpen(true)}
-                  className="inline-flex max-w-full items-center gap-2 rounded-full border-2 border-line bg-page py-1 pl-1.5 pr-3.5 text-left hover:border-brand"
-                >
-                  <SchoolBadge schoolId={mySchool.id} crestUrl={mySchool.crestUrl} name={mySchool.name} size="sm" ring />
-                  <span className="min-w-0">
-                    <span className="block truncate text-xs font-extrabold text-ink">{mySchool.name}</span>
-                    <span className="block truncate text-[10px] font-semibold text-ink-muted">{mySchool.shortName} · {mySchool.region}</span>
-                  </span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setSettingsOpen(true)}
-                  className="rounded-full border-2 border-dashed border-line px-3 py-1.5 text-xs font-extrabold text-brand-deep hover:border-brand"
-                >
-                  Choose your SHS
-                </button>
-              )
-            }
-            bio={editing ? draftBio : profile.bio}
-            gistCount={myPosts.length}
-            followerCount={followSummary.followerCount}
-            followingCount={followSummary.followingCount}
-            onFollowersClick={() => setFollowList("followers")}
-            onFollowingClick={() => setFollowList("following")}
-            onEdit={openEditor}
-            onSettings={() => setSettingsOpen(true)}
-            onShoutouts={() => navigate("/shoutouts")}
-          />
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setFollowList("following")}
+                aria-label={`${followSummary.followingCount} following`}
+                className="rounded-lg px-1 text-ink transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:px-3"
+              >
+                <p className="text-lg font-black tabular-nums text-ink sm:text-xl">{followSummary.followingCount}</p>
+                <p className="text-[9px] font-extrabold uppercase tracking-wide text-ink-muted sm:text-[10px]">Following</p>
+              </button>
+            </div>
+          </div>
+          <div className="mt-4">
+            <ProfileHeader
+              username={profile.username}
+              fullName={profile.fullName ?? null}
+              isVerified={profile.isVerified}
+              verifiedExpiresAt={profile.verifiedExpiresAt}
+              verifiedTitle={profile.verifiedTitle}
+              isAdmin={profile.isAdmin || isGlobalAdmin}
+              role={profile.role}
+              websiteHref={websiteHref}
+              website={profile.website}
+              verifiedLabel={verifiedLabel}
+              schoolBadge={
+                mySchool ? (
+                  <button
+                    type="button"
+                    onClick={() => setSettingsOpen(true)}
+                    className="inline-flex max-w-full items-center gap-2 rounded-full border-2 border-line bg-page py-1 pl-1.5 pr-3.5 text-left hover:border-brand"
+                  >
+                    <SchoolBadge schoolId={mySchool.id} crestUrl={mySchool.crestUrl} name={mySchool.name} size="sm" ring />
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-extrabold text-ink">{mySchool.name}</span>
+                      <span className="block truncate text-[10px] font-semibold text-ink-muted">{mySchool.shortName} · {mySchool.region}</span>
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setSettingsOpen(true)}
+                    className="rounded-full border-2 border-dashed border-line px-3 py-1.5 text-xs font-extrabold text-brand-deep hover:border-brand"
+                  >
+                    Choose your SHS
+                  </button>
+                )
+              }
+              bio={editing ? draftBio : profile.bio}
+              onEdit={openEditor}
+              onSettings={() => setSettingsOpen(true)}
+              onShoutouts={() => navigate("/shoutouts")}
+            />
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <Badge tone="success" className="px-2.5 py-0.5 text-[10px]">Online</Badge>
             {profile.classForm && <Badge tone="brand" className="px-2.5 py-0.5 text-[10px]">{profile.classForm}</Badge>}
           </div>
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             {activeVerification ? (
               <>
-                <span className="text-[10px] font-black text-ink-muted">
-                  {profile.verifiedTitle || (isGlobalAdminProfile({
-                    isAdmin: profile.isAdmin || isGlobalAdmin,
-                    role: profile.role,
-                  }) ? "Global Admin" : "Verified")}
-                </span>
                 {profile.verifiedExpiresAt && !isGlobalAdminProfile({
                   isAdmin: profile.isAdmin || isGlobalAdmin,
                   role: profile.role,

@@ -1,8 +1,9 @@
 'use client';
 
 import type { ReactNode } from "react";
-import { Pencil, Settings, Users } from "lucide-react";
+import { Pencil, Settings } from "lucide-react";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
+import { Badge } from "@/components/ui/Badge";
 
 interface ProfileHeaderProps {
   username: string;
@@ -14,13 +15,9 @@ interface ProfileHeaderProps {
   role?: string | null;
   websiteHref?: string | null;
   website?: string | null;
+  verifiedLabel?: string | null;
   schoolBadge: ReactNode;
   bio: string;
-  gistCount: number;
-  followerCount: number;
-  followingCount: number;
-  onFollowersClick: () => void;
-  onFollowingClick: () => void;
   onEdit: () => void;
   onSettings: () => void;
   onShoutouts: () => void;
@@ -36,21 +33,18 @@ export function ProfileHeader({
   role,
   websiteHref,
   website,
+  verifiedLabel,
   schoolBadge,
   bio,
-  gistCount,
-  followerCount,
-  followingCount,
-  onFollowersClick,
-  onFollowingClick,
   onEdit,
   onSettings,
   onShoutouts,
 }: ProfileHeaderProps) {
   return (
-    <div className="flex min-w-0 flex-col items-center px-1 text-center sm:px-2">
-      <h1 className="mt-2 flex max-w-full items-center justify-center gap-1.5 truncate text-2xl font-black tracking-tight text-ink sm:text-[28px]">
-        <span className="truncate">{fullName || `@${username}`}</span>
+    <div className="flex min-w-0 flex-col items-start text-left">
+      {fullName && <h1 className="max-w-full truncate text-xl font-black tracking-tight text-ink sm:text-2xl">{fullName}</h1>}
+      <p className="mt-1 flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 text-sm font-bold text-ink-muted">
+        <span className="truncate">@{username}</span>
         <VerifiedBadge
           isVerified={isVerified}
           verifiedExpiresAt={verifiedExpiresAt}
@@ -58,10 +52,13 @@ export function ProfileHeader({
           isAdmin={isAdmin}
           role={role}
         />
-      </h1>
-      {fullName && <p className="mt-1 max-w-full truncate text-sm font-bold text-ink-muted">@{username}</p>}
-      <div className="mt-3 max-w-full">{schoolBadge}</div>
-      <p className="mt-3 max-w-xl text-sm font-semibold leading-relaxed text-ink-soft sm:text-[15px]">
+        {verifiedLabel && (
+          <Badge tone="warning" className="rounded-full px-2.5 py-1 text-[10px]">
+            {verifiedLabel}
+          </Badge>
+        )}
+      </p>
+      <p className="mt-3 max-w-xl whitespace-pre-wrap text-sm font-semibold leading-relaxed text-ink-soft sm:text-[15px]">
         {bio || "No bio yet — tell your campus who you are."}
       </p>
       {websiteHref && website && (
@@ -74,12 +71,13 @@ export function ProfileHeader({
           {website}
         </a>
       )}
+      <div className="mt-3 max-w-full">{schoolBadge}</div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+      <div className="mt-4 grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem] gap-2 sm:flex sm:flex-wrap">
         <button
           type="button"
           onClick={onEdit}
-          className="inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-line bg-card px-4 text-xs font-extrabold text-ink transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border-2 border-line bg-card px-4 text-xs font-extrabold text-ink transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
         >
           <Pencil size={14} strokeWidth={2.6} aria-hidden />
           Edit Profile
@@ -87,7 +85,7 @@ export function ProfileHeader({
         <button
           type="button"
           onClick={onShoutouts}
-          className="inline-flex min-h-11 items-center rounded-xl border-2 border-line bg-card px-4 text-xs font-extrabold text-ink transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl border-2 border-line bg-card px-4 text-xs font-extrabold text-ink transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
         >
           Shoutouts
         </button>
@@ -102,34 +100,6 @@ export function ProfileHeader({
         </button>
       </div>
 
-      <div className="mt-5 grid w-full max-w-md grid-cols-3 divide-x divide-line border-y border-line py-3">
-        <div className="px-2">
-          <p className="text-lg font-black tabular-nums text-ink">{gistCount}</p>
-          <p className="text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Gists</p>
-        </div>
-        <button
-          type="button"
-          onClick={onFollowersClick}
-          className="rounded-lg px-2 transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-          aria-label={`${followerCount} followers`}
-        >
-          <p className="text-lg font-black tabular-nums text-ink">{followerCount}</p>
-          <p className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">
-            <Users size={11} aria-hidden /> Followers
-          </p>
-        </button>
-        <button
-          type="button"
-          onClick={onFollowingClick}
-          className="rounded-lg px-2 transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-          aria-label={`${followingCount} following`}
-        >
-          <p className="text-lg font-black tabular-nums text-ink">{followingCount}</p>
-          <p className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">
-            <Users size={11} aria-hidden /> Following
-          </p>
-        </button>
-      </div>
     </div>
   );
 }
