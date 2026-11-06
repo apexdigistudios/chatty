@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "
 import { useNavigate } from "@/lib/router";
 import {
   AlertTriangle,
-  Eye,
   Check,
   ChevronDown,
   FileImage,
@@ -46,10 +45,8 @@ import { isVideoFile, uploadPostMedia } from "@/services/storageService";
 import {
   addSeedConfessionComments,
   addSeedConfessionLikes,
-  addSeedConfessionViews,
   addSeedPostComments,
   addSeedPostLikes,
-  addSeedPostViews,
   addSeedProfileFollowers,
 } from "@/services/postsService";
 import { useGistStore } from "@/store/gistStore";
@@ -210,7 +207,7 @@ export function AdminDashboard() {
     }
   };
 
-  const boostEngagement = async (item: SeedEngagementItem, metric: "likes" | "comments" | "views", increment: number) => {
+  const boostEngagement = async (item: SeedEngagementItem, metric: "likes" | "comments", increment: number) => {
     if (!Number.isSafeInteger(increment) || increment < 1 || increment > 100000) {
       toast("Enter a whole number between 1 and 100000.", "danger");
       return;
@@ -220,14 +217,10 @@ export function AdminDashboard() {
       const next = item.kind === "post"
         ? metric === "likes"
           ? await addSeedPostLikes(item.id, increment)
-          : metric === "comments"
-            ? await addSeedPostComments(item.id, increment)
-            : await addSeedPostViews(item.id, increment)
+          : await addSeedPostComments(item.id, increment)
         : metric === "likes"
           ? await addSeedConfessionLikes(item.id, increment)
-          : metric === "comments"
-            ? await addSeedConfessionComments(item.id, increment)
-            : await addSeedConfessionViews(item.id, increment);
+          : await addSeedConfessionComments(item.id, increment);
       setEngagementItems((current) => current.map((entry) =>
         entry.id !== item.id || entry.kind !== item.kind
           ? entry
@@ -235,7 +228,6 @@ export function AdminDashboard() {
               ...entry,
               ...(metric === "likes" ? { likesCount: next } : {}),
               ...(metric === "comments" ? { commentsCount: next } : {}),
-              ...(metric === "views" ? { viewsCount: next } : {}),
             }
       ));
       toast(`Added ${increment} seed ${metric} to @${item.username}'s ${item.kind}.`, "success");
@@ -704,7 +696,7 @@ export function AdminDashboard() {
           <div className="flex flex-wrap items-center gap-2">
             <div className="mr-auto">
               <h2 className="text-sm font-extrabold text-ink">Seed engagement manager</h2>
-              <p className="mt-1 text-[11px] font-semibold text-ink-muted">Add aggregate likes, comments, and views to seeded posts and confessions.</p>
+              <p className="mt-1 text-[11px] font-semibold text-ink-muted">Add aggregate likes and comments to seeded posts and confessions.</p>
             </div>
             <label htmlFor="seed-engagement-increment" className="sr-only">Custom engagement increment</label>
             <input
@@ -726,7 +718,7 @@ export function AdminDashboard() {
               <CardBody className="space-y-3 py-3">
                 <div className="flex items-start gap-3">
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-wash text-brand-deep">
-                    {item.kind === "confession" ? <Eye size={16} aria-hidden /> : <FileImage size={16} aria-hidden />}
+                    <FileImage size={16} aria-hidden />
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 text-[10px] font-extrabold text-ink">
@@ -740,12 +732,10 @@ export function AdminDashboard() {
                 <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-ink-muted">
                   <span className="inline-flex items-center gap-1"><Heart size={12} aria-hidden /> {formatCompactNumber(item.likesCount)}</span>
                   <span className="inline-flex items-center gap-1"><MessageCircle size={12} aria-hidden /> {formatCompactNumber(item.commentsCount)}</span>
-                  <span className="inline-flex items-center gap-1"><Eye size={12} aria-hidden /> {formatCompactNumber(item.viewsCount)}</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="outline" disabled={busy} onClick={() => void boostEngagement(item, "likes", 10)}>+10 Seed Likes</Button>
                   <Button size="sm" variant="outline" disabled={busy} onClick={() => void boostEngagement(item, "likes", 50)}>+50 Seed Likes</Button>
-                  <Button size="sm" variant="outline" disabled={busy} onClick={() => void boostEngagement(item, "views", 100)}>+100 Seed Views</Button>
                   <Button size="sm" variant="outline" disabled={busy} onClick={() => void boostEngagement(item, "comments", 1)}>+1 Seed Comment</Button>
                   <Button size="sm" variant="outline" disabled={busy} onClick={() => void boostEngagement(item, "likes", Number(engagementIncrement))}>Add custom likes</Button>
                 </div>

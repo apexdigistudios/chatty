@@ -188,7 +188,6 @@ export function PostMediaViewer({
                 <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold text-ink-muted">
                   <span>{formatCompactNumber(post.likeCount)} likes</span>
                   <span>{formatCompactNumber(post.commentCount)} comments</span>
-                  {post.viewCount !== undefined && <span>{formatCompactNumber(post.viewCount)} views</span>}
                 </div>
               </div>
 

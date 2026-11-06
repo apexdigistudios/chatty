@@ -92,7 +92,25 @@ export function VideoPostPlayer({ src, durationSeconds, edgeToEdge = false, onOp
     setMuted(video.muted);
   };
 
+  const openFullScreen = () => {
+    window.dispatchEvent(new Event("gistme:pause-feed-videos"));
+    if (onOpenFullScreen) onOpenFullScreen();
+    else setLightboxOpen(true);
+  };
+
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+
+  useEffect(() => {
+    const pauseFeedVideo = () => {
+      const video = videoRef.current;
+      if (!video) return;
+      video.pause();
+      video.muted = true;
+      setMuted(true);
+    };
+    window.addEventListener("gistme:pause-feed-videos", pauseFeedVideo);
+    return () => window.removeEventListener("gistme:pause-feed-videos", pauseFeedVideo);
+  }, []);
 
   return (
     <>
@@ -165,7 +183,7 @@ export function VideoPostPlayer({ src, durationSeconds, edgeToEdge = false, onOp
           </span>
           <button
             type="button"
-            onClick={() => onOpenFullScreen ? onOpenFullScreen() : setLightboxOpen(true)}
+            onClick={openFullScreen}
             aria-label="Open video full screen"
             className="ml-auto flex size-11 shrink-0 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur"
           >

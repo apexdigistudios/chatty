@@ -7,7 +7,6 @@ import {
   Bookmark,
   BookmarkCheck,
   Clock3,
-  Eye,
   Heart,
   MessageCircle,
   MoreHorizontal,
@@ -27,7 +26,7 @@ import { cachePublicMedia } from "@/lib/offlineCache";
 import { describeError } from "@/lib/supabase";
 import { timeAgo } from "@/lib/time";
 import { recordPostShare } from "@/services/followsService";
-import { addSeedPostComments, addSeedPostLikes, addSeedPostViews } from "@/services/postsService";
+import { addSeedPostComments, addSeedPostLikes } from "@/services/postsService";
 import { useAuthGateStore } from "@/store/authGateStore";
 import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
@@ -98,7 +97,6 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
   const [reportOpen, setReportOpen] = useState(false);
   const [textExpanded, setTextExpanded] = useState(false);
   const [textOverflows, setTextOverflows] = useState(false);
-  const [seededViewCount, setSeededViewCount] = useState(post.viewCount ?? 0);
   const [localLikedByMe, setLocalLikedByMe] = useState(post.likedByMe);
   const [localLikeCount, setLocalLikeCount] = useState(post.likeCount);
   const [localCommentCount, setLocalCommentCount] = useState(post.commentCount);
@@ -114,8 +112,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
     setLocalLikedByMe(post.likedByMe);
     setLocalLikeCount(post.likeCount);
     setLocalCommentCount(post.commentCount);
-    setSeededViewCount(post.viewCount ?? 0);
-  }, [post.id, post.likedByMe, post.likeCount, post.commentCount, post.viewCount]);
+  }, [post.id, post.likedByMe, post.likeCount, post.commentCount]);
 
   useEffect(() => {
     if (!commentsLoading && cachedComments) setLocalCommentCount(cachedComments.length);
@@ -253,7 +250,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
     useGistStore.getState().patchPost(post.id, updatedCounts);
   };
 
-  const boostFromCard = async (metric: "likes" | "comments" | "views", increment: number) => {
+  const boostFromCard = async (metric: "likes" | "comments", increment: number) => {
     if (!Number.isSafeInteger(increment) || increment < 1 || increment > 100000) {
       toast("Enter a whole number between 1 and 100000.", "danger");
       return;
@@ -262,19 +259,13 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
     try {
       const count = metric === "likes"
         ? await addSeedPostLikes(post.id, increment)
-        : metric === "comments"
-          ? await addSeedPostComments(post.id, increment)
-          : await addSeedPostViews(post.id, increment);
+        : await addSeedPostComments(post.id, increment);
       if (metric === "likes") {
         const nextLikeCount = Math.max(displayLikeCount + increment, post.likeCount, count);
         setLocalLikeCount(nextLikeCount);
         useGistStore.getState().patchPost(post.id, { likeCount: nextLikeCount });
       }
       if (metric === "comments") handleSeeded({ commentsCount: Math.max(post.commentCount, count) });
-      if (metric === "views") {
-        setSeededViewCount(count);
-        useGistStore.getState().patchPost(post.id, { viewCount: count });
-      }
       toast(`Added ${increment} seed ${metric}.`, "success");
     } catch (error) {
       toast(describeError(error, `Could not add seed ${metric}.`), "danger");
@@ -398,14 +389,12 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           <div className="grid grid-cols-2 gap-2">
             <button type="button" disabled={adminBusy} onClick={() => void boostFromCard("likes", 10)} className="flex min-h-10 items-center justify-center gap-1 rounded-xl border border-line px-2 text-[10px] font-extrabold text-ink hover:border-brand disabled:opacity-50"><Heart size={12} aria-hidden /> +10 likes</button>
             <button type="button" disabled={adminBusy} onClick={() => void boostFromCard("likes", 50)} className="flex min-h-10 items-center justify-center gap-1 rounded-xl border border-line px-2 text-[10px] font-extrabold text-ink hover:border-brand disabled:opacity-50"><Heart size={12} aria-hidden /> +50 likes</button>
-            <button type="button" disabled={adminBusy} onClick={() => void boostFromCard("views", 100)} className="flex min-h-10 items-center justify-center gap-1 rounded-xl border border-line px-2 text-[10px] font-extrabold text-ink hover:border-brand disabled:opacity-50"><Eye size={12} aria-hidden /> +100 views</button>
             <button type="button" disabled={adminBusy} onClick={() => void boostFromCard("comments", 1)} className="flex min-h-10 items-center justify-center gap-1 rounded-xl border border-line px-2 text-[10px] font-extrabold text-ink hover:border-brand disabled:opacity-50"><MessageCircle size={12} aria-hidden /> +1 comment</button>
           </div>
           <div className="mt-2 flex gap-2">
             <input type="number" min={1} max={100000} value={adminIncrement} onChange={(event) => setAdminIncrement(event.target.value)} aria-label="Custom seed likes increment" className="h-10 min-w-0 flex-1 rounded-xl border border-line bg-page px-2 text-xs font-bold text-ink outline-none focus:border-brand" />
             <button type="button" disabled={adminBusy} onClick={() => void boostFromCard("likes", Number(adminIncrement))} className="flex min-h-10 items-center gap-1 rounded-xl bg-brand px-3 text-[10px] font-black text-white disabled:opacity-50"><Plus size={13} aria-hidden /> Add likes</button>
           </div>
-          <p className="mt-2 flex items-center gap-1 text-[9px] font-semibold text-ink-muted"><Eye size={11} aria-hidden /> Seed views: {formatCompactNumber(seededViewCount)}</p>
         </div>
       )}
 

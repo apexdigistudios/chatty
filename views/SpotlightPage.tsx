@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode, type UIEvent } from "react";
-import { ArrowDown, ArrowLeft, ArrowUp, Copy, Download, Heart, MessageCircle, MoreHorizontal, RefreshCw, Share2, Volume2, VolumeX, X, Zap } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode, type UIEvent } from "react";
+import { ArrowDown, ArrowLeft, ArrowUp, Copy, Download, Heart, MessageCircle, MoreHorizontal, RefreshCw, Share2, Volume2, VolumeX, Zap } from "lucide-react";
 import { Link } from "@/lib/router";
 import { useAuth } from "@/context/AuthContext";
 import { describeError } from "@/lib/supabase";
@@ -25,10 +25,6 @@ type SpotlightItem =
   | { kind: "post"; key: string; videoUrl: string; post: Post }
   | { kind: "confession"; key: string; videoUrl: string; confession: Confession };
 
-function extractTags(text: string): string[] {
-  return [...new Set([...text.matchAll(/#([A-Za-z0-9_]{1,50})/g)].map((match) => match[1]!.toLowerCase()))];
-}
-
 export function SpotlightPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -44,7 +40,10 @@ export function SpotlightPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [shareSheetItem, setShareSheetItem] = useState<SpotlightItem | null>(null);
+  const [sharePopover, setSharePopover] = useState<{
+    item: SpotlightItem;
+    anchor: { top: number; right: number };
+  } | null>(null);
   const [downloadingVideo, setDownloadingVideo] = useState(false);
 
   const load = useCallback(async (refresh = false) => {
@@ -129,11 +128,11 @@ export function SpotlightPage() {
   };
 
   const downloadVideo = async () => {
-    if (!shareSheetItem || downloadingVideo) return;
+    if (!sharePopover || downloadingVideo) return;
     setDownloadingVideo(true);
     try {
-      const id = shareSheetItem.kind === "post" ? shareSheetItem.post.id : shareSheetItem.confession.id;
-      await downloadSpotlightVideo(shareSheetItem.videoUrl, `gistme-spotlight-${id.slice(0, 8)}`);
+      const id = sharePopover.item.kind === "post" ? sharePopover.item.post.id : sharePopover.item.confession.id;
+      await downloadSpotlightVideo(sharePopover.item.videoUrl, `gistme-spotlight-${id.slice(0, 8)}`);
       toast("Spotlight video downloaded.", "success");
     } catch (cause) {
       toast(describeError(cause, "Could not download this video."), "danger");
@@ -266,7 +265,13 @@ export function SpotlightPage() {
                 onShareConfession={() => {
                   if (item.kind === "confession") void shareConfession(item.confession);
                 }}
-                onMore={() => setShareSheetItem(item)}
+                onMore={(event) => {
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  const top = rect.bottom + 220 < window.innerHeight
+                    ? rect.bottom + 8
+                    : Math.max(8, rect.top - 220);
+                  setSharePopover({ item, anchor: { top, right: window.innerWidth - rect.right } });
+                }}
                 onConfessionReaction={async () => {
                   if (item.kind !== "confession") return;
                   if (!user) {
@@ -307,11 +312,12 @@ export function SpotlightPage() {
           </div>
         </div>
       )}
-      {shareSheetItem && (
-        <SpotlightShareSheet
-          item={shareSheetItem}
+      {sharePopover && (
+        <SpotlightSharePopover
+          item={sharePopover.item}
+          anchor={sharePopover.anchor}
           downloading={downloadingVideo}
-          onClose={() => setShareSheetItem(null)}
+          onClose={() => setSharePopover(null)}
           onDownload={() => void downloadVideo()}
           onCopied={() => toast("Spotlight link copied.", "success")}
           onCopyError={() => toast("Could not copy the Spotlight link.", "danger")}
@@ -321,8 +327,9 @@ export function SpotlightPage() {
   );
 }
 
-function SpotlightShareSheet({
+function SpotlightSharePopover({
   item,
+  anchor,
   downloading,
   onClose,
   onDownload,
@@ -330,12 +337,14 @@ function SpotlightShareSheet({
   onCopyError,
 }: {
   item: SpotlightItem;
+  anchor: { top: number; right: number };
   downloading: boolean;
   onClose: () => void;
   onDownload: () => void;
   onCopied: () => void;
   onCopyError: () => void;
 }) {
+  const popoverRef = useRef<HTMLElement>(null);
   const id = item.kind === "post" ? item.post.id : item.confession.id;
   const content = item.kind === "post" ? item.post.content : item.confession.content;
   const kind = item.kind === "post" ? "post" : "confession";
@@ -348,8 +357,20 @@ function SpotlightShareSheet({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!(event.target instanceof Node) || !popoverRef.current?.contains(event.target)) onClose();
+    };
+    const handleScroll = () => onClose();
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", handleScroll);
+    document.addEventListener("scroll", handleScroll, true);
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", handleScroll);
+      document.removeEventListener("scroll", handleScroll, true);
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
   }, [onClose]);
 
   const copyLink = async () => {
@@ -363,30 +384,71 @@ function SpotlightShareSheet({
   };
 
   return (
-    <div className="fixed inset-0 z-110 flex items-end justify-center bg-black/65 p-3 backdrop-blur-sm sm:items-center" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
-    }}>
-      <section role="dialog" aria-modal="true" aria-labelledby="spotlight-share-title" className="w-full max-w-md rounded-3xl border border-white/15 bg-neutral-900 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white shadow-2xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 id="spotlight-share-title" className="text-base font-black">Share Spotlight</h2>
-          <button type="button" onClick={onClose} aria-label="Close share options" className="flex size-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/15">
-            <X size={19} aria-hidden />
-          </button>
-        </div>
-        <div className="mb-4 grid grid-cols-4 gap-2 text-center">
-          <a href={`https://wa.me/?text=${encodedText}%20${encodedUrl}`} target="_blank" rel="noopener noreferrer" className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl bg-white/5 text-[10px] font-bold hover:bg-white/10">WhatsApp</a>
-          <a href={`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`} target="_blank" rel="noopener noreferrer" className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl bg-white/5 text-[10px] font-bold hover:bg-white/10">X</a>
-          <a href={`https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`} target="_blank" rel="noopener noreferrer" className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl bg-white/5 text-[10px] font-bold hover:bg-white/10">Telegram</a>
-          <button type="button" onClick={() => void copyLink()} className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl bg-white/5 text-[10px] font-bold hover:bg-white/10">
-            <Copy size={17} aria-hidden /> Copy link
-          </button>
-        </div>
-        <button type="button" onClick={onDownload} disabled={downloading} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-white px-4 text-sm font-black text-neutral-950 transition hover:bg-white/85 disabled:opacity-60">
-          <Download size={18} aria-hidden />
-          {downloading ? "Preparing video…" : "Download Video"}
+    <section
+      ref={popoverRef}
+      role="menu"
+      aria-label="Spotlight sharing options"
+      className="fixed z-110 w-[min(17rem,calc(100vw-1rem))] rounded-2xl border border-white/15 bg-neutral-900 p-2.5 text-white shadow-2xl"
+      style={{
+        top: anchor.top,
+        right: Math.max(8, Math.min(anchor.right, window.innerWidth - 280)),
+      }}
+    >
+      <div className="mb-2 flex items-center justify-between px-1">
+        <h2 className="text-xs font-black">Share Spotlight</h2>
+        <button type="button" onClick={onClose} aria-label="Close share options" className="flex size-8 items-center justify-center rounded-full bg-white/10 hover:bg-white/15">
+          <span className="text-lg leading-none" aria-hidden>×</span>
         </button>
-      </section>
-    </div>
+      </div>
+      <div className="grid grid-cols-4 gap-1 text-center">
+        <a role="menuitem" href={`https://wa.me/?text=${encodedText}%20${encodedUrl}`} target="_blank" rel="noopener noreferrer" className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-bold hover:bg-white/10">
+          <WhatsAppLogo />
+          WhatsApp
+        </a>
+        <a role="menuitem" href={`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`} target="_blank" rel="noopener noreferrer" className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-bold hover:bg-white/10">
+          <XLogo />
+          X
+        </a>
+        <a role="menuitem" href={`https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`} target="_blank" rel="noopener noreferrer" className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-bold hover:bg-white/10">
+          <TelegramLogo />
+          Telegram
+        </a>
+        <button role="menuitem" type="button" onClick={() => void copyLink()} className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-bold hover:bg-white/10">
+          <Copy size={18} aria-hidden /> Copy link
+        </button>
+      </div>
+      <button type="button" onClick={onDownload} disabled={downloading} className="mt-2 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-white px-3 text-xs font-black text-neutral-950 transition hover:bg-white/85 disabled:opacity-60">
+        <Download size={16} aria-hidden />
+        {downloading ? "Preparing video…" : "Download Video"}
+      </button>
+    </section>
+  );
+}
+
+function WhatsAppLogo() {
+  return (
+    <svg viewBox="0 0 32 32" className="size-6" aria-hidden="true">
+      <circle cx="16" cy="16" r="15" fill="#25D366" />
+      <path d="M9.3 23.2 10.4 19a8.3 8.3 0 1 1 3.3 3.1l-4.4 1.1Z" fill="none" stroke="white" strokeWidth="1.7" strokeLinejoin="round" />
+      <path d="M13.1 11.6c-.4-.8-.8-.8-1.1-.8-.3 0-.7 0-1 .4-.4.4-1.3 1.3-1.3 3.1s1.3 3.5 1.5 3.7c.2.3 2.5 3.9 6.1 5.3 3 .1 3.6-1.2 4-2 .4-.8.4-1.5.3-1.7-.1-.2-.3-.3-.7-.5l-2.4-1.2c-.3-.1-.6-.2-.8.2-.3.4-.9 1.2-1.1 1.4-.2.2-.4.3-.8.1-.4-.2-1.6-.6-3-1.9-1.1-1-1.8-2.2-2-2.6-.2-.4 0-.6.2-.8.2-.2.4-.5.6-.7.2-.2.2-.4.3-.6.1-.2 0-.4-.1-.6l-.7-1.8Z" fill="white" transform="translate(2 0) scale(.8)" />
+    </svg>
+  );
+}
+
+function XLogo() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-5 fill-current" aria-hidden="true">
+      <path d="M18.9 1.2h3.7l-8.1 9.3L24 22.8h-7.4l-5.8-7.6-6.7 7.6H.4l8.7-9.9L0 1.2h7.6l5.2 6.9 6.1-6.9Zm-1.3 19.5h2L6.5 3.2H4.4l13.2 17.5Z" />
+    </svg>
+  );
+}
+
+function TelegramLogo() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-6" aria-hidden="true">
+      <circle cx="12" cy="12" r="12" fill="#229ED9" />
+      <path d="m5 11.4 12.9-5c.6-.2 1.1.2.9.9l-2.2 10.2c-.1.7-.6.8-1.1.5l-3.4-2.5-1.7 1.7c-.2.2-.4.4-.8.4l.2-3.5 6.4-5.8c.3-.3-.1-.4-.4-.2l-7.9 4.9-3.4-1.1c-.7-.2-.7-.7.5-1.1Z" fill="white" />
+    </svg>
   );
 }
 
@@ -415,12 +477,13 @@ function SpotlightSlide({
   onShare: () => void;
   onShareConfession: () => void;
   onConfessionReaction: () => void;
-  onMore: () => void;
+  onMore: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [muted, setMuted] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [audioBlocked, setAudioBlocked] = useState(false);
+  const [captionExpanded, setCaptionExpanded] = useState(false);
   const confession = item.kind === "confession" ? item.confession : null;
   const post = item.kind === "post" ? item.post : null;
   const caption = post?.content ?? confession?.content ?? "";
@@ -428,7 +491,7 @@ function SpotlightSlide({
     ? post.authorFullName || `@${post.authorName}`
     : confession?.seedFullName || (confession?.seedUsername ? `@${confession.seedUsername}` : "Anonymous");
   const username = post?.authorName ?? confession?.seedUsername ?? null;
-  const tags = extractTags(caption);
+  const hasLongCaption = caption.length > 90;
 
   useEffect(() => {
     const video = videoRef.current;
@@ -532,12 +595,21 @@ function SpotlightSlide({
           {confession && <span className="text-[11px] font-bold text-white/75">· Anonymous confession</span>}
         </div>
         <p className="text-[11px] font-semibold text-white/75">{schoolName} · {timeAgo(post?.createdAt ?? confession?.publishedAt ?? confession?.createdAt ?? "")}</p>
-        {caption && <p className="line-clamp-3 whitespace-pre-wrap text-sm font-semibold leading-relaxed drop-shadow">{renderCaption(caption)}</p>}
-        {tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {tags.slice(0, 4).map((tag) => (
-              <Link key={tag} to={`/explore?tag=${encodeURIComponent(tag)}`} className="rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-extrabold text-white backdrop-blur">#{tag}</Link>
-            ))}
+        {caption && (
+          <div>
+            <p className={`${captionExpanded ? "" : "line-clamp-3"} whitespace-pre-wrap text-sm font-semibold leading-relaxed drop-shadow`}>
+              {renderCaption(caption)}
+            </p>
+            {hasLongCaption && (
+              <button
+                type="button"
+                aria-expanded={captionExpanded}
+                onClick={() => setCaptionExpanded((expanded) => !expanded)}
+                className="mt-1 text-xs font-extrabold text-white underline underline-offset-2"
+              >
+                {captionExpanded ? "See less" : "See more"}
+              </button>
+            )}
           </div>
         )}
         <p className="flex items-center gap-1.5 text-[10px] font-bold text-white/75">
@@ -613,7 +685,7 @@ function ActionButton({
   detail,
 }: {
   label: string;
-  onClick: () => void;
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
   active?: boolean;
   children: ReactNode;
   detail?: ReactNode;
