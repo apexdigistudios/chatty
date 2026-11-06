@@ -366,10 +366,13 @@ function SpotlightSlide({
       <video
         ref={videoRef}
         src={item.videoUrl}
+        controlsList="nodownload noremoteplayback"
+        disablePictureInPicture
         playsInline
         loop
         muted={muted}
         preload="metadata"
+        onContextMenu={(event) => event.preventDefault()}
         onClick={() => {
           const video = videoRef.current;
           if (!video) return;

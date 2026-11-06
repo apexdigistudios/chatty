@@ -47,7 +47,7 @@ export function BottomNav({
       aria-hidden={fullscreen}
       className={`${fullscreen ? "hidden" : "fixed"} inset-x-0 bottom-0 z-40 w-full items-center justify-center px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] transition-transform duration-300 ease-in-out md:hidden ${
         spotlight
-          ? "border-0 bg-transparent shadow-none backdrop-blur-none"
+          ? "border-t border-white/10 bg-black shadow-[0_-8px_24px_rgba(0,0,0,0.35)] backdrop-blur-none"
           : "border-t border-zinc-200/60 bg-white/65 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur-lg dark:border-white/10 dark:bg-black/40 dark:shadow-[0_-8px_24px_rgba(0,0,0,0.2)]"
       } ${fullscreen ? "" : "flex"} ${hidden && !fullscreen ? "translate-y-full" : "translate-y-0"}`}
     >

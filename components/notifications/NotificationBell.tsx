@@ -10,7 +10,7 @@ import { springs } from "@/theme/tokens";
  * Persistent header bell with a reactive Signature Purple unread badge.
  * Rings whenever a realtime INSERT lands.
  */
-export function NotificationBell() {
+export function NotificationBell({ spotlight = false }: { spotlight?: boolean }) {
   const openDrawer = useNotificationStore((state) => state.openDrawer);
   const items = useNotificationStore((state) => state.items);
   const livePulse = useNotificationStore((state) => state.livePulse);
@@ -39,7 +39,11 @@ export function NotificationBell() {
       transition={springs.snappy}
       aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
       aria-haspopup="dialog"
-      className="relative flex size-11 shrink-0 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+      className={`relative flex size-11 shrink-0 items-center justify-center rounded-2xl border-2 transition-colors focus-visible:outline-none focus-visible:ring-4 ${
+        spotlight
+          ? "border-white/15 bg-white/10 text-white hover:border-white/30 hover:bg-white/15 hover:text-white focus-visible:ring-white/25"
+          : "border-line bg-card text-ink hover:border-brand hover:text-brand-deep focus-visible:ring-brand-soft"
+      }`}
     >
       <Bell size={19} strokeWidth={2.5} aria-hidden />
 
@@ -58,7 +62,7 @@ export function NotificationBell() {
           initial={{ scale: 0.4, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={springs.bouncy}
-          className="absolute -right-1.5 -top-1.5 flex h-[19px] min-w-[19px] items-center justify-center rounded-full border-2 border-card bg-[#8B5CF6] px-1 text-[10px] font-black leading-none text-white shadow-[0_2px_0_#5B21B6]"
+          className={`absolute -right-1.5 -top-1.5 flex h-[19px] min-w-[19px] items-center justify-center rounded-full border-2 px-1 text-[10px] font-black leading-none text-white shadow-[0_2px_0_#5B21B6] ${spotlight ? "border-black" : "border-card"} bg-[#8B5CF6]`}
         >
           {unread > 99 ? "99+" : unread}
         </motion.span>
@@ -67,7 +71,7 @@ export function NotificationBell() {
       {/* Live sync indicator */}
       {syncing && (
         <span
-          className="absolute -bottom-0.5 -right-0.5 size-2 rounded-full bg-success ring-2 ring-card"
+          className={`absolute -bottom-0.5 -right-0.5 size-2 rounded-full bg-success ring-2 ${spotlight ? "ring-black" : "ring-card"}`}
           aria-hidden
         />
       )}

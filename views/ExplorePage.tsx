@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card, CardBody } from "@/components/ui/Card";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { ProgressiveImage } from "@/components/ui/ProgressiveImage";
+import { DownloadImageButton } from "@/components/feed/DownloadImageButton";
 import { SchoolBadge } from "@/components/ui/SchoolBadge";
 import { describeError } from "@/lib/supabase";
 import { timeAgo } from "@/lib/time";
@@ -132,14 +133,23 @@ export function ExplorePage() {
                 {gists.map((post) => (
                   <div key={post.id} className="flex items-start gap-3 px-3.5 py-3.5">
                     {post.mediaUrls[0] ? (
-                      <button type="button" onClick={() => setPreview({ src: post.mediaUrls[0]!, alt: `Photo from ${post.schoolShort}` })} aria-label="View full-screen image" className="shrink-0 cursor-zoom-in overflow-hidden rounded-xl border-2 border-line transition-transform hover:scale-105">
-                        <ProgressiveImage
-                          src={post.mediaUrls[0]}
-                          alt={`Photo from ${post.schoolShort}`}
-                          referrerPolicy="no-referrer"
-                          containerClassName="size-14"
-                        />
-                      </button>
+                      <div className="relative shrink-0">
+                        <button type="button" onClick={() => setPreview({ src: post.mediaUrls[0]!, alt: `Photo from ${post.schoolShort}` })} aria-label="View full-screen image" className="cursor-zoom-in overflow-hidden rounded-xl border-2 border-line transition-transform hover:scale-105">
+                          <ProgressiveImage
+                            src={post.mediaUrls[0]}
+                            alt={`Photo from ${post.schoolShort}`}
+                            referrerPolicy="no-referrer"
+                            containerClassName="size-14"
+                          />
+                        </button>
+                        {(post.mediaTypes?.[0] ?? post.mediaType) !== "video" && (
+                          <DownloadImageButton
+                            src={post.mediaUrls[0]}
+                            filename={`letsgist-${post.schoolShort}-${post.id.slice(0, 6)}`}
+                            className="absolute -right-2 -top-2 size-8"
+                          />
+                        )}
+                      </div>
                     ) : (
                       <span className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-page text-ink-muted"><Hash size={17} strokeWidth={2.4} aria-hidden /></span>
                     )}

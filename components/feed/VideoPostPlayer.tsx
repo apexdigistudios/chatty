@@ -107,10 +107,13 @@ export function VideoPostPlayer({ src, durationSeconds, edgeToEdge = false }: Vi
         <video
           ref={videoRef}
           src={playbackSrc}
+          controlsList="nodownload noremoteplayback"
+          disablePictureInPicture
           playsInline
           loop
           muted={muted}
           preload="metadata"
+          onContextMenu={(event) => event.preventDefault()}
           onClick={togglePlay}
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}

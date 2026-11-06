@@ -34,7 +34,7 @@ export function AppLayout({
 
   return (
     <div className="min-h-dvh overflow-x-clip bg-page text-ink transition-colors duration-200">
-      <Header hidden={headerHidden} />
+      <Header hidden={headerHidden} spotlight={isSpotlight} />
       <div className={`mx-auto grid w-full max-w-[1360px] grid-cols-1 gap-0 overflow-x-clip px-0 sm:px-4 md:gap-5 md:px-5 lg:gap-5 lg:px-6 xl:gap-7 ${fullscreen ? "contents" : columns}`}>
         <div className={`min-w-0 ${fullscreen ? "hidden" : "hidden md:block"}`}>
           <SidebarNav />
@@ -50,7 +50,7 @@ export function AppLayout({
           <TrendingSidebar />
         </div>
       </div>
-      <BottomNav hidden={bottomNavHidden} fullscreen={fullscreen} />
+      <BottomNav hidden={bottomNavHidden} fullscreen={fullscreen} spotlight={isSpotlight} />
     </div>
   );
 }

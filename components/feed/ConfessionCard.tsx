@@ -15,6 +15,7 @@ import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { SchoolTag } from "@/components/ui/SchoolBadge";
 import { useToast } from "@/components/ui/Toast";
 import { ReportMenu } from "@/components/feed/ReportMenu";
+import { DownloadImageButton } from "@/components/feed/DownloadImageButton";
 import { AnimatedReaction } from "@/components/common/AnimatedReaction";
 import { Avatar } from "@/components/ui/Avatar";
 import { SafeImage } from "@/components/common/SafeImage";
@@ -174,11 +175,27 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
         {confession.mediaUrls && confession.mediaUrls.length > 0 && (
           <div className="mt-3 grid grid-cols-2 gap-2">
             {confession.mediaUrls.map((url, index) => (
-              <div key={`${confession.id}-media-${index}`} className="overflow-hidden rounded-2xl border-2 border-line bg-page">
+              <div key={`${confession.id}-media-${index}`} className="relative overflow-hidden rounded-2xl border-2 border-line bg-page">
                 {confession.mediaTypes?.[index] === "video" ? (
-                  <video src={url} controls playsInline preload="metadata" className="aspect-square size-full object-cover" />
+                  <video
+                    src={url}
+                    controls
+                    controlsList="nodownload noremoteplayback"
+                    disablePictureInPicture
+                    playsInline
+                    preload="metadata"
+                    onContextMenu={(event) => event.preventDefault()}
+                    className="aspect-square size-full object-cover"
+                  />
                 ) : (
-                  <SafeImage src={url} alt={`Confession attachment ${index + 1}`} className="aspect-square size-full object-cover" loading="lazy" decoding="async" />
+                  <>
+                    <SafeImage src={url} alt={`Confession attachment ${index + 1}`} className="aspect-square size-full object-cover" loading="lazy" decoding="async" />
+                    <DownloadImageButton
+                      src={url}
+                      filename={`gistme-confession-${confession.id.slice(0, 6)}-${index + 1}`}
+                      className="absolute right-2 top-2"
+                    />
+                  </>
                 )}
               </div>
             ))}

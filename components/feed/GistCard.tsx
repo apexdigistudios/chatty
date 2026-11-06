@@ -41,6 +41,7 @@ import { SchoolTag } from "@/components/ui/SchoolBadge";
 import { VideoPostPlayer } from "@/components/feed/VideoPostPlayer";
 import { useToast } from "@/components/ui/Toast";
 import { PostActionMenu } from "@/components/feed/PostActionMenu";
+import { DownloadImageButton } from "@/components/feed/DownloadImageButton";
 import { SpotlightModal } from "@/components/spotlight/SpotlightModal";
 import { ReportModal } from "@/components/feed/ReportModal";
 import { ProfileHoverCard } from "@/components/profile/ProfileHoverCard";
@@ -435,7 +436,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
                 <VideoPostPlayer src={item.src} durationSeconds={item.duration} edgeToEdge />
               </div>
             ) : (
-              <div key={item.src} className="overflow-hidden rounded-none border-0 bg-page shadow-none">
+              <div key={item.src} className="relative overflow-hidden rounded-none border-0 bg-page shadow-none">
                 <button
                   type="button"
                   onClick={() => setLightboxIndex(imageMedia.indexOf(item))}
@@ -454,6 +455,11 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
                     Full screen
                   </span>
                 </button>
+                <DownloadImageButton
+                  src={item.src}
+                  filename={`letsgist-${post.schoolShort}-${post.id.slice(0, 6)}-${imageMedia.indexOf(item) + 1}`}
+                  className="absolute right-2.5 top-2.5 z-10"
+                />
               </div>
             ))}
           </motion.div>

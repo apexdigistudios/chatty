@@ -373,6 +373,9 @@ export function CreatePage() {
                     loop
                     muted={previewMuted}
                     playsInline
+                    controlsList="nodownload noremoteplayback"
+                    disablePictureInPicture
+                    onContextMenu={(event) => event.preventDefault()}
                     onLoadedMetadata={(event) => { event.currentTarget.playbackRate = previewSpeed; }}
                     className={cn(
                       "size-full object-contain transition-[filter,transform] duration-300",
@@ -499,7 +502,7 @@ export function CreatePage() {
         <>
           <div className="pointer-events-none absolute inset-0 z-0 opacity-35">
             {activeAttachment?.kind === "video" ? (
-              <video src={activeAttachment.previewUrl} autoPlay muted loop playsInline className="size-full object-cover blur-xl" />
+              <video src={activeAttachment.previewUrl} autoPlay muted loop playsInline controlsList="nodownload noremoteplayback" disablePictureInPicture onContextMenu={(event) => event.preventDefault()} className="size-full object-cover blur-xl" />
             ) : activeAttachment ? (
               <img src={activeAttachment.previewUrl} alt="" className="size-full object-cover blur-xl" />
             ) : null}
@@ -522,7 +525,7 @@ export function CreatePage() {
             <div className="flex-1 overflow-y-auto px-4 pb-4 pt-4">
               <div className="flex items-center gap-3">
                 {activeAttachment?.kind === "video" ? (
-                  <video src={activeAttachment.previewUrl} muted playsInline className="size-[72px] shrink-0 rounded-xl bg-black object-cover" />
+                  <video src={activeAttachment.previewUrl} muted playsInline controlsList="nodownload noremoteplayback" disablePictureInPicture onContextMenu={(event) => event.preventDefault()} className="size-[72px] shrink-0 rounded-xl bg-black object-cover" />
                 ) : activeAttachment ? (
                   <img src={activeAttachment.previewUrl} alt="Selected media thumbnail" className="size-[72px] shrink-0 rounded-xl bg-black object-cover" />
                 ) : (

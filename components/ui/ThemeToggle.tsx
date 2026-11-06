@@ -10,12 +10,13 @@ interface ThemeToggleProps {
   /** Show the current preference beside the icon, for settings surfaces. */
   showLabel?: boolean;
   className?: string;
+  spotlight?: boolean;
 }
 
 const modeLabels = { light: "Light", dark: "Dark", system: "System" } as const;
 
 /** Animated light/dark switch; settings mode also cycles through System. */
-export function ThemeToggle({ showLabel = false, className }: ThemeToggleProps) {
+export function ThemeToggle({ showLabel = false, className, spotlight = false }: ThemeToggleProps) {
   const { mode, resolvedTheme, toggleTheme, cycleThemeMode } = useTheme();
   const Icon = mode === "system" ? Monitor : resolvedTheme === "dark" ? Moon : Sun;
   const nextLabel =
@@ -35,8 +36,10 @@ export function ThemeToggle({ showLabel = false, className }: ThemeToggleProps) 
       aria-label={showLabel ? `Theme preference: ${modeLabels[mode]}. Activate to change.` : nextLabel}
       title={showLabel ? `Theme: ${modeLabels[mode]}` : nextLabel}
       className={cn(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border-2 border-line bg-card px-2.5 text-ink",
-        "transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border-2 px-2.5 transition-colors focus-visible:outline-none focus-visible:ring-4",
+        spotlight
+          ? "border-white/15 bg-white/10 text-white hover:border-white/30 hover:bg-white/15 hover:text-white focus-visible:ring-white/25"
+          : "border-line bg-card text-ink hover:border-brand hover:text-brand-deep focus-visible:ring-brand-soft",
         showLabel && "min-h-11 justify-start px-3.5 text-sm font-extrabold",
         className
       )}

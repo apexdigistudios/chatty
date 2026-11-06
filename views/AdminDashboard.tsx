@@ -635,7 +635,15 @@ export function AdminDashboard() {
                         {previews.map(({ file, url }, index) => (
                           <div key={`${file.name}-${index}`} className="relative aspect-square overflow-hidden rounded-xl border-2 border-line bg-page">
                             {isVideoFile(file) ? (
-                              <video src={url} className="size-full object-cover" muted playsInline />
+                              <video
+                                src={url}
+                                controlsList="nodownload noremoteplayback"
+                                disablePictureInPicture
+                                onContextMenu={(event) => event.preventDefault()}
+                                className="size-full object-cover"
+                                muted
+                                playsInline
+                              />
                             ) : (
                               <img src={url} alt={file.name} className="size-full object-cover" />
                             )}

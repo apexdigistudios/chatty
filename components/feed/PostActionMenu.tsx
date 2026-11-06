@@ -6,7 +6,6 @@ import {
   Bookmark,
   BookmarkCheck,
   Check,
-  Download,
   Flag,
   Link2,
   Loader2,
@@ -18,7 +17,6 @@ import {
   Zap,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { downloadMedia } from "@/lib/download";
 import { isPostSaved, toggleSavedPost } from "@/lib/savedPosts";
 import { describeError } from "@/lib/supabase";
 import { copyShareLink, sharePreviewUrl } from "@/lib/shareLinks";
@@ -45,8 +43,9 @@ interface PostActionMenuProps {
 }
 
 /**
- * Post action sheet: Save, Download image, Share and Report are available to
- * everyone (guests included). Delete is rendered only when `canDelete` and
+ * Post action sheet: Save, Share and Report are available to everyone
+ * (guests included). Image downloads are available directly on image media.
+ * Delete is rendered only when `canDelete` and
  * performs a permanent Supabase delete when the author or a moderator confirms.
  */
 export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onShare, onPromote, onReport, onSeeded }: PostActionMenuProps) {
@@ -89,19 +88,6 @@ export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onSh
     const next = toggleSavedPost(post.id);
     setSaved(next);
     toast(next ? "Gist saved to your device." : "Removed from saved gists.", next ? "success" : "brand");
-    onClose();
-  };
-
-  const download = async () => {
-    const src = post.mediaUrls[0];
-    if (!src) return;
-    setBusy(true);
-    const result = await downloadMedia(src, `letsgist-${post.schoolShort}-${post.id.slice(0, 6)}`);
-    setBusy(false);
-    toast(
-      result === "downloaded" ? "Photo downloaded." : "Photo opened — long-press to save.",
-      "info"
-    );
     onClose();
   };
 
@@ -211,13 +197,6 @@ export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onSh
                 >
                   {saved ? "Saved to device" : "Save gist"}
                 </AnimatedReaction>
-
-                {post.mediaUrls.length > 0 && (
-                  <button type="button" onClick={download} disabled={busy} className={itemClass} role="menuitem">
-                    {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Download size={16} className="text-brand-deep" aria-hidden />}
-                    {(post.mediaTypes?.[0] ?? post.mediaType) === "video" ? "Download video" : "Download image"}
-                  </button>
-                )}
 
                 <button type="button" onClick={share} className={itemClass} role="menuitem">
                   <Share2 size={16} className="text-brand-deep" aria-hidden />

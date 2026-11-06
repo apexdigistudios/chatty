@@ -43,9 +43,12 @@ export function VideoAttachmentEditor({ draft, onRemove }: VideoAttachmentEditor
         <video
           ref={setVideoEl}
           src={draft.previewUrl}
+          controlsList="nodownload noremoteplayback"
+          disablePictureInPicture
           playsInline
           muted={muted}
           preload="metadata"
+          onContextMenu={(event) => event.preventDefault()}
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
           onClick={togglePlay}
