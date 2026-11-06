@@ -75,7 +75,7 @@ interface GistState {
   loadMoreFollowingFeed: () => Promise<void>;
   loadTrending: () => Promise<void>;
   createPost: (input: postsService.CreatePostInput) => Promise<Post>;
-  toggleLike: (postId: string) => Promise<void>;
+  toggleLike: (postId: string, fallbackPost?: Post) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
   patchPost: (postId: string, patch: Partial<Post>) => void;
   removePostLocally: (postId: string) => void;
@@ -310,12 +310,12 @@ export const useGistStore = create<GistState>()((set, get) => ({
     return post;
   },
 
-  toggleLike: async (postId) => {
+  toggleLike: async (postId, fallbackPost) => {
     const findPost = (): Post | undefined =>
       get().posts.find((post) => post.id === postId) ??
       get().trendingPosts.find((post) => post.id === postId) ??
       get().trendingFallback.find((post) => post.id === postId);
-    const before = findPost();
+    const before = findPost() ?? fallbackPost;
     if (!before) return;
 
     get().patchPost(postId, {

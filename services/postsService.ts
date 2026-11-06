@@ -891,7 +891,20 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
     }
   }
   const [post] = await hydrateLikes([data]);
-  return post!;
+  if (!post) throw new Error("The gist was created, but its details could not be loaded.");
+  if (media.length === 0) return post;
+  return {
+    ...post,
+    mediaUrls: media.map((item) => item.url),
+    mediaTypes: media.map((item) => item.mediaType),
+    videoDurations: media.map((item, index) =>
+      item.mediaType === "video" ? input.videoDurations?.[index] ?? null : null
+    ),
+    mediaType: media[0]!.mediaType,
+    videoDurationSeconds: media[0]!.mediaType === "video"
+      ? input.videoDurations?.[0] ?? null
+      : null,
+  };
 }
 
 /** Toggles the viewer's like and returns the new liked state. */

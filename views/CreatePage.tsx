@@ -277,6 +277,17 @@ export function CreatePage() {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const moveAttachment = (index: number, offset: -1 | 1) => {
+    const destination = index + offset;
+    if (destination < 0 || destination >= attachments.length) return;
+    setAttachments((current) => {
+      const next = [...current];
+      [next[index], next[destination]] = [next[destination]!, next[index]!];
+      return next;
+    });
+    setPreviewIndex(destination);
+  };
+
   const insertEmoji = (emoji: string) => {
     const textarea = textRef.current;
     const start = textarea?.selectionStart ?? content.length;
@@ -407,10 +418,18 @@ export function CreatePage() {
                 >
                   <X size={17} aria-hidden />
                 </button>
+                <div className="absolute left-4 top-[calc(50%+5rem)] flex gap-2">
+                  <button type="button" onClick={() => moveAttachment(previewIndex, -1)} disabled={previewIndex === 0} aria-label="Move media earlier" className="flex size-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur disabled:opacity-35">
+                    <ArrowLeft size={17} aria-hidden />
+                  </button>
+                  <button type="button" onClick={() => moveAttachment(previewIndex, 1)} disabled={previewIndex >= attachments.length - 1} aria-label="Move media later" className="flex size-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur disabled:opacity-35">
+                    <ArrowRight size={17} aria-hidden />
+                  </button>
+                </div>
                 {attachments.length > 1 && (
-                  <div className="absolute bottom-40 left-1/2 flex -translate-x-1/2 gap-2">
-                    <button type="button" onClick={() => setPreviewIndex((previewIndex + attachments.length - 1) % attachments.length)} aria-label="Previous media" className="flex size-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur"><ChevronLeft size={19} aria-hidden /></button>
-                    <button type="button" onClick={() => setPreviewIndex((previewIndex + 1) % attachments.length)} aria-label="Next media" className="flex size-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur"><ChevronRight size={19} aria-hidden /></button>
+                  <div className="pointer-events-none absolute inset-y-0 inset-x-2 z-30 flex items-center justify-between">
+                    <button type="button" onClick={() => setPreviewIndex((index) => (index + attachments.length - 1) % attachments.length)} aria-label="Previous media" className="pointer-events-auto flex size-10 items-center justify-center rounded-full bg-black/50 text-white shadow-lg backdrop-blur"><ChevronLeft size={19} aria-hidden /></button>
+                    <button type="button" onClick={() => setPreviewIndex((index) => (index + 1) % attachments.length)} aria-label="Next media" className="pointer-events-auto flex size-10 items-center justify-center rounded-full bg-black/50 text-white shadow-lg backdrop-blur"><ChevronRight size={19} aria-hidden /></button>
                   </div>
                 )}
                 {previewFlash && <span className="pointer-events-none absolute inset-0 bg-white/15" aria-hidden />}
@@ -500,29 +519,21 @@ export function CreatePage() {
         </>
       ) : (
         <>
-          <div className="pointer-events-none absolute inset-0 z-0 opacity-35">
-            {activeAttachment?.kind === "video" ? (
-              <video src={activeAttachment.previewUrl} autoPlay muted loop playsInline controlsList="nodownload noremoteplayback" disablePictureInPicture onContextMenu={(event) => event.preventDefault()} className="size-full object-cover blur-xl" />
-            ) : activeAttachment ? (
-              <img src={activeAttachment.previewUrl} alt="" className="size-full object-cover blur-xl" />
-            ) : null}
-            <span className="absolute inset-0 bg-black/65" />
-          </div>
+          <div className="pointer-events-none absolute inset-0 z-0 bg-neutral-950" />
           <header className="absolute inset-x-0 top-0 z-40 flex items-center justify-between px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
             <button type="button" onClick={() => setStep(1)} aria-label="Back to media studio" className="flex size-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur"><ArrowLeft size={19} aria-hidden /></button>
             <p className="text-sm font-black text-white">Post details</p>
-            <span className="w-11" />
+            <span className="flex size-11 items-center justify-center text-[10px] font-black text-white/55">2 / 2</span>
           </header>
 
           <motion.section
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
             transition={springs.gentle}
-            className="absolute inset-x-0 bottom-0 z-30 flex max-h-[88dvh] flex-col overflow-hidden rounded-t-[28px] border-t border-white/10 bg-neutral-950/95 shadow-2xl backdrop-blur-2xl"
+            className="absolute inset-x-0 bottom-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-30 flex min-h-0 flex-col overflow-hidden border-t border-white/10 bg-neutral-950"
             style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
           >
-            <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-white/25" />
-            <div className="flex-1 overflow-y-auto px-4 pb-4 pt-4">
+            <div className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto px-4 pb-4 pt-4 sm:px-7">
               <div className="flex items-center gap-3">
                 {activeAttachment?.kind === "video" ? (
                   <video src={activeAttachment.previewUrl} muted playsInline controlsList="nodownload noremoteplayback" disablePictureInPicture onContextMenu={(event) => event.preventDefault()} className="size-[72px] shrink-0 rounded-xl bg-black object-cover" />
@@ -586,17 +597,26 @@ export function CreatePage() {
                   <p className="mb-2 text-[10px] font-extrabold uppercase tracking-wider text-white/55">Media · up to 5 photos and 3 videos</p>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {attachments.map((item, index) => item.kind === "video" ? (
-                      <VideoAttachmentEditor
-                        key={`${item.previewUrl}-${index}`}
-                        draft={{ file: item.file, previewUrl: item.previewUrl, duration: item.duration ?? 0, width: item.width, height: item.height }}
-                        onRemove={() => removeAttachment(index)}
-                      />
+                      <div key={`${item.previewUrl}-${index}`} className="relative">
+                        <VideoAttachmentEditor
+                          draft={{ file: item.file, previewUrl: item.previewUrl, duration: item.duration ?? 0, width: item.width, height: item.height }}
+                          onRemove={() => removeAttachment(index)}
+                        />
+                        <div className="absolute bottom-2 left-2 z-20 flex gap-1">
+                          <button type="button" disabled={index === 0} onClick={() => moveAttachment(index, -1)} aria-label={`Move media ${index + 1} earlier`} className="flex size-8 items-center justify-center rounded-full bg-black/70 text-white disabled:opacity-40"><ArrowLeft size={14} aria-hidden /></button>
+                          <button type="button" disabled={index === attachments.length - 1} onClick={() => moveAttachment(index, 1)} aria-label={`Move media ${index + 1} later`} className="flex size-8 items-center justify-center rounded-full bg-black/70 text-white disabled:opacity-40"><ArrowRight size={14} aria-hidden /></button>
+                        </div>
+                      </div>
                     ) : (
                       <div key={item.previewUrl} className="relative overflow-hidden rounded-xl border border-white/10 bg-white/5">
                         <button type="button" onClick={() => setLightboxIndex(imageAttachments.findIndex((image) => image.previewUrl === item.previewUrl))} aria-label={`Preview photo ${index + 1}`} className="block w-full">
                           <ProgressiveImage src={item.previewUrl} alt={`Attachment ${index + 1}`} containerClassName="aspect-video w-full" />
                         </button>
                         <button type="button" onClick={() => removeAttachment(index)} aria-label={`Remove photo ${index + 1}`} className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-black/70 text-white"><X size={15} aria-hidden /></button>
+                        <div className="absolute bottom-2 left-2 flex gap-1">
+                          <button type="button" disabled={index === 0} onClick={() => moveAttachment(index, -1)} aria-label={`Move media ${index + 1} earlier`} className="flex size-8 items-center justify-center rounded-full bg-black/70 text-white disabled:opacity-40"><ArrowLeft size={14} aria-hidden /></button>
+                          <button type="button" disabled={index === attachments.length - 1} onClick={() => moveAttachment(index, 1)} aria-label={`Move media ${index + 1} later`} className="flex size-8 items-center justify-center rounded-full bg-black/70 text-white disabled:opacity-40"><ArrowRight size={14} aria-hidden /></button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -604,7 +624,8 @@ export function CreatePage() {
               )}
             </div>
 
-            <footer className="flex shrink-0 items-center gap-3 border-t border-white/10 bg-neutral-950 px-4 py-3">
+            <footer className="mx-auto flex w-full max-w-3xl shrink-0 items-center gap-3 border-t border-white/10 bg-neutral-950 px-4 py-3 sm:px-7">
+              <button type="button" onClick={() => fileRef.current?.click()} disabled={compressing} aria-label="Add more media" className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/5 text-white/75 disabled:opacity-50"><ImagePlus size={19} aria-hidden /></button>
               <button type="button" onClick={() => setEmojiPickerOpen((open) => !open)} aria-label="Open emoji picker" className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/5 text-white/75"><Smile size={19} aria-hidden /></button>
               <button type="button" onClick={() => setStep(1)} className="min-h-11 rounded-xl border border-white/15 px-4 text-xs font-extrabold text-white/75">Preview</button>
               <motion.button

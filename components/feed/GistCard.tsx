@@ -98,14 +98,28 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
   const [reportOpen, setReportOpen] = useState(false);
   const [textExpanded, setTextExpanded] = useState(false);
   const [textOverflows, setTextOverflows] = useState(false);
-  const [seededLikeCount, setSeededLikeCount] = useState(post.likeCount);
-  const [seededCommentCount, setSeededCommentCount] = useState(post.commentCount);
   const [seededViewCount, setSeededViewCount] = useState(post.viewCount ?? 0);
+  const [localLikedByMe, setLocalLikedByMe] = useState(post.likedByMe);
+  const [localLikeCount, setLocalLikeCount] = useState(post.likeCount);
+  const [localCommentCount, setLocalCommentCount] = useState(post.commentCount);
   const [adminToolsOpen, setAdminToolsOpen] = useState(false);
   const [adminIncrement, setAdminIncrement] = useState("10");
   const [adminBusy, setAdminBusy] = useState(false);
   const articleRef = useRef<HTMLElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
+  const cachedComments = useGistStore((state) => state.commentsByThread[`post:${post.id}`]);
+  const commentsLoading = useGistStore((state) => state.commentsLoading[`post:${post.id}`] ?? false);
+
+  useEffect(() => {
+    setLocalLikedByMe(post.likedByMe);
+    setLocalLikeCount(post.likeCount);
+    setLocalCommentCount(post.commentCount);
+    setSeededViewCount(post.viewCount ?? 0);
+  }, [post.id, post.likedByMe, post.likeCount, post.commentCount, post.viewCount]);
+
+  useEffect(() => {
+    if (!commentsLoading && cachedComments) setLocalCommentCount(cachedComments.length);
+  }, [cachedComments, commentsLoading]);
 
   useEffect(() => {
     setSaved(isPostSaved(post.id));
@@ -176,9 +190,20 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
 
   const like = async () => {
     if (!requireAuth()) return;
+    const previousLiked = localLikedByMe;
+    const previousCount = localLikeCount;
+    const nextLiked = !previousLiked;
+    setLocalLikedByMe(nextLiked);
+    setLocalLikeCount((count) => Math.max(0, count + (nextLiked ? 1 : -1)));
     try {
-      await toggleLike(post.id);
+      await toggleLike(post.id, {
+        ...post,
+        likedByMe: previousLiked,
+        likeCount: previousCount,
+      });
     } catch (error) {
+      setLocalLikedByMe(previousLiked);
+      setLocalLikeCount(previousCount);
       toast(describeError(error), "danger");
     }
   };
@@ -211,8 +236,9 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
     onRemoved?.(postId);
   };
 
-  const displayLikeCount = Math.max(post.likeCount, seededLikeCount);
-  const displayCommentCount = Math.max(post.commentCount, seededCommentCount);
+  const displayLikeCount = localLikeCount;
+  const displayCommentCount = localCommentCount;
+  const likedByMe = localLikedByMe;
   const handleSeeded = (counts: { likesCount?: number; commentsCount?: number }) => {
     const updatedCounts = {
       ...(counts.likesCount !== undefined
@@ -222,8 +248,8 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
         ? { commentCount: Math.max(post.commentCount, counts.commentsCount) }
         : {}),
     };
-    if (updatedCounts.likeCount !== undefined) setSeededLikeCount(updatedCounts.likeCount);
-    if (updatedCounts.commentCount !== undefined) setSeededCommentCount(updatedCounts.commentCount);
+    if (updatedCounts.likeCount !== undefined) setLocalLikeCount(updatedCounts.likeCount);
+    if (updatedCounts.commentCount !== undefined) setLocalCommentCount(updatedCounts.commentCount);
     useGistStore.getState().patchPost(post.id, updatedCounts);
   };
 
@@ -241,7 +267,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           : await addSeedPostViews(post.id, increment);
       if (metric === "likes") {
         const nextLikeCount = Math.max(displayLikeCount + increment, post.likeCount, count);
-        setSeededLikeCount(nextLikeCount);
+        setLocalLikeCount(nextLikeCount);
         useGistStore.getState().patchPost(post.id, { likeCount: nextLikeCount });
       }
       if (metric === "comments") handleSeeded({ commentsCount: Math.max(post.commentCount, count) });
@@ -474,14 +500,14 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
         <AnimatedReaction
           type="button"
           onClick={like}
-          aria-pressed={post.likedByMe}
-          aria-label={`${post.likedByMe ? "Unlike" : "Like"} gist, ${formatCompactNumber(displayLikeCount)} likes`}
-          icon={<Heart size={17} strokeWidth={2.5} fill={post.likedByMe ? "currentColor" : "none"} />}
+          aria-pressed={likedByMe}
+          aria-label={`${likedByMe ? "Unlike" : "Like"} gist, ${formatCompactNumber(displayLikeCount)} likes`}
+          icon={<Heart size={17} strokeWidth={2.5} fill={likedByMe ? "currentColor" : "none"} />}
           count={displayLikeCount}
           iconClassName="motion-safe:transition-transform"
           className={cn(
             "flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm",
-            post.likedByMe ? "bg-danger-wash text-danger" : "text-ink-muted hover:bg-page hover:text-danger"
+            likedByMe ? "bg-danger-wash text-danger" : "text-ink-muted hover:bg-page hover:text-danger"
           )}
         />
         {canBoostSeeds && post.isSeed && (
