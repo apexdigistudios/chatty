@@ -4,6 +4,7 @@ import { useState, type ButtonHTMLAttributes, type MouseEvent, type ReactNode } 
 import { motion, useAnimationControls, useReducedMotion } from "framer-motion";
 import { springs } from "@/theme/tokens";
 import { cn } from "@/utils/cn";
+import { formatCompactNumber } from "@/lib/utils";
 
 interface AnimatedReactionProps extends Pick<
   ButtonHTMLAttributes<HTMLButtonElement>,
@@ -80,7 +81,7 @@ export function AnimatedReaction({
           transition={popTransition}
           className={cn("inline-flex tabular-nums", countClassName)}
         >
-          {count}
+          {formatCompactNumber(count)}
         </motion.span>
       )}
       {children}

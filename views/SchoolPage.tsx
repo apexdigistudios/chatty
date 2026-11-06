@@ -23,6 +23,7 @@ import { springs } from "@/theme/tokens";
 import { schoolTypeLabel, type Post, type School, type SchoolGroup } from "@/types/models";
 import { cn } from "@/utils/cn";
 import { FeedSkeleton } from "@/views/HomePage";
+import { formatCompactNumber } from "@/lib/utils";
 
 type Tab = "feed" | "groups" | "manage";
 
@@ -275,8 +276,8 @@ export function SchoolPage() {
             </div>
             <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-ink-muted"><MapPin size={12} strokeWidth={2.5} aria-hidden />{school.region}</p>
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">
-              <span className="inline-flex items-center gap-1"><Users size={12} strokeWidth={2.5} aria-hidden />{school.memberCount.toLocaleString()} students</span>
-              <span className="inline-flex items-center gap-1"><Hash size={12} strokeWidth={2.5} aria-hidden />{school.postCount.toLocaleString()} gists</span>
+              <span className="inline-flex items-center gap-1"><Users size={12} strokeWidth={2.5} aria-hidden />{formatCompactNumber(school.memberCount)} students</span>
+              <span className="inline-flex items-center gap-1"><Hash size={12} strokeWidth={2.5} aria-hidden />{formatCompactNumber(school.postCount)} gists</span>
               <span className="inline-flex items-center gap-1"><Users size={12} strokeWidth={2.5} aria-hidden />{groups.length} clubs</span>
             </div>
           </div>
@@ -424,7 +425,7 @@ export function SchoolPage() {
                       </p>
                       <p className="mt-1 inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">
                         <Users size={10} strokeWidth={2.6} aria-hidden />
-                        {group.memberCount.toLocaleString()} member{group.memberCount === 1 ? "" : "s"}
+                        {formatCompactNumber(group.memberCount)} member{group.memberCount === 1 ? "" : "s"}
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-1.5">

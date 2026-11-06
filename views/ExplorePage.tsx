@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/Badge";
 import { Card, CardBody } from "@/components/ui/Card";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { ProgressiveImage } from "@/components/ui/ProgressiveImage";
-import { DownloadImageButton } from "@/components/feed/DownloadImageButton";
 import { SchoolBadge } from "@/components/ui/SchoolBadge";
 import { describeError } from "@/lib/supabase";
 import { timeAgo } from "@/lib/time";
@@ -19,6 +18,7 @@ import { fetchFeed, fetchPopularGists } from "@/services/postsService";
 import { useGistStore } from "@/store/gistStore";
 import type { Post } from "@/types/models";
 import { cn } from "@/utils/cn";
+import { formatCompactNumber } from "@/lib/utils";
 
 type ExploreFilter = "All" | "Gists" | "People" | "Schools";
 const filters: ExploreFilter[] = ["All", "Gists", "People", "Schools"];
@@ -133,23 +133,14 @@ export function ExplorePage() {
                 {gists.map((post) => (
                   <div key={post.id} className="flex items-start gap-3 px-3.5 py-3.5">
                     {post.mediaUrls[0] ? (
-                      <div className="relative shrink-0">
-                        <button type="button" onClick={() => setPreview({ src: post.mediaUrls[0]!, alt: `Photo from ${post.schoolShort}` })} aria-label="View full-screen image" className="cursor-zoom-in overflow-hidden rounded-xl border-2 border-line transition-transform hover:scale-105">
-                          <ProgressiveImage
-                            src={post.mediaUrls[0]}
-                            alt={`Photo from ${post.schoolShort}`}
-                            referrerPolicy="no-referrer"
-                            containerClassName="size-14"
-                          />
-                        </button>
-                        {(post.mediaTypes?.[0] ?? post.mediaType) !== "video" && (
-                          <DownloadImageButton
-                            src={post.mediaUrls[0]}
-                            filename={`letsgist-${post.schoolShort}-${post.id.slice(0, 6)}`}
-                            className="absolute -right-2 -top-2 size-8"
-                          />
-                        )}
-                      </div>
+                      <button type="button" onClick={() => setPreview({ src: post.mediaUrls[0]!, alt: `Photo from ${post.schoolShort}` })} aria-label="View full-screen image" className="shrink-0 cursor-zoom-in overflow-hidden rounded-xl border-2 border-line transition-transform hover:scale-105">
+                        <ProgressiveImage
+                          src={post.mediaUrls[0]}
+                          alt={`Photo from ${post.schoolShort}`}
+                          referrerPolicy="no-referrer"
+                          containerClassName="size-14"
+                        />
+                      </button>
                     ) : (
                       <span className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-page text-ink-muted"><Hash size={17} strokeWidth={2.4} aria-hidden /></span>
                     )}
@@ -166,7 +157,7 @@ export function ExplorePage() {
                           isAdmin={post.authorIsAdmin}
                           role={post.authorRole}
                         />
-                        <span className="size-1 rounded-full bg-ink-faint" aria-hidden />{post.likeCount} likes
+                        <span className="size-1 rounded-full bg-ink-faint" aria-hidden />{formatCompactNumber(post.likeCount)} likes
                         <span className="size-1 rounded-full bg-ink-faint" aria-hidden />{timeAgo(post.createdAt)}
                       </p>
                     </div>
@@ -201,7 +192,7 @@ export function ExplorePage() {
                         </p>
                         <p className="truncate text-[11px] font-semibold text-ink-muted">{student.schoolShort ?? "No school yet"}</p>
                         {student.bio && <p className="mt-0.5 line-clamp-1 text-[10px] font-semibold text-ink-muted">{student.bio}</p>}
-                        {!debounced && student.followersCount !== undefined && <p className="mt-0.5 text-[10px] font-bold text-brand-deep">{student.followersCount.toLocaleString()} followers</p>}
+                        {!debounced && student.followersCount !== undefined && <p className="mt-0.5 text-[10px] font-bold text-brand-deep">{formatCompactNumber(student.followersCount)} followers</p>}
                       </div>
                       {student.schoolId && (
                         <button type="button" onClick={() => openSchoolFeed(student.schoolId as string)} className="shrink-0 rounded-xl border-2 border-line px-2.5 py-1.5 text-[10px] font-extrabold text-ink hover:border-brand hover:text-brand-deep">School</button>
@@ -228,7 +219,7 @@ export function ExplorePage() {
                       <p className="mt-0.5 flex items-center gap-1 truncate text-[10px] font-semibold text-ink-muted">
                         <MapPin size={11} strokeWidth={2.5} aria-hidden />{school.region}
                         <span className="size-1 rounded-full bg-ink-faint" aria-hidden />
-                        <Users size={11} strokeWidth={2.5} aria-hidden />{school.memberCount.toLocaleString()}
+                        <Users size={11} strokeWidth={2.5} aria-hidden />{formatCompactNumber(school.memberCount)}
                       </p>
                     </div>
                     <button type="button" onClick={() => navigate(`/schools/${school.id}`)} className="shrink-0 rounded-xl bg-brand-deep px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-brand-contrast shadow-[0_3px_0_var(--brand-edge)] active:translate-y-0.5">Feed</button>

@@ -28,6 +28,7 @@ import { PageHeading } from "@/components/layout/PageHeading";
 import { useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/context/AuthContext";
 import { isUserGlobalAdmin } from "@/lib/adminAccess";
+import { formatCompactNumber } from "@/lib/utils";
 import { describeError, supabase } from "@/lib/supabase";
 import {
   clearAllSeedData,
@@ -539,7 +540,7 @@ export function AdminDashboard() {
                         <Button size="sm" variant="danger" disabled={busy} aria-label={`Delete @${profile.username}`} onClick={() => void removeProfile(profile)}><Trash2 size={14} aria-hidden /></Button>
                         <div className="flex w-full flex-wrap items-center gap-2 border-t border-line pt-2">
                           <span className="mr-auto text-[10px] font-bold text-ink-muted">
-                            Seed followers: {profile.seedFollowersCount ?? 0}
+                            Seed followers: {formatCompactNumber(profile.seedFollowersCount ?? 0)}
                           </span>
                           <label className="sr-only" htmlFor={`followers-${profile.id}`}>Follower increment for @{profile.username}</label>
                           <input
@@ -737,9 +738,9 @@ export function AdminDashboard() {
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-ink-muted">
-                  <span className="inline-flex items-center gap-1"><Heart size={12} aria-hidden /> {item.likesCount}</span>
-                  <span className="inline-flex items-center gap-1"><MessageCircle size={12} aria-hidden /> {item.commentsCount}</span>
-                  <span className="inline-flex items-center gap-1"><Eye size={12} aria-hidden /> {item.viewsCount}</span>
+                  <span className="inline-flex items-center gap-1"><Heart size={12} aria-hidden /> {formatCompactNumber(item.likesCount)}</span>
+                  <span className="inline-flex items-center gap-1"><MessageCircle size={12} aria-hidden /> {formatCompactNumber(item.commentsCount)}</span>
+                  <span className="inline-flex items-center gap-1"><Eye size={12} aria-hidden /> {formatCompactNumber(item.viewsCount)}</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="outline" disabled={busy} onClick={() => void boostEngagement(item, "likes", 10)}>+10 Seed Likes</Button>

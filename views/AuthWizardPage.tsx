@@ -43,6 +43,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { SchoolBadge } from "@/components/ui/SchoolBadge";
 import { useToast } from "@/components/ui/Toast";
+import { formatCompactNumber } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import {
   COMPRESSION_PRESETS,
@@ -898,7 +899,7 @@ export function AuthWizardPage() {
                                 </span>
                                 <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-bold text-brand-deep">
                                   <Users size={10} aria-hidden />
-                                  {school.memberCount.toLocaleString()} students
+                                  {formatCompactNumber(school.memberCount)} students
                                 </span>
                               </span>
                               {isSelected && (

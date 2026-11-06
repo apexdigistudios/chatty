@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "@/lib/router";
 import { ImagePlus, List, Loader2, MapPin, Plus, Search, ShieldCheck, Users, WifiOff, X } from "lucide-react";
 import { PageHeading } from "@/components/layout/PageHeading";
+import { formatCompactNumber } from "@/lib/utils";
 import { SchoolCard } from "@/components/schools/SchoolCard";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
@@ -202,8 +203,8 @@ export function SchoolsPage() {
           {results.length} communities
         </h2>
         <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
-          <span className="inline-flex items-center gap-1"><Users size={12} strokeWidth={2.5} aria-hidden />{results.reduce((sum, school) => sum + school.memberCount, 0).toLocaleString()} students</span>
-          <span className="inline-flex items-center gap-1"><MapPin size={12} strokeWidth={2.5} aria-hidden />{results.reduce((sum, school) => sum + school.postCount, 0).toLocaleString()} gists</span>
+          <span className="inline-flex items-center gap-1"><Users size={12} strokeWidth={2.5} aria-hidden />{formatCompactNumber(results.reduce((sum, school) => sum + school.memberCount, 0))} students</span>
+          <span className="inline-flex items-center gap-1"><MapPin size={12} strokeWidth={2.5} aria-hidden />{formatCompactNumber(results.reduce((sum, school) => sum + school.postCount, 0))} gists</span>
         </div>
       </div>
 

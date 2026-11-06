@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { SchoolBadge } from "@/components/ui/SchoolBadge";
 import { useToast } from "@/components/ui/Toast";
+import { formatCompactNumber } from "@/lib/utils";
 
 export type SchoolView = "grid" | "list";
 
@@ -88,11 +89,11 @@ export function SchoolCard({ school, view }: SchoolCardProps) {
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">
               <Users size={11} strokeWidth={2.5} aria-hidden />
-              {school.memberCount.toLocaleString()} students
+              {formatCompactNumber(school.memberCount)} students
             </span>
             <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">
               <Hash size={11} strokeWidth={2.5} aria-hidden />
-              {school.postCount.toLocaleString()} gists
+              {formatCompactNumber(school.postCount)} gists
             </span>
           </div>
         </div>

@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/Badge";
 import { SchoolTag } from "@/components/ui/SchoolBadge";
 import { useToast } from "@/components/ui/Toast";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
+import { formatCompactNumber } from "@/lib/utils";
 
 const QUICK_REPLIES = ["Chale, facts!", "No size at all!", "Herh, campus gist!", "Big respect!"] as const;
 
@@ -180,11 +181,11 @@ export function CommentDrawer() {
                 type="button"
                 onClick={() => void likeComment(comment)}
                 aria-pressed={comment.likedByMe}
-                aria-label={`${comment.likedByMe ? "Unlike" : "Like"} comment, ${comment.likesCount} likes`}
+                aria-label={`${comment.likedByMe ? "Unlike" : "Like"} comment, ${formatCompactNumber(comment.likesCount)} likes`}
                 className={`inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-[10px] font-extrabold ${comment.likedByMe ? "text-danger" : "text-ink-muted hover:text-danger"}`}
               >
                 <Heart size={13} fill={comment.likedByMe ? "currentColor" : "none"} aria-hidden />
-                {comment.likesCount}
+                {formatCompactNumber(comment.likesCount)}
               </button>
               <button
                 type="button"

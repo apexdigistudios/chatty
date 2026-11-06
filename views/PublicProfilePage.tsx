@@ -23,6 +23,7 @@ import type { Post, PublicProfile } from "@/types/models";
 import { SafeImage } from "@/components/common/SafeImage";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { hasActiveVerification, isGlobalAdminProfile, verificationTitle } from "@/lib/verification";
+import { formatCompactNumber } from "@/lib/utils";
 
 /** Facebook-style public student profile: `/profile/:userId`. */
 export function PublicProfilePage() {
@@ -285,23 +286,23 @@ export function PublicProfilePage() {
 
           <div className="mt-4 grid grid-cols-4 divide-x divide-line rounded-2xl border-2 border-line bg-page py-3 text-center">
             <div>
-              <p className="text-lg font-black tabular-nums text-ink">{posts.length}</p>
+              <p className="text-lg font-black tabular-nums text-ink">{formatCompactNumber(posts.length)}</p>
               <p className="text-[9px] font-extrabold uppercase tracking-wider text-ink-muted sm:text-[10px]">Gists</p>
             </div>
             <div>
-              <p className="text-lg font-black tabular-nums text-ink">{likesReceived}</p>
+              <p className="text-lg font-black tabular-nums text-ink">{formatCompactNumber(likesReceived)}</p>
               <p className="flex items-center justify-center gap-1 text-[9px] font-extrabold uppercase tracking-wider text-ink-muted sm:text-[10px]">
                 <Heart size={10} aria-hidden /> Likes
               </p>
             </div>
             <div>
-              <p className="text-lg font-black tabular-nums text-ink">{followSummary.followerCount}</p>
+              <p className="text-lg font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followerCount)}</p>
               <p className="flex items-center justify-center gap-1 text-[9px] font-extrabold uppercase tracking-wider text-ink-muted sm:text-[10px]">
                 <Users size={10} aria-hidden /> Followers
               </p>
             </div>
             <div>
-              <p className="text-lg font-black tabular-nums text-ink">{followSummary.followingCount}</p>
+              <p className="text-lg font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followingCount)}</p>
               <p className="flex items-center justify-center gap-1 text-[9px] font-extrabold uppercase tracking-wider text-ink-muted sm:text-[10px]">
                 <Users size={10} aria-hidden /> Following
               </p>
@@ -315,7 +316,7 @@ export function PublicProfilePage() {
           <h2 id="public-gists-heading" className="text-sm font-extrabold text-ink sm:text-base">
             Public gists by @{profile.username}
           </h2>
-          <span className="text-[10px] font-bold text-ink-muted">{posts.length} posts</span>
+          <span className="text-[10px] font-bold text-ink-muted">{formatCompactNumber(posts.length)} posts</span>
         </div>
 
         {posts.length > 0 ? (

@@ -35,19 +35,19 @@ import type { Post } from "@/types/models";
 import { cn } from "@/utils/cn";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
-import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { ProgressiveImage } from "@/components/ui/ProgressiveImage";
 import { SchoolTag } from "@/components/ui/SchoolBadge";
 import { VideoPostPlayer } from "@/components/feed/VideoPostPlayer";
 import { useToast } from "@/components/ui/Toast";
 import { PostActionMenu } from "@/components/feed/PostActionMenu";
-import { DownloadImageButton } from "@/components/feed/DownloadImageButton";
+import { PostMediaViewer } from "@/components/feed/PostMediaViewer";
 import { SpotlightModal } from "@/components/spotlight/SpotlightModal";
 import { ReportModal } from "@/components/feed/ReportModal";
 import { ProfileHoverCard } from "@/components/profile/ProfileHoverCard";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { AnimatedReaction } from "@/components/common/AnimatedReaction";
 import { shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLinks";
+import { formatCompactNumber } from "@/lib/utils";
 
 function renderHashtags(content: string) {
   const parts: Array<{ value: string; tag: string | null }> = [];
@@ -92,7 +92,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
   const removePostLocally = useGistStore((state) => state.removePostLocally);
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [mediaViewerIndex, setMediaViewerIndex] = useState<number | null>(null);
   const [saved, setSaved] = useState(() => isPostSaved(post.id));
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -137,7 +137,6 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
     type: post.mediaTypes?.[index] ?? (index === 0 ? post.mediaType : "image"),
     duration: post.videoDurations?.[index] ?? (index === 0 ? post.videoDurationSeconds : null),
   }));
-  const imageMedia = media.filter((item) => item.type === "image");
   const moderator = canModerate(post.schoolId);
   const isAuthor = user?.id === post.authorId;
   const canDelete = Boolean(user) && (isAuthor || moderator);
@@ -380,7 +379,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
             <input type="number" min={1} max={100000} value={adminIncrement} onChange={(event) => setAdminIncrement(event.target.value)} aria-label="Custom seed likes increment" className="h-10 min-w-0 flex-1 rounded-xl border border-line bg-page px-2 text-xs font-bold text-ink outline-none focus:border-brand" />
             <button type="button" disabled={adminBusy} onClick={() => void boostFromCard("likes", Number(adminIncrement))} className="flex min-h-10 items-center gap-1 rounded-xl bg-brand px-3 text-[10px] font-black text-white disabled:opacity-50"><Plus size={13} aria-hidden /> Add likes</button>
           </div>
-          <p className="mt-2 flex items-center gap-1 text-[9px] font-semibold text-ink-muted"><Eye size={11} aria-hidden /> Seed views: {seededViewCount}</p>
+          <p className="mt-2 flex items-center gap-1 text-[9px] font-semibold text-ink-muted"><Eye size={11} aria-hidden /> Seed views: {formatCompactNumber(seededViewCount)}</p>
         </div>
       )}
 
@@ -422,7 +421,12 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
             transition={springs.gentle}
             className="-mx-4 mt-3 w-[calc(100%+2rem)]"
           >
-            <VideoPostPlayer src={media[0].src} durationSeconds={media[0].duration} edgeToEdge />
+            <VideoPostPlayer
+              src={media[0].src}
+              durationSeconds={media[0].duration}
+              edgeToEdge
+              onOpenFullScreen={() => setMediaViewerIndex(0)}
+            />
           </motion.div>
         ) : media.length > 0 ? (
           <motion.div
@@ -433,13 +437,18 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           >
             {media.map((item) => item.type === "video" ? (
               <div key={item.src} className="overflow-hidden bg-black">
-                <VideoPostPlayer src={item.src} durationSeconds={item.duration} edgeToEdge />
+                <VideoPostPlayer
+                  src={item.src}
+                  durationSeconds={item.duration}
+                  edgeToEdge
+                  onOpenFullScreen={() => setMediaViewerIndex(media.indexOf(item))}
+                />
               </div>
             ) : (
-              <div key={item.src} className="relative overflow-hidden rounded-none border-0 bg-page shadow-none">
+              <div key={item.src} className="overflow-hidden rounded-none border-0 bg-page shadow-none">
                 <button
                   type="button"
-                  onClick={() => setLightboxIndex(imageMedia.indexOf(item))}
+                  onClick={() => setMediaViewerIndex(media.indexOf(item))}
                   aria-label={`Open full-screen: ${item.alt}`}
                   className="group relative block w-full cursor-zoom-in focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
                 >
@@ -455,11 +464,6 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
                     Full screen
                   </span>
                 </button>
-                <DownloadImageButton
-                  src={item.src}
-                  filename={`letsgist-${post.schoolShort}-${post.id.slice(0, 6)}-${imageMedia.indexOf(item) + 1}`}
-                  className="absolute right-2.5 top-2.5 z-10"
-                />
               </div>
             ))}
           </motion.div>
@@ -471,7 +475,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           type="button"
           onClick={like}
           aria-pressed={post.likedByMe}
-          aria-label={`${post.likedByMe ? "Unlike" : "Like"} gist, ${displayLikeCount} likes`}
+          aria-label={`${post.likedByMe ? "Unlike" : "Like"} gist, ${formatCompactNumber(displayLikeCount)} likes`}
           icon={<Heart size={17} strokeWidth={2.5} fill={post.likedByMe ? "currentColor" : "none"} />}
           count={displayLikeCount}
           iconClassName="motion-safe:transition-transform"
@@ -498,11 +502,11 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           whileTap={{ scale: 0.92 }}
           transition={springs.snappy}
           onClick={() => openComments({ type: "post", id: post.id })}
-          aria-label={`Open comments, ${displayCommentCount} comments`}
+          aria-label={`Open comments, ${formatCompactNumber(displayCommentCount)} comments`}
           className="flex min-h-11 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold text-ink-muted transition-colors hover:bg-brand-wash hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3 sm:text-sm"
         >
           <MessageCircle size={17} strokeWidth={2.4} aria-hidden />
-          <span className="tabular-nums">{displayCommentCount}</span>
+          <span className="tabular-nums">{formatCompactNumber(displayCommentCount)}</span>
         </motion.button>
 
         <motion.button
@@ -560,8 +564,20 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
 
       {spotlightOpen && <SpotlightModal post={post} onClose={() => setSpotlightOpen(false)} />}
       {reportOpen && <ReportModal post={post} onClose={() => setReportOpen(false)} />}
-      {imageMedia.length > 0 && (
-        <ImageLightbox images={imageMedia} index={lightboxIndex} onClose={() => setLightboxIndex(null)} />
+      {media.length > 0 && (
+        <PostMediaViewer
+          post={post}
+          activeIndex={mediaViewerIndex}
+          saved={saved}
+          onClose={() => setMediaViewerIndex(null)}
+          onLike={() => void like()}
+          onComment={() => {
+            setMediaViewerIndex(null);
+            openComments({ type: "post", id: post.id });
+          }}
+          onShare={() => void share()}
+          onSave={quickSave}
+        />
       )}
     </article>
   );

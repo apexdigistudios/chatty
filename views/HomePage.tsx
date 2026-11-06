@@ -15,6 +15,7 @@ import { useAuthGateStore } from "@/store/authGateStore";
 import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
 import { rotateBySeed } from "@/lib/feedRotation";
+import { formatCompactNumber } from "@/lib/utils";
 
 const tabs = ["All SHSs", "Following", "My School", "Confessions"] as const;
 type FeedTab = (typeof tabs)[number] | "Trending";
@@ -267,7 +268,7 @@ export function HomePage() {
                 {mySchool ? ` · ${mySchool.shortName}` : " · no SHS yet"}
               </p>
               <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
-                {headerSchool ? `${headerSchool.memberCount.toLocaleString()} students` : `${schools.length} communities`}
+                {headerSchool ? `${formatCompactNumber(headerSchool.memberCount)} students` : `${formatCompactNumber(schools.length)} communities`}
               </span>
             </>
           ) : (
@@ -321,7 +322,7 @@ export function HomePage() {
           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-ink-muted sm:text-xs">
             {showingTrending && <Flame size={11} className="text-warning" aria-hidden />}
             {showingTrending
-              ? `≥ ${trendingThreshold.toLocaleString()} likes`
+              ? `≥ ${formatCompactNumber(trendingThreshold)} likes`
               : `${visiblePosts.length} loaded`}
           </span>
         )}
@@ -377,9 +378,9 @@ export function HomePage() {
                     <span className="mx-auto flex size-10 items-center justify-center rounded-2xl bg-warning-wash text-warning-deep">
                       <TrendingUp size={20} strokeWidth={2.5} aria-hidden />
                     </span>
-                    <p className="mt-2 text-sm font-extrabold text-ink">Nothing has crossed {trendingThreshold.toLocaleString()} likes yet</p>
+                    <p className="mt-2 text-sm font-extrabold text-ink">Nothing has crossed {formatCompactNumber(trendingThreshold)} likes yet</p>
                     <p className="mx-auto mt-1 max-w-[36ch] text-xs font-semibold leading-relaxed text-ink-muted">
-                      Trending only promotes gists with {trendingThreshold.toLocaleString()}+ likes. Below are the campus favourites right now.
+                      Trending only promotes gists with {formatCompactNumber(trendingThreshold)}+ likes. Below are the campus favourites right now.
                     </p>
                   </div>
                   {trendingFallback.map((post) => (

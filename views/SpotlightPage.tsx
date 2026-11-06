@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode, type UIEvent } from "react";
-import { ArrowDown, ArrowLeft, ArrowUp, Heart, MessageCircle, RefreshCw, Share2, Volume2, VolumeX, Zap } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Copy, Download, Heart, MessageCircle, MoreHorizontal, RefreshCw, Share2, Volume2, VolumeX, X, Zap } from "lucide-react";
 import { Link } from "@/lib/router";
 import { useAuth } from "@/context/AuthContext";
 import { describeError } from "@/lib/supabase";
@@ -18,6 +18,8 @@ import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { rotateBySeed } from "@/lib/feedRotation";
 import { shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLinks";
 import { reportSpotlightScrollDirection } from "@/hooks/useScrollDirection";
+import { downloadSpotlightVideo } from "@/lib/download";
+import { formatCompactNumber } from "@/lib/utils";
 
 type SpotlightItem =
   | { kind: "post"; key: string; videoUrl: string; post: Post }
@@ -42,6 +44,8 @@ export function SpotlightPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shareSheetItem, setShareSheetItem] = useState<SpotlightItem | null>(null);
+  const [downloadingVideo, setDownloadingVideo] = useState(false);
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
@@ -121,6 +125,21 @@ export function SpotlightPage() {
     } catch (cause) {
       toast("Could not copy the confession link.", "danger");
       console.error("Could not copy confession link.", cause);
+    }
+  };
+
+  const downloadVideo = async () => {
+    if (!shareSheetItem || downloadingVideo) return;
+    setDownloadingVideo(true);
+    try {
+      const id = shareSheetItem.kind === "post" ? shareSheetItem.post.id : shareSheetItem.confession.id;
+      await downloadSpotlightVideo(shareSheetItem.videoUrl, `gistme-spotlight-${id.slice(0, 8)}`);
+      toast("Spotlight video downloaded.", "success");
+    } catch (cause) {
+      toast(describeError(cause, "Could not download this video."), "danger");
+      console.error("Could not download Spotlight video.", cause);
+    } finally {
+      setDownloadingVideo(false);
     }
   };
 
@@ -247,6 +266,7 @@ export function SpotlightPage() {
                 onShareConfession={() => {
                   if (item.kind === "confession") void shareConfession(item.confession);
                 }}
+                onMore={() => setShareSheetItem(item)}
                 onConfessionReaction={async () => {
                   if (item.kind !== "confession") return;
                   if (!user) {
@@ -287,6 +307,85 @@ export function SpotlightPage() {
           </div>
         </div>
       )}
+      {shareSheetItem && (
+        <SpotlightShareSheet
+          item={shareSheetItem}
+          downloading={downloadingVideo}
+          onClose={() => setShareSheetItem(null)}
+          onDownload={() => void downloadVideo()}
+          onCopied={() => toast("Spotlight link copied.", "success")}
+          onCopyError={() => toast("Could not copy the Spotlight link.", "danger")}
+        />
+      )}
+    </div>
+  );
+}
+
+function SpotlightShareSheet({
+  item,
+  downloading,
+  onClose,
+  onDownload,
+  onCopied,
+  onCopyError,
+}: {
+  item: SpotlightItem;
+  downloading: boolean;
+  onClose: () => void;
+  onDownload: () => void;
+  onCopied: () => void;
+  onCopyError: () => void;
+}) {
+  const id = item.kind === "post" ? item.post.id : item.confession.id;
+  const content = item.kind === "post" ? item.post.content : item.confession.content;
+  const kind = item.kind === "post" ? "post" : "confession";
+  const url = sharePreviewUrl(kind, id);
+  const text = content.slice(0, 120);
+  const encodedUrl = encodeURIComponent(url);
+  const encodedText = encodeURIComponent(text);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      onCopied();
+      onClose();
+    } catch {
+      onCopyError();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-110 flex items-end justify-center bg-black/65 p-3 backdrop-blur-sm sm:items-center" onMouseDown={(event) => {
+      if (event.target === event.currentTarget) onClose();
+    }}>
+      <section role="dialog" aria-modal="true" aria-labelledby="spotlight-share-title" className="w-full max-w-md rounded-3xl border border-white/15 bg-neutral-900 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white shadow-2xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 id="spotlight-share-title" className="text-base font-black">Share Spotlight</h2>
+          <button type="button" onClick={onClose} aria-label="Close share options" className="flex size-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/15">
+            <X size={19} aria-hidden />
+          </button>
+        </div>
+        <div className="mb-4 grid grid-cols-4 gap-2 text-center">
+          <a href={`https://wa.me/?text=${encodedText}%20${encodedUrl}`} target="_blank" rel="noopener noreferrer" className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl bg-white/5 text-[10px] font-bold hover:bg-white/10">WhatsApp</a>
+          <a href={`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`} target="_blank" rel="noopener noreferrer" className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl bg-white/5 text-[10px] font-bold hover:bg-white/10">X</a>
+          <a href={`https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`} target="_blank" rel="noopener noreferrer" className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl bg-white/5 text-[10px] font-bold hover:bg-white/10">Telegram</a>
+          <button type="button" onClick={() => void copyLink()} className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl bg-white/5 text-[10px] font-bold hover:bg-white/10">
+            <Copy size={17} aria-hidden /> Copy link
+          </button>
+        </div>
+        <button type="button" onClick={onDownload} disabled={downloading} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-white px-4 text-sm font-black text-neutral-950 transition hover:bg-white/85 disabled:opacity-60">
+          <Download size={18} aria-hidden />
+          {downloading ? "Preparing video…" : "Download Video"}
+        </button>
+      </section>
     </div>
   );
 }
@@ -307,6 +406,7 @@ function SpotlightSlide({
   onShare,
   onShareConfession,
   onConfessionReaction,
+  onMore,
 }: {
   item: SpotlightItem;
   schoolName: string;
@@ -315,6 +415,7 @@ function SpotlightSlide({
   onShare: () => void;
   onShareConfession: () => void;
   onConfessionReaction: () => void;
+  onMore: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [muted, setMuted] = useState(false);
@@ -455,26 +556,32 @@ function SpotlightSlide({
         </Link>
         {post ? (
           <>
-            <ActionButton label={`${post.likedByMe ? "Unlike" : "Like"} · ${reactionCount}`} onClick={onLike} active={post.likedByMe} detail={reactionCount}>
+            <ActionButton label={`${post.likedByMe ? "Unlike" : "Like"} · ${formatCompactNumber(reactionCount)}`} onClick={onLike} active={post.likedByMe} detail={formatCompactNumber(reactionCount)}>
               <Heart size={25} fill={post.likedByMe ? "currentColor" : "none"} />
             </ActionButton>
-            <ActionButton label={`Comments · ${post.commentCount}`} onClick={onComment} detail={post.commentCount}>
+            <ActionButton label={`Comments · ${formatCompactNumber(post.commentCount)}`} onClick={onComment} detail={formatCompactNumber(post.commentCount)}>
               <MessageCircle size={24} />
             </ActionButton>
-            <ActionButton label="Share video" onClick={onShare} detail={post.shareCount ?? "Share"}>
+            <ActionButton label="Share video" onClick={onShare} detail={post.shareCount ? formatCompactNumber(post.shareCount) : undefined}>
               <Share2 size={23} />
+            </ActionButton>
+            <ActionButton label="More sharing options" onClick={onMore}>
+              <MoreHorizontal size={23} />
             </ActionButton>
           </>
         ) : (
           <>
-            <ActionButton label={`React · ${reactionCount}`} onClick={onConfessionReaction} active={confession?.myReaction === "heart"} detail={reactionCount}>
+            <ActionButton label={`React · ${formatCompactNumber(reactionCount)}`} onClick={onConfessionReaction} active={confession?.myReaction === "heart"} detail={formatCompactNumber(reactionCount)}>
               <Heart size={25} fill={confession?.myReaction === "heart" ? "currentColor" : "none"} />
             </ActionButton>
-            <ActionButton label={`Comments · ${confession?.commentCount ?? 0}`} onClick={onComment} detail={confession?.commentCount ?? 0}>
+            <ActionButton label={`Comments · ${formatCompactNumber(confession?.commentCount ?? 0)}`} onClick={onComment} detail={formatCompactNumber(confession?.commentCount ?? 0)}>
               <MessageCircle size={24} />
             </ActionButton>
             <ActionButton label="Share confession" onClick={onShareConfession}>
               <Share2 size={23} />
+            </ActionButton>
+            <ActionButton label="More sharing options" onClick={onMore}>
+              <MoreHorizontal size={23} />
             </ActionButton>
           </>
         )}

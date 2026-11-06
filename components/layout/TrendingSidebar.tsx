@@ -5,6 +5,7 @@ import { ArrowUpRight, Flame, GraduationCap, Users } from "lucide-react";
 import { Link } from "@/lib/router";
 import { useGistStore } from "@/store/gistStore";
 import { SchoolBadge } from "@/components/ui/SchoolBadge";
+import { formatCompactNumber } from "@/lib/utils";
 
 /** Live context rail derived from the loaded feed and school directory. */
 export function TrendingSidebar() {
@@ -42,7 +43,7 @@ export function TrendingSidebar() {
                 <span className="min-w-0 flex-1">
                   <span className="line-clamp-2 text-[13px] font-extrabold leading-snug text-ink">{post.content}</span>
                   <span className="mt-1 block text-[10px] font-bold text-ink-muted">
-                    {post.schoolShort} · {post.likeCount} likes · {post.commentCount} replies
+                    {post.schoolShort} · {formatCompactNumber(post.likeCount)} likes · {formatCompactNumber(post.commentCount)} replies
                   </span>
                 </span>
                 <ArrowUpRight size={15} className="mt-1 shrink-0 text-ink-faint" aria-hidden />
@@ -74,7 +75,7 @@ export function TrendingSidebar() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-xs font-extrabold text-ink">{school.shortName}</span>
                   <span className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold text-ink-muted">
-                    <Users size={11} aria-hidden /> {school.memberCount.toLocaleString()} students · {school.postCount} gists
+                    <Users size={11} aria-hidden /> {formatCompactNumber(school.memberCount)} students · {formatCompactNumber(school.postCount)} gists
                   </span>
                 </span>
                 <span className="rounded-lg px-2 py-1 text-[10px] font-extrabold text-brand-deep">Feed</span>

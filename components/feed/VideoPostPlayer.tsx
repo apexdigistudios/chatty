@@ -13,10 +13,11 @@ interface VideoPostPlayerProps {
   src: string;
   durationSeconds?: number | null;
   edgeToEdge?: boolean;
+  onOpenFullScreen?: () => void;
 }
 
 /** TikTok-style video: muted autoplay in view, pause offscreen, custom overlays. */
-export function VideoPostPlayer({ src, durationSeconds, edgeToEdge = false }: VideoPostPlayerProps) {
+export function VideoPostPlayer({ src, durationSeconds, edgeToEdge = false, onOpenFullScreen }: VideoPostPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -164,7 +165,7 @@ export function VideoPostPlayer({ src, durationSeconds, edgeToEdge = false }: Vi
           </span>
           <button
             type="button"
-            onClick={() => setLightboxOpen(true)}
+            onClick={() => onOpenFullScreen ? onOpenFullScreen() : setLightboxOpen(true)}
             aria-label="Open video full screen"
             className="ml-auto flex size-11 shrink-0 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur"
           >

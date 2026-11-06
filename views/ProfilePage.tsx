@@ -36,6 +36,7 @@ import { fetchPostsByIds } from "@/services/postsService";
 import { readSavedPostIds, subscribeToSavedPosts } from "@/lib/savedPosts";
 import { hasActiveVerification, isGlobalAdminProfile } from "@/lib/verification";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
+import { formatCompactNumber } from "@/lib/utils";
 
 type ProfileTab = "Gists" | "Videos" | "Liked" | "Saved" | "Brand Deals";
 type UsernameAvailability = "idle" | "checking" | "available" | "taken" | "invalid" | "error";
@@ -413,19 +414,19 @@ export function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setFollowList("followers")}
-                aria-label={`${followSummary.followerCount} followers`}
+                aria-label={`${formatCompactNumber(followSummary.followerCount)} followers`}
                 className="rounded-lg px-1 text-ink transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:px-3"
               >
-                <p className="text-lg font-black tabular-nums text-ink sm:text-xl">{followSummary.followerCount}</p>
+                <p className="text-lg font-black tabular-nums text-ink sm:text-xl">{formatCompactNumber(followSummary.followerCount)}</p>
                 <p className="text-[9px] font-extrabold uppercase tracking-wide text-ink-muted sm:text-[10px]">Followers</p>
               </button>
               <button
                 type="button"
                 onClick={() => setFollowList("following")}
-                aria-label={`${followSummary.followingCount} following`}
+                aria-label={`${formatCompactNumber(followSummary.followingCount)} following`}
                 className="rounded-lg px-1 text-ink transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:px-3"
               >
-                <p className="text-lg font-black tabular-nums text-ink sm:text-xl">{followSummary.followingCount}</p>
+                <p className="text-lg font-black tabular-nums text-ink sm:text-xl">{formatCompactNumber(followSummary.followingCount)}</p>
                 <p className="text-[9px] font-extrabold uppercase tracking-wide text-ink-muted sm:text-[10px]">Following</p>
               </button>
             </div>

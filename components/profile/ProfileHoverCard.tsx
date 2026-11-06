@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/Toast";
 import { Avatar } from "@/components/ui/Avatar";
 import { FollowButton } from "@/components/profile/FollowButton";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
+import { formatCompactNumber } from "@/lib/utils";
 
 interface ProfileHoverCardProps {
   userId: string;
@@ -149,7 +150,7 @@ export function ProfileHoverCard({
           </span>
           <span className="mt-3 flex items-center gap-1.5 text-xs font-bold text-ink-muted">
             <Users size={13} aria-hidden />
-            {summary.followerCount} followers · {summary.followingCount} following
+            {formatCompactNumber(summary.followerCount)} followers · {formatCompactNumber(summary.followingCount)} following
           </span>
           {!isSeed && user?.id !== userId && (
             <span className="mt-3 block">

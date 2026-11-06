@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
+import { formatCompactNumber } from "@/lib/utils";
 
 interface ManageCommunityPanelProps {
   school: School;
@@ -206,7 +207,7 @@ export function ManageCommunityPanel({ school }: ManageCommunityPanelProps) {
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="text-xs font-extrabold text-ink">@{post.authorName}</span>
                     <Badge tone={post.status === "active" ? "success" : post.status === "flagged" ? "warning" : "danger"} className="px-2 py-0.5 text-[9px]">{post.status}</Badge>
-                    <span className="text-[10px] font-semibold text-ink-muted">{timeAgo(post.createdAt)} · {post.likeCount} likes · {post.commentCount} replies</span>
+                    <span className="text-[10px] font-semibold text-ink-muted">{timeAgo(post.createdAt)} · {formatCompactNumber(post.likeCount)} likes · {formatCompactNumber(post.commentCount)} replies</span>
                   </div>
                   <p className="mt-1 line-clamp-2 text-[13px] font-semibold leading-relaxed text-ink-soft">{post.content}</p>
                 </div>
