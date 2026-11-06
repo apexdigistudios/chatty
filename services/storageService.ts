@@ -43,24 +43,43 @@ export async function uploadImages(files: File[], folder: MediaFolder): Promise<
   return Promise.all(files.map((file) => uploadImage(file, folder)));
 }
 
-const VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime"]);
+const VIDEO_FORMATS = {
+  mp4: { extension: "mp4", contentType: "video/mp4" },
+  m4v: { extension: "m4v", contentType: "video/mp4" },
+  webm: { extension: "webm", contentType: "video/webm" },
+  mov: { extension: "mov", contentType: "video/quicktime" },
+  ogv: { extension: "ogv", contentType: "video/ogg" },
+  ogg: { extension: "ogv", contentType: "video/ogg" },
+} as const;
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024;
 
+function getVideoFormat(file: File) {
+  const mimeType = file.type.split(";")[0]?.trim().toLowerCase();
+  if (mimeType?.startsWith("image/")) return undefined;
+  const extension = file.name.split(".").pop()?.toLowerCase() as keyof typeof VIDEO_FORMATS | undefined;
+  const extensionFormat = extension ? VIDEO_FORMATS[extension] : undefined;
+  if (mimeType === "video/mp4") return VIDEO_FORMATS.mp4;
+  if (mimeType === "video/webm") return VIDEO_FORMATS.webm;
+  if (mimeType === "video/quicktime") return VIDEO_FORMATS.mov;
+  if (mimeType === "video/ogg" || mimeType === "application/ogg") return VIDEO_FORMATS.ogv;
+  return extensionFormat;
+}
+
 export function isVideoFile(file: File): boolean {
-  return VIDEO_TYPES.has(file.type) || file.type.startsWith("video/");
+  return getVideoFormat(file) !== undefined;
 }
 
 /** Uploads a TikTok/WhatsApp-status style video without transcoding it. */
 export async function uploadVideo(file: File, folder: MediaFolder = "posts"): Promise<string> {
   const userId = await requireUserId();
-  if (!isVideoFile(file)) throw new Error("Choose an MP4, WebM, or MOV video.");
+  const format = getVideoFormat(file);
+  if (!format) throw new Error("Choose an MP4, WebM, MOV, or Ogg video.");
   if (file.size > MAX_VIDEO_BYTES) throw new Error("Videos must be 80MB or smaller.");
 
-  const ext = file.type === "video/quicktime" ? "mov" : file.type === "video/webm" ? "webm" : "mp4";
-  const path = `${userId}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const path = `${userId}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${format.extension}`;
   const { error } = await supabase.storage
     .from(MEDIA_BUCKET)
-    .upload(path, file, { cacheControl: "31536000", upsert: false, contentType: file.type });
+    .upload(path, file, { cacheControl: "31536000", upsert: false, contentType: format.contentType });
   if (error) throw new Error(error.message);
   return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
 }

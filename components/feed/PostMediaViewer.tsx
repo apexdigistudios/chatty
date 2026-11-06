@@ -8,6 +8,7 @@ import { Link } from "@/lib/router";
 import type { Post } from "@/types/models";
 import { downloadImage } from "@/lib/download";
 import { formatCompactNumber } from "@/lib/utils";
+import { isVideoUrl } from "@/lib/video";
 import { useToast } from "@/components/ui/Toast";
 import { Avatar } from "@/components/ui/Avatar";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
@@ -40,7 +41,9 @@ export function PostMediaViewer({
   const [downloading, setDownloading] = useState(false);
   const media = post.mediaUrls.map((src, index) => ({
     src,
-    type: post.mediaTypes?.[index] ?? (index === 0 ? post.mediaType : "image"),
+    type: post.mediaTypes?.[index] === "video" || isVideoUrl(src)
+      ? "video"
+      : post.mediaTypes?.[index] ?? (index === 0 ? post.mediaType : "image"),
   }));
   const activeMedia = media[currentIndex];
 

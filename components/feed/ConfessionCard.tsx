@@ -21,6 +21,7 @@ import { SafeImage } from "@/components/common/SafeImage";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { copyShareLink, shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLinks";
 import { formatCompactNumber } from "@/lib/utils";
+import { isVideoUrl } from "@/lib/video";
 
 interface ReactionMeta {
   kind: ReactionKind;
@@ -176,7 +177,7 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
           <div className="mt-3 grid grid-cols-2 gap-2">
             {confession.mediaUrls.map((url, index) => (
               <div key={`${confession.id}-media-${index}`} className="overflow-hidden rounded-2xl border-2 border-line bg-page">
-                {confession.mediaTypes?.[index] === "video" ? (
+                {confession.mediaTypes?.[index] === "video" || isVideoUrl(url) ? (
                   <video
                     src={url}
                     controls

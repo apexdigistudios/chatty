@@ -6,8 +6,8 @@ export interface VideoMetadata {
   height: number;
 }
 
-export function isVideoMime(type: string): boolean {
-  return type === "video/mp4" || type === "video/webm" || type === "video/quicktime" || type.startsWith("video/");
+export function isVideoUrl(url: string): boolean {
+  return /\.(mp4|webm|mov|m4v|ogv|ogg)(?:$|[?#])/i.test(url);
 }
 
 export function readVideoMetadata(file: File): Promise<VideoMetadata> {

@@ -10,8 +10,9 @@ import { countOf, currentUserId, requireUserId, supabase } from "@/lib/supabase"
 import { isUserGlobalAdmin } from "@/lib/adminAccess";
 import type { Comment, CommentThreadTarget, MediaType, Post, PostStatus } from "@/types/models";
 import { fetchBlockedUserIds } from "@/services/blocksService";
-import { uploadPostMedia } from "@/services/storageService";
+import { isVideoFile, uploadPostMedia } from "@/services/storageService";
 import { hasActiveVerification } from "@/lib/verification";
+import { isVideoUrl } from "@/lib/video";
 
 const AUTHOR_SELECT = "author:profiles(id, username, avatar_url, school_id)";
 const AUTHOR_IDENTITY_SELECT = "author:profiles(id, username, full_name, avatar_url, school_id)";
@@ -268,12 +269,12 @@ export function mapPost(row: RawPost, liked: boolean): Post {
     content: row.content,
     mediaUrls: row.media_url ? [row.media_url] : [],
     mediaTypes: row.media_url
-      ? [row.media_type ?? (/\.(mp4|webm|mov|m4v|ogv)(?:$|[?#])/i.test(row.media_url) ? "video" : "image")]
+      ? [row.media_type === "video" || isVideoUrl(row.media_url) ? "video" : row.media_type ?? "image"]
       : [],
     videoDurations: row.media_url ? [row.video_duration_seconds ?? null] : [],
-    mediaType:
-      row.media_type ??
-      (/\.(mp4|webm|mov|m4v|ogv)(?:$|[?#])/i.test(row.media_url ?? "") ? "video" : "image"),
+    mediaType: row.media_type === "video" || isVideoUrl(row.media_url ?? "")
+      ? "video"
+      : row.media_type ?? "image",
     videoDurationSeconds: row.video_duration_seconds ?? null,
     status: row.status,
     createdAt: row.created_at,
@@ -334,9 +335,13 @@ export async function hydrateLikes(rows: RawPost[]): Promise<Post[]> {
     return {
       ...post,
       mediaUrls: items.map((item) => item.media_url),
-      mediaTypes: items.map((item) => item.media_type ?? (/\.(mp4|webm|mov|m4v|ogv)(?:$|[?#])/i.test(item.media_url) ? "video" : "image")),
+      mediaTypes: items.map((item) =>
+        item.media_type === "video" || isVideoUrl(item.media_url) ? "video" : item.media_type ?? "image"
+      ),
       videoDurations: items.map((item) => item.video_duration_seconds ?? null),
-      mediaType: items[0]!.media_type ?? (/\.(mp4|webm|mov|m4v|ogv)(?:$|[?#])/i.test(items[0]!.media_url) ? "video" : "image"),
+      mediaType: items[0]!.media_type === "video" || isVideoUrl(items[0]!.media_url)
+        ? "video"
+        : items[0]!.media_type ?? "image",
       videoDurationSeconds: items[0]!.video_duration_seconds ?? null,
     };
   });
@@ -819,13 +824,13 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
     throw new Error("Gist text must be 300 characters or fewer.");
   }
   const unsupportedFile = files.find((file) =>
-    !file.type.startsWith("image/") && !file.type.startsWith("video/")
+    !file.type.startsWith("image/") && !isVideoFile(file)
   );
   if (unsupportedFile) {
     throw new Error("Upload failed. Please check your file size and format.");
   }
   const imageCount = files.filter((file) => file.type.startsWith("image/")).length;
-  const videoCount = files.length - imageCount;
+  const videoCount = files.filter(isVideoFile).length;
   if (imageCount > 5 || videoCount > 3) {
     throw new Error("A gist can include up to 5 images and 3 videos.");
   }

@@ -47,6 +47,7 @@ import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { AnimatedReaction } from "@/components/common/AnimatedReaction";
 import { shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLinks";
 import { formatCompactNumber } from "@/lib/utils";
+import { isVideoUrl } from "@/lib/video";
 
 function renderHashtags(content: string) {
   const parts: Array<{ value: string; tag: string | null }> = [];
@@ -145,7 +146,9 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
   const media = post.mediaUrls.map((src, index) => ({
     src,
     alt: `Photo ${index + 1} shared by ${post.authorName} from ${post.schoolShort}`,
-    type: post.mediaTypes?.[index] ?? (index === 0 ? post.mediaType : "image"),
+    type: post.mediaTypes?.[index] === "video" || isVideoUrl(src)
+      ? "video"
+      : post.mediaTypes?.[index] ?? (index === 0 ? post.mediaType : "image"),
     duration: post.videoDurations?.[index] ?? (index === 0 ? post.videoDurationSeconds : null),
   }));
   const moderator = canModerate(post.schoolId);

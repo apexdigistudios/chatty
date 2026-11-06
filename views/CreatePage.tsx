@@ -17,7 +17,8 @@ import {
 } from "@/lib/imageCompression";
 import { describeError } from "@/lib/supabase";
 import { isUserGlobalAdmin } from "@/lib/adminAccess";
-import { isVideoMime, readVideoMetadata } from "@/lib/video";
+import { readVideoMetadata } from "@/lib/video";
+import { isVideoFile } from "@/services/storageService";
 import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
 import { MAX_POST_LENGTH, type SchoolGroup } from "@/types/models";
@@ -197,7 +198,7 @@ export function CreatePage() {
     let remainingVideos = MAX_VIDEOS - attachments.filter((item) => item.kind === "video").length;
     const accepted: File[] = [];
     for (const file of files) {
-      if (isVideoMime(file.type) && remainingVideos > 0) {
+      if (isVideoFile(file) && remainingVideos > 0) {
         accepted.push(file);
         remainingVideos -= 1;
       } else if (file.type.startsWith("image/") && remainingImages > 0) {
@@ -212,7 +213,7 @@ export function CreatePage() {
     try {
       const compressedList: Attachment[] = [];
       for (const rawFile of accepted) {
-        if (isVideoMime(rawFile.type)) {
+        if (isVideoFile(rawFile)) {
           const metadata = await readVideoMetadata(rawFile);
           compressedList.push({
             kind: "video",

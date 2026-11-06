@@ -37,6 +37,7 @@ import { readSavedPostIds, subscribeToSavedPosts } from "@/lib/savedPosts";
 import { hasActiveVerification, isGlobalAdminProfile } from "@/lib/verification";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { formatCompactNumber } from "@/lib/utils";
+import { isVideoUrl } from "@/lib/video";
 
 type ProfileTab = "Gists" | "Videos" | "Liked" | "Saved" | "Brand Deals";
 type UsernameAvailability = "idle" | "checking" | "available" | "taken" | "invalid" | "error";
@@ -670,7 +671,11 @@ export function ProfilePage() {
             </div>
             {(() => {
               const profilePosts = tab === "Videos"
-                ? myPosts.filter((post) => post.mediaType?.includes("video") || post.mediaType === "video")
+                ? myPosts.filter((post) =>
+                    post.mediaType === "video" ||
+                    post.mediaTypes?.includes("video") ||
+                    post.mediaUrls.some(isVideoUrl)
+                  )
                 : myPosts;
               return loadingPosts ? <FeedSkeleton count={2} /> : profilePosts.length > 0 ? profilePosts.map((post) => <GistCard key={post.id} post={post} onRemoved={(postId) => { setMyPosts((prev) => prev.filter((item) => item.id !== postId)); setLiked((prev) => prev.filter((item) => item.id !== postId)); setSaved((prev) => prev.filter((item) => item.id !== postId)); }} />) : (
                 <Empty title={tab === "Videos" ? "No videos yet" : "You haven't posted a gist yet"} detail={tab === "Videos" ? "Videos you share with your school will appear here." : "Share campus news, NSMQ banter or photos with your community."} action="Create first gist" onAction={() => { setComposerIntent("gist", profile.schoolId); navigate("/create"); }} />

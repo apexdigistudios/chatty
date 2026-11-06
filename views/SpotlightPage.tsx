@@ -20,6 +20,7 @@ import { shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLinks";
 import { reportSpotlightScrollDirection } from "@/hooks/useScrollDirection";
 import { downloadSpotlightVideo } from "@/lib/download";
 import { formatCompactNumber } from "@/lib/utils";
+import { isVideoUrl } from "@/lib/video";
 
 type SpotlightItem =
   | { kind: "post"; key: string; videoUrl: string; post: Post }
@@ -56,17 +57,23 @@ export function SpotlightPage() {
         fetchApprovedConfessions(100),
       ]);
       const videoPosts = feed
-        .filter((post) => post.mediaTypes?.includes("video") || post.mediaType === "video")
+        .filter((post) =>
+          post.mediaType === "video" ||
+          post.mediaTypes?.includes("video") ||
+          post.mediaUrls.some(isVideoUrl)
+        )
         .flatMap((post) =>
           post.mediaUrls.flatMap((videoUrl, index) =>
-            post.mediaTypes?.[index] === "video" || (index === 0 && post.mediaType === "video")
+            post.mediaTypes?.[index] === "video" ||
+            isVideoUrl(videoUrl) ||
+            (index === 0 && post.mediaType === "video")
               ? [{ kind: "post" as const, key: `post:${post.id}:${index}`, videoUrl, post }]
               : []
           )
         );
       const videoConfessions = confessions.flatMap((confession) =>
         confession.mediaUrls?.flatMap((videoUrl, index) =>
-          confession.mediaTypes?.[index] === "video"
+          confession.mediaTypes?.[index] === "video" || isVideoUrl(videoUrl)
             ? [{
                 kind: "confession" as const,
                 key: `confession:${confession.id}:${index}`,
