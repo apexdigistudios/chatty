@@ -40,7 +40,7 @@ export function VideoLightbox({ src, onClose }: VideoLightboxProps) {
           role="dialog"
           aria-modal="true"
           aria-label="Full-screen video player"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-3 backdrop-blur-md sm:p-6"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-page/95 p-3 text-ink backdrop-blur-md sm:p-6"
           onClick={onClose}
         >
           <motion.button
@@ -49,7 +49,7 @@ export function VideoLightbox({ src, onClose }: VideoLightboxProps) {
             whileTap={{ scale: 0.9, rotate: 90 }}
             transition={springs.snappy}
             aria-label="Close video"
-            className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-10 flex size-11 items-center justify-center rounded-full border-2 border-white/25 bg-white text-[#0F0F11]"
+            className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-10 flex size-11 items-center justify-center rounded-full border-2 border-line bg-card text-ink"
           >
             <X size={20} strokeWidth={2.8} aria-hidden />
           </motion.button>
@@ -60,6 +60,9 @@ export function VideoLightbox({ src, onClose }: VideoLightboxProps) {
             autoPlay
             playsInline
             preload="metadata"
+            controlsList="nodownload noremoteplayback"
+            disablePictureInPicture
+            onContextMenu={(event) => event.preventDefault()}
             initial={{ scale: 0.92, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.94, opacity: 0 }}

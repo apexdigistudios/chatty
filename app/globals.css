@@ -96,6 +96,43 @@
   --toast-fg: #fafafa;
 }
 
+.spotlight-theme {
+  color-scheme: dark;
+
+  --page-bg: #121215;
+  --surface: #18181b;
+  --surface-raised: #202024;
+  --surface-deep: #09090b;
+  --surface-muted: #202024;
+  --border-color: #3f3f46;
+  --border-strong: #71717a;
+  --text-main: #fafafa;
+  --text-body: #e4e4e7;
+  --text-muted: #a1a1aa;
+  --text-faint: #71717a;
+  --brand: #a78bfa;
+  --brand-deep: #c4b5fd;
+  --brand-contrast: #18181b;
+  --brand-soft: #3b2d5c;
+  --brand-wash: #251d35;
+  --accent: #38bdf8;
+  --accent-deep: #7dd3fc;
+  --accent-soft: #0c4a6e;
+  --accent-wash: #082f49;
+  --success: #34d399;
+  --success-deep: #6ee7b7;
+  --success-soft: #064e3b;
+  --success-wash: #052e2b;
+  --warning: #fbbf24;
+  --warning-deep: #fcd34d;
+  --warning-soft: #713f12;
+  --warning-wash: #422006;
+  --danger: #fb7185;
+  --danger-deep: #fda4af;
+  --danger-soft: #881337;
+  --danger-wash: #4c0519;
+}
+
 @theme inline {
   --font-sans: "Nunito Variable", "Nunito", ui-rounded, system-ui, -apple-system,
     "Segoe UI", sans-serif;

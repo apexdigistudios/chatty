@@ -3,11 +3,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { motion } from "framer-motion";
 import { useNavigate, useSearchParams } from "@/lib/router";
-import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Filter, FlipHorizontal, Globe2, Hash, ImagePlus, Loader2, Send, Smile, Volume2, VolumeX, Zap, X } from "lucide-react";
-import { Avatar } from "@/components/ui/Avatar";
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Globe2, Hash, ImagePlus, Loader2, Send, Smile, X } from "lucide-react";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { ProgressiveImage } from "@/components/ui/ProgressiveImage";
-import { VideoAttachmentEditor } from "@/components/feed/VideoAttachmentEditor";
 import { SchoolBadge } from "@/components/ui/SchoolBadge";
 import { useToast } from "@/components/ui/Toast";
 import { fetchGroup } from "@/services/groupsService";
@@ -61,11 +59,6 @@ export function CreatePage() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
-  const [previewFilter, setPreviewFilter] = useState<"none" | "vivid" | "mono">("none");
-  const [previewFlipped, setPreviewFlipped] = useState(false);
-  const [previewFlash, setPreviewFlash] = useState(false);
-  const [previewMuted, setPreviewMuted] = useState(true);
-  const [previewSpeed, setPreviewSpeed] = useState(1);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -85,7 +78,7 @@ export function CreatePage() {
     !publishing &&
     !compressing;
   const canContinue =
-    (hasText || hasMedia) &&
+    hasMedia &&
     !publishing &&
     !compressing;
   const activeAttachment = attachments[previewIndex] ?? attachments[0] ?? null;
@@ -138,13 +131,6 @@ export function CreatePage() {
     if (previewIndex >= attachments.length) setPreviewIndex(Math.max(0, attachments.length - 1));
   }, [attachments.length, previewIndex]);
 
-  useEffect(() => {
-    if (previewVideoRef.current) {
-      previewVideoRef.current.playbackRate = previewSpeed;
-      previewVideoRef.current.muted = previewMuted;
-    }
-  }, [previewMuted, previewSpeed, activeAttachment?.previewUrl]);
-
   useEffect(() => () => {
     previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
   }, []);
@@ -170,7 +156,7 @@ export function CreatePage() {
 
   const continueToDetails = () => {
     if (!canContinue) {
-      if (!hasText && !hasMedia) toast("Add text, an image, or a video to continue.", "danger");
+      if (!hasMedia) toast("Select an image or video before continuing.", "danger");
       return;
     }
     setStep(2);
@@ -340,7 +326,7 @@ export function CreatePage() {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="fixed inset-0 z-50 h-dvh w-full overflow-hidden bg-black text-white"
+      className="fixed inset-0 z-50 flex h-dvh w-full flex-col overflow-hidden bg-page text-ink"
     >
       <input
         ref={fileRef}
@@ -361,213 +347,150 @@ export function CreatePage() {
         aria-label="Record or capture a video"
       />
 
-      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_50%_35%,#27213b_0%,#09090b_62%)]" aria-hidden />
       {step === 1 ? (
         <>
-          <header className="absolute inset-x-0 top-0 z-40 flex items-center justify-between gap-3 px-4 pb-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
-            <button type="button" onClick={cancel} aria-label="Close creator" className="flex size-11 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md">
+          <header className="relative z-40 flex shrink-0 items-center justify-between gap-3 border-b border-line bg-page/95 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur">
+            <button type="button" onClick={cancel} aria-label="Close creator" className="flex size-11 items-center justify-center rounded-full border border-line bg-card text-ink hover:bg-page">
               <X size={21} strokeWidth={2.7} aria-hidden />
             </button>
-            <p className="text-sm font-black text-white">Create gist</p>
-            <span className="size-11" aria-hidden />
+            <div className="text-center">
+              <p className="text-sm font-black text-ink">Create gist</p>
+              <p className="text-[10px] font-bold text-ink-muted">Step 1 of 2 · Select media</p>
+            </div>
+            <button type="button" onClick={continueToDetails} disabled={!canContinue} className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-brand px-4 text-xs font-black text-white shadow-[0_3px_0_var(--brand-edge)] disabled:pointer-events-none disabled:opacity-40">
+              Next <ArrowRight size={15} strokeWidth={2.8} aria-hidden />
+            </button>
           </header>
 
-          <main className="absolute inset-0 z-10 flex items-center justify-center">
+          <main className="relative z-10 flex min-h-0 flex-1 flex-col items-center px-4 pb-4 pt-4 sm:px-6">
             {activeAttachment ? (
-              <div className="absolute inset-0 flex items-center justify-center">
-                {activeAttachment.kind === "video" ? (
-                  <video
-                    ref={previewVideoRef}
-                    key={activeAttachment.previewUrl}
-                    src={activeAttachment.previewUrl}
-                    autoPlay
-                    loop
-                    muted={previewMuted}
-                    playsInline
-                    controlsList="nodownload noremoteplayback"
-                    disablePictureInPicture
-                    onContextMenu={(event) => event.preventDefault()}
-                    onLoadedMetadata={(event) => { event.currentTarget.playbackRate = previewSpeed; }}
-                    className={cn(
-                      "size-full object-contain transition-[filter,transform] duration-300",
-                      previewFilter === "vivid" && "saturate-150 contrast-110",
-                      previewFilter === "mono" && "grayscale",
-                      previewFlipped && "-scale-x-100"
-                    )}
-                  />
-                ) : (
-                  <img
-                    src={activeAttachment.previewUrl}
-                    alt={`Selected ${activeAttachment.kind}`}
-                    className={cn(
-                      "size-full object-contain transition-[filter,transform] duration-300",
-                      previewFilter === "vivid" && "saturate-150 contrast-110",
-                      previewFilter === "mono" && "grayscale",
-                      previewFlipped && "-scale-x-100"
-                    )}
-                  />
-                )}
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/45 px-2 py-1 text-[10px] font-extrabold text-white/90 backdrop-blur">
-                  {previewIndex + 1} / {attachments.length} · {activeAttachment.kind}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => removeAttachment(previewIndex)}
-                  aria-label="Remove selected media"
-                  className="absolute left-4 top-[calc(50%+2rem)] flex size-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur"
-                >
-                  <X size={17} aria-hidden />
-                </button>
-                <div className="absolute left-4 top-[calc(50%+5rem)] flex gap-2">
-                  <button type="button" onClick={() => moveAttachment(previewIndex, -1)} disabled={previewIndex === 0} aria-label="Move media earlier" className="flex size-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur disabled:opacity-35">
-                    <ArrowLeft size={17} aria-hidden />
-                  </button>
-                  <button type="button" onClick={() => moveAttachment(previewIndex, 1)} disabled={previewIndex >= attachments.length - 1} aria-label="Move media later" className="flex size-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur disabled:opacity-35">
-                    <ArrowRight size={17} aria-hidden />
-                  </button>
+              <div className="flex min-h-0 w-full max-w-3xl flex-1 flex-col items-center justify-center">
+                <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-3xl border border-line bg-card p-2 shadow-card">
+                  {activeAttachment.kind === "video" ? (
+                    <video
+                      ref={previewVideoRef}
+                      key={activeAttachment.previewUrl}
+                      src={activeAttachment.previewUrl}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      controlsList="nodownload noremoteplayback"
+                      disablePictureInPicture
+                      onContextMenu={(event) => event.preventDefault()}
+                      className="max-h-full max-w-full rounded-2xl object-contain"
+                    />
+                  ) : (
+                    <img src={activeAttachment.previewUrl} alt={`Selected ${activeAttachment.kind}`} className="max-h-full max-w-full rounded-2xl object-contain" />
+                  )}
+                </div>
+                <div className="mt-3 flex w-full flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-bold text-ink-muted">{previewIndex + 1} of {attachments.length} · {activeAttachment.kind}</p>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => moveAttachment(previewIndex, -1)} disabled={previewIndex === 0} aria-label="Move media earlier" className="flex size-10 items-center justify-center rounded-full border border-line bg-card text-ink hover:bg-page disabled:opacity-40"><ArrowLeft size={17} aria-hidden /></button>
+                    <button type="button" onClick={() => moveAttachment(previewIndex, 1)} disabled={previewIndex >= attachments.length - 1} aria-label="Move media later" className="flex size-10 items-center justify-center rounded-full border border-line bg-card text-ink hover:bg-page disabled:opacity-40"><ArrowRight size={17} aria-hidden /></button>
+                    <button type="button" onClick={() => removeAttachment(previewIndex)} aria-label="Remove selected media" className="flex size-10 items-center justify-center rounded-full border border-danger-soft bg-danger-wash text-danger hover:bg-danger-soft"><X size={17} aria-hidden /></button>
+                  </div>
                 </div>
                 {attachments.length > 1 && (
-                  <div className="pointer-events-none absolute inset-y-0 inset-x-2 z-30 flex items-center justify-between">
-                    <button type="button" onClick={() => setPreviewIndex((index) => (index + attachments.length - 1) % attachments.length)} aria-label="Previous media" className="pointer-events-auto flex size-10 items-center justify-center rounded-full bg-black/50 text-white shadow-lg backdrop-blur"><ChevronLeft size={19} aria-hidden /></button>
-                    <button type="button" onClick={() => setPreviewIndex((index) => (index + 1) % attachments.length)} aria-label="Next media" className="pointer-events-auto flex size-10 items-center justify-center rounded-full bg-black/50 text-white shadow-lg backdrop-blur"><ChevronRight size={19} aria-hidden /></button>
+                  <div className="no-scrollbar mt-3 flex w-full gap-2 overflow-x-auto pb-1">
+                    {attachments.map((item, index) => (
+                      <button key={item.previewUrl} type="button" onClick={() => setPreviewIndex(index)} aria-label={`Preview media ${index + 1}`} aria-pressed={previewIndex === index} className={cn("relative size-16 shrink-0 overflow-hidden rounded-xl border-2 bg-card", previewIndex === index ? "border-brand" : "border-line")}>
+                        {item.kind === "video"
+                          ? <video src={item.previewUrl} muted playsInline className="size-full object-cover" />
+                          : <img src={item.previewUrl} alt="" className="size-full object-cover" />}
+                        <span className="absolute bottom-1 right-1 rounded bg-black/65 px-1 text-[9px] font-black text-white">{index + 1}</span>
+                      </button>
+                    ))}
                   </div>
                 )}
-                {previewFlash && <span className="pointer-events-none absolute inset-0 bg-white/15" aria-hidden />}
               </div>
             ) : (
-              <div className="relative z-10 flex max-w-sm flex-col items-center px-8 pb-[calc(11rem+env(safe-area-inset-bottom))] text-center sm:pb-0">
-                <span className="flex size-20 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white/75">
+              <div className="flex min-h-0 w-full max-w-3xl flex-1 flex-col items-center justify-center rounded-3xl border-2 border-dashed border-line bg-card px-8 text-center">
+                <span className="flex size-20 items-center justify-center rounded-full border border-line bg-page text-ink-muted">
                   <ImagePlus size={28} aria-hidden />
                 </span>
-                <h1 className="mt-5 text-2xl font-black tracking-tight">Create your gist</h1>
-                <p className="mt-2 text-sm font-semibold leading-relaxed text-white/65">
-                  Add a photo or video, or start with a caption. Your campus is waiting.
+                <h1 className="mt-5 text-2xl font-black tracking-tight text-ink">Choose your media</h1>
+                <p className="mt-2 text-sm font-semibold leading-relaxed text-ink-muted">
+                  Select photos or videos to preview and arrange before adding your caption.
                 </p>
               </div>
             )}
 
-            <div className="absolute right-2 top-[18%] z-20 flex max-h-[calc(100dvh-20rem)] flex-col items-center gap-1 overflow-y-auto rounded-full bg-black/20 px-1 py-1 backdrop-blur-sm sm:right-4 sm:top-[25%] sm:gap-3">
-              <button type="button" onClick={() => setPreviewFlipped((flipped) => !flipped)} className="flex min-h-11 flex-col items-center gap-1 text-[9px] font-bold text-white drop-shadow">
-                <span className="flex size-10 items-center justify-center rounded-full bg-black/45 backdrop-blur"><FlipHorizontal size={18} aria-hidden /></span>Flip
-              </button>
-              <button type="button" onClick={() => setPreviewFilter((filter) => filter === "none" ? "vivid" : filter === "vivid" ? "mono" : "none")} className="flex min-h-11 flex-col items-center gap-1 text-[9px] font-bold text-white drop-shadow">
-                <span className="flex size-10 items-center justify-center rounded-full bg-black/45 backdrop-blur"><Filter size={17} aria-hidden /></span>{previewFilter === "none" ? "Filters" : previewFilter}
-              </button>
-              <button type="button" onClick={() => setPreviewSpeed((speed) => speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1)} className="flex min-h-11 flex-col items-center gap-1 text-[9px] font-bold text-white drop-shadow">
-                <span className="flex size-10 items-center justify-center rounded-full bg-black/45 backdrop-blur"><span className="text-[10px] font-black">{previewSpeed}×</span></span>Speed
-              </button>
-              <button type="button" onClick={() => setPreviewFlash((flash) => !flash)} aria-pressed={previewFlash} className="flex min-h-11 flex-col items-center gap-1 text-[9px] font-bold text-white drop-shadow">
-                <span className={cn("flex size-10 items-center justify-center rounded-full backdrop-blur", previewFlash ? "bg-white text-black" : "bg-black/45")}><Zap size={17} aria-hidden /></span>Flash
-              </button>
-              {activeAttachment?.kind === "video" && (
-                <button type="button" onClick={() => setPreviewMuted((muted) => !muted)} aria-label={previewMuted ? "Enable video sound" : "Mute video"} className="flex min-h-11 flex-col items-center gap-1 text-[9px] font-bold text-white drop-shadow">
-                  <span className="flex size-10 items-center justify-center rounded-full bg-black/45 backdrop-blur">{previewMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}</span>Sound
-                </button>
-              )}
-            </div>
-
-            <div className="absolute bottom-[calc(8.5rem+env(safe-area-inset-bottom))] left-4 right-16 z-20">
-              <div className="mb-2 flex items-center gap-2">
-                <Avatar name={profile?.username ?? "you"} src={profile?.avatarUrl} size="sm" />
-                <span className="truncate text-xs font-extrabold text-white">{profile?.fullName || `@${profile?.username ?? "student"}`}</span>
-                {profile?.fullName && <span className="truncate text-[10px] font-semibold text-white/65">@{profile.username}</span>}
-              </div>
-              <textarea
-                ref={textRef}
-                value={content}
-                onChange={(event) => setContent(event.target.value.slice(0, MAX_POST_LENGTH))}
-                maxLength={MAX_POST_LENGTH}
-                rows={2}
-                placeholder="Add a caption or #hashtag…"
-                aria-label="Gist caption"
-                className="max-h-24 w-full resize-none bg-transparent text-sm font-semibold leading-relaxed text-white outline-none placeholder:text-white/65"
-              />
-            </div>
           </main>
 
-          <footer className="absolute inset-x-0 bottom-0 z-40 bg-linear-to-t from-black/95 via-black/75 to-transparent px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-8">
-            <div className="mx-auto flex w-full max-w-lg items-end justify-between gap-3">
+          <footer className="w-full shrink-0 border-t border-line bg-page px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
                 disabled={compressing}
-                className="flex min-h-12 flex-col items-center justify-center gap-1 text-[10px] font-extrabold text-white disabled:opacity-40"
+                className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-card px-4 text-xs font-extrabold text-ink hover:bg-page disabled:opacity-40"
               >
-                <span className="flex size-11 items-center justify-center rounded-xl bg-white/10"><ImagePlus size={19} aria-hidden /></span>
-                Gallery
+                {compressing ? <Loader2 size={17} className="animate-spin" aria-hidden /> : <ImagePlus size={17} aria-hidden />}
+                Add photos/videos
               </button>
               <button
                 type="button"
                 onClick={() => cameraRef.current?.click()}
                 disabled={compressing}
                 aria-label={compressing ? "Preparing media" : "Record or upload media"}
-                className="flex size-[68px] shrink-0 items-center justify-center rounded-full border-[5px] border-white bg-[#8B5CF6] shadow-[0_0_0_3px_rgba(139,92,246,.35)] transition-transform active:scale-95 disabled:opacity-50"
+                className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-card px-4 text-xs font-extrabold text-ink hover:bg-page disabled:opacity-50"
               >
-                {compressing ? <Loader2 size={24} className="animate-spin" aria-hidden /> : <span className="size-7 rounded-full bg-white" />}
-              </button>
-              <button
-                type="button"
-                onClick={continueToDetails}
-                disabled={!canContinue}
-                className="inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-5 text-xs font-black text-neutral-950 transition-transform active:scale-95 disabled:pointer-events-none disabled:opacity-40"
-              >
-                Next <ArrowRight size={15} strokeWidth={2.8} aria-hidden />
+                <ImagePlus size={17} aria-hidden />
+                Record video
               </button>
             </div>
-            <p className="mt-2 text-center text-[10px] font-semibold text-white/50">{attachments.length ? `${attachments.length} selected · up to 5 photos and 3 videos` : "Capture or upload a moment"}</p>
+            <p className="mt-2 text-center text-[10px] font-semibold text-ink-muted">{attachments.length ? `${attachments.length} selected · up to 5 photos and 3 videos` : "Up to 5 photos and 3 videos"}</p>
           </footer>
         </>
       ) : (
         <>
-          <div className="pointer-events-none absolute inset-0 z-0 bg-neutral-950" />
-          <header className="absolute inset-x-0 top-0 z-40 flex items-center justify-between px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
-            <button type="button" onClick={() => setStep(1)} aria-label="Back to media studio" className="flex size-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur"><ArrowLeft size={19} aria-hidden /></button>
-            <p className="text-sm font-black text-white">Post details</p>
-            <span className="flex size-11 items-center justify-center text-[10px] font-black text-white/55">2 / 2</span>
+          <header className="absolute inset-x-0 top-0 z-40 flex items-center justify-between border-b border-line bg-page/95 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur">
+            <button type="button" onClick={() => setStep(1)} aria-label="Back to media studio" className="flex size-11 items-center justify-center rounded-full border border-line bg-card text-ink hover:bg-page"><ArrowLeft size={19} aria-hidden /></button>
+            <div className="text-center">
+              <p className="text-sm font-black text-ink">Post details</p>
+              <p className="text-[10px] font-bold text-ink-muted">Step 2 of 2</p>
+            </div>
+            <span className="size-11" aria-hidden />
           </header>
 
           <motion.section
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
             transition={springs.gentle}
-            className="absolute inset-x-0 bottom-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-30 flex min-h-0 flex-col overflow-hidden border-t border-white/10 bg-neutral-950"
+            className="absolute inset-x-0 bottom-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-30 flex min-h-0 flex-col overflow-hidden border-t border-line bg-page"
             style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
           >
             <div className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto px-4 pb-4 pt-4 sm:px-7">
-              <div className="flex items-center gap-3">
-                {activeAttachment?.kind === "video" ? (
-                  <video src={activeAttachment.previewUrl} muted playsInline controlsList="nodownload noremoteplayback" disablePictureInPicture onContextMenu={(event) => event.preventDefault()} className="size-[72px] shrink-0 rounded-xl bg-black object-cover" />
-                ) : activeAttachment ? (
-                  <img src={activeAttachment.previewUrl} alt="Selected media thumbnail" className="size-[72px] shrink-0 rounded-xl bg-black object-cover" />
-                ) : (
-                  <span className="flex size-[72px] shrink-0 items-center justify-center rounded-xl bg-white/10"><ImagePlus size={22} aria-hidden /></span>
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <Avatar name={profile?.username ?? "you"} src={profile?.avatarUrl} size="sm" />
-                    <span className="truncate text-xs font-extrabold text-white">{profile?.fullName || `@${profile?.username ?? "student"}`}</span>
-                  </div>
-                  {isGlobalAdminAuthor ? (
-                    <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-purple-300/25 bg-purple-500/15 px-2.5 py-1 text-[10px] font-extrabold text-purple-200">
-                      <Globe2 size={12} aria-hidden /> All Schools / Global Admin
-                    </span>
-                  ) : (
-                    <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-bold text-white/75">
-                      <SchoolBadge schoolId={school?.id} crestUrl={school?.crestUrl} name={school?.name ?? "School"} size="xs" />
-                      {school?.shortName ?? "No school linked"}
-                    </span>
-                  )}
-                </div>
-                <span className={cn("shrink-0 text-[10px] font-extrabold tabular-nums", remaining <= 25 ? "text-red-300" : "text-white/50")}>{content.length}/{MAX_POST_LENGTH}</span>
+              <div className="flex items-center justify-between gap-3">
+                <h1 className="text-lg font-black tracking-tight text-ink">Your post</h1>
+                <span className={cn("shrink-0 text-xs font-extrabold tabular-nums", remaining <= 25 ? "text-danger" : "text-ink-muted")}>{content.length}/{MAX_POST_LENGTH}</span>
               </div>
 
+              <section className="mt-3 rounded-2xl border border-line bg-card p-3" aria-labelledby="audience-title">
+                <div className="flex items-center gap-2">
+                  <span className="flex size-9 items-center justify-center rounded-xl bg-brand-wash text-brand-deep">
+                    {isGlobalAdminAuthor ? <Globe2 size={17} aria-hidden /> : <SchoolBadge schoolId={school?.id} crestUrl={school?.crestUrl} name={school?.name ?? "School"} size="xs" />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h2 id="audience-title" className="text-xs font-black text-ink">Audience</h2>
+                    <p className="truncate text-[11px] font-semibold text-ink-muted">
+                      {isGlobalAdminAuthor ? "All schools and communities" : school?.shortName ?? "Your school community"}
+                      {postGroup ? ` · ${postGroup.name}` : ""}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-brand-wash px-2.5 py-1 text-[10px] font-extrabold text-brand-deep">Public</span>
+                </div>
+              </section>
+
               {postGroup && (
-                <div className="mt-3 flex items-center gap-2 rounded-xl border border-purple-300/20 bg-purple-500/10 px-3 py-2 text-xs font-bold text-purple-200">
+                <div className="mt-3 flex items-center gap-2 rounded-xl border border-brand-soft bg-brand-wash px-3 py-2 text-xs font-bold text-brand-deep">
                   <span aria-hidden>{postGroup.emoji}</span> Posting into {postGroup.name}
                 </div>
               )}
               {step === 2 && !schoolId && !isGlobalAdminAuthor && (
-                <p role="status" className="mt-3 rounded-xl border border-amber-300/20 bg-amber-400/10 px-3 py-2 text-xs font-bold text-amber-200">
+                <p role="status" className="mt-3 rounded-xl border border-warning-soft bg-warning-wash px-3 py-2 text-xs font-bold text-warning-deep">
                   Link your school in your profile before publishing.
                 </p>
               )}
@@ -580,70 +503,64 @@ export function CreatePage() {
                 rows={4}
                 placeholder="Write a caption, add #hashtags, and tell everyone the gist…"
                 aria-label="Gist caption and hashtags"
-                className="mt-4 min-h-28 w-full resize-y rounded-2xl border border-white/10 bg-white/5 p-3 text-sm font-semibold leading-relaxed text-white outline-none placeholder:text-white/40 focus:border-purple-400"
+                className="mt-4 min-h-32 w-full resize-y rounded-2xl border border-line bg-card p-3 text-sm font-semibold leading-relaxed text-ink outline-none placeholder:text-ink-muted focus:border-brand"
               />
-              <section className="mt-3 rounded-2xl border border-white/10 bg-white/3 p-3" aria-label="Hashtag suggestions">
-                  <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-white/55"><Hash size={12} aria-hidden /> Hashtags</p>
-                  {content && <p className="mt-2 whitespace-pre-wrap wrap-break-word text-xs font-semibold text-white/75">{highlightedCaption}</p>}
+              <section className="mt-3 rounded-2xl border border-line bg-card p-3" aria-label="Hashtag suggestions">
+                  <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-ink-muted"><Hash size={12} aria-hidden /> Tags (optional)</p>
+                  {content && <p className="mt-2 whitespace-pre-wrap wrap-break-word text-xs font-semibold text-ink-soft">{highlightedCaption}</p>}
                   <div className="mt-2 flex flex-wrap gap-2">
                     {hashtagSuggestions.map((tag) => (
-                      <button key={tag} type="button" onClick={() => insertHashtag(tag)} className="min-h-8 rounded-full border border-purple-300/20 bg-purple-500/10 px-3 text-[10px] font-extrabold text-purple-200">#{tag}</button>
+                      <button key={tag} type="button" onClick={() => insertHashtag(tag)} className="min-h-8 rounded-full border border-brand-soft bg-brand-wash px-3 text-[10px] font-extrabold text-brand-deep">#{tag}</button>
                     ))}
                   </div>
               </section>
 
               {attachments.length > 0 && (
                 <div className="mt-4">
-                  <p className="mb-2 text-[10px] font-extrabold uppercase tracking-wider text-white/55">Media · up to 5 photos and 3 videos</p>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  <p className="mb-2 text-[10px] font-extrabold uppercase tracking-wider text-ink-muted">Selected media · {attachments.length}</p>
+                  <div className="no-scrollbar flex gap-2 overflow-x-auto pb-2">
                     {attachments.map((item, index) => item.kind === "video" ? (
-                      <div key={`${item.previewUrl}-${index}`} className="relative">
-                        <VideoAttachmentEditor
-                          draft={{ file: item.file, previewUrl: item.previewUrl, duration: item.duration ?? 0, width: item.width, height: item.height }}
-                          onRemove={() => removeAttachment(index)}
-                        />
-                        <div className="absolute bottom-2 left-2 z-20 flex gap-1">
-                          <button type="button" disabled={index === 0} onClick={() => moveAttachment(index, -1)} aria-label={`Move media ${index + 1} earlier`} className="flex size-8 items-center justify-center rounded-full bg-black/70 text-white disabled:opacity-40"><ArrowLeft size={14} aria-hidden /></button>
-                          <button type="button" disabled={index === attachments.length - 1} onClick={() => moveAttachment(index, 1)} aria-label={`Move media ${index + 1} later`} className="flex size-8 items-center justify-center rounded-full bg-black/70 text-white disabled:opacity-40"><ArrowRight size={14} aria-hidden /></button>
-                        </div>
+                      <div key={`${item.previewUrl}-${index}`} className="relative size-20 shrink-0 overflow-hidden rounded-xl border border-line bg-card">
+                        <video src={item.previewUrl} muted playsInline controlsList="nodownload noremoteplayback" disablePictureInPicture onContextMenu={(event) => event.preventDefault()} className="size-full object-cover" />
+                        <span className="absolute bottom-1 left-1 rounded bg-black/65 px-1.5 py-0.5 text-[9px] font-black text-white">Video</span>
+                        <button type="button" onClick={() => removeAttachment(index)} aria-label={`Remove video ${index + 1}`} className="absolute right-1 top-1 flex size-7 items-center justify-center rounded-full bg-black/70 text-white"><X size={14} aria-hidden /></button>
                       </div>
                     ) : (
-                      <div key={item.previewUrl} className="relative overflow-hidden rounded-xl border border-white/10 bg-white/5">
-                        <button type="button" onClick={() => setLightboxIndex(imageAttachments.findIndex((image) => image.previewUrl === item.previewUrl))} aria-label={`Preview photo ${index + 1}`} className="block w-full">
-                          <ProgressiveImage src={item.previewUrl} alt={`Attachment ${index + 1}`} containerClassName="aspect-video w-full" />
+                      <div key={item.previewUrl} className="relative size-20 shrink-0 overflow-hidden rounded-xl border border-line bg-card">
+                        <button type="button" onClick={() => setLightboxIndex(imageAttachments.findIndex((image) => image.previewUrl === item.previewUrl))} aria-label={`Preview photo ${index + 1}`} className="block size-full">
+                          <ProgressiveImage src={item.previewUrl} alt={`Attachment ${index + 1}`} containerClassName="size-full" />
                         </button>
-                        <button type="button" onClick={() => removeAttachment(index)} aria-label={`Remove photo ${index + 1}`} className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-black/70 text-white"><X size={15} aria-hidden /></button>
-                        <div className="absolute bottom-2 left-2 flex gap-1">
-                          <button type="button" disabled={index === 0} onClick={() => moveAttachment(index, -1)} aria-label={`Move media ${index + 1} earlier`} className="flex size-8 items-center justify-center rounded-full bg-black/70 text-white disabled:opacity-40"><ArrowLeft size={14} aria-hidden /></button>
-                          <button type="button" disabled={index === attachments.length - 1} onClick={() => moveAttachment(index, 1)} aria-label={`Move media ${index + 1} later`} className="flex size-8 items-center justify-center rounded-full bg-black/70 text-white disabled:opacity-40"><ArrowRight size={14} aria-hidden /></button>
-                        </div>
+                        <button type="button" onClick={() => removeAttachment(index)} aria-label={`Remove photo ${index + 1}`} className="absolute right-1 top-1 flex size-7 items-center justify-center rounded-full bg-black/70 text-white"><X size={14} aria-hidden /></button>
                       </div>
                     ))}
+                    <button type="button" onClick={() => fileRef.current?.click()} disabled={compressing} aria-label="Add more media" className="flex size-20 shrink-0 items-center justify-center rounded-xl border border-dashed border-line bg-card text-ink-muted hover:border-brand hover:text-brand-deep disabled:opacity-50">
+                      {compressing ? <Loader2 size={19} className="animate-spin" aria-hidden /> : <ImagePlus size={19} aria-hidden />}
+                    </button>
                   </div>
                 </div>
               )}
             </div>
 
-            <footer className="mx-auto flex w-full max-w-3xl shrink-0 items-center gap-3 border-t border-white/10 bg-neutral-950 px-4 py-3 sm:px-7">
-              <button type="button" onClick={() => fileRef.current?.click()} disabled={compressing} aria-label="Add more media" className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/5 text-white/75 disabled:opacity-50"><ImagePlus size={19} aria-hidden /></button>
-              <button type="button" onClick={() => setEmojiPickerOpen((open) => !open)} aria-label="Open emoji picker" className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/5 text-white/75"><Smile size={19} aria-hidden /></button>
-              <button type="button" onClick={() => setStep(1)} className="min-h-11 rounded-xl border border-white/15 px-4 text-xs font-extrabold text-white/75">Preview</button>
+            <footer className="mx-auto w-full max-w-3xl shrink-0 border-t border-line bg-page px-4 py-3 sm:px-7">
+              <div className="mb-2 flex justify-end">
+                <button type="button" onClick={() => setEmojiPickerOpen((open) => !open)} aria-label="Open emoji picker" className="flex size-10 items-center justify-center rounded-xl border border-line bg-card text-ink-muted hover:bg-page"><Smile size={19} aria-hidden /></button>
+              </div>
               <motion.button
                 type="button"
                 onClick={() => void publish()}
                 disabled={!canPublish}
                 whileTap={canPublish ? { scale: 0.98 } : undefined}
-                className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#8B5CF6] px-4 text-sm font-black text-white shadow-[0_4px_0_#5B21B6] disabled:pointer-events-none disabled:opacity-45"
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-black text-white shadow-[0_4px_0_var(--brand-edge)] disabled:pointer-events-none disabled:opacity-45"
               >
                 {publishing ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Send size={15} aria-hidden />}
-                {publishing ? "Publishing…" : "Post"}
+                {publishing ? "Publishing…" : "Post now"}
               </motion.button>
             </footer>
           </motion.section>
           {emojiPickerOpen && (
-            <div role="group" aria-label="Choose an emoji" className="absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-4 right-4 z-50 grid grid-cols-6 gap-1 rounded-2xl border border-white/10 bg-neutral-900 p-2 shadow-2xl">
+            <div role="group" aria-label="Choose an emoji" className="absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-4 right-4 z-50 grid grid-cols-6 gap-1 rounded-2xl border border-line bg-card p-2 text-ink shadow-2xl">
               {COMPOSER_EMOJIS.map((emoji) => (
-                <button key={emoji} type="button" onClick={() => insertEmoji(emoji)} aria-label={`Insert ${emoji}`} className="flex size-11 items-center justify-center rounded-xl text-xl hover:bg-white/10">{emoji}</button>
+                <button key={emoji} type="button" onClick={() => insertEmoji(emoji)} aria-label={`Insert ${emoji}`} className="flex size-11 items-center justify-center rounded-xl text-xl hover:bg-page">{emoji}</button>
               ))}
             </div>
           )}

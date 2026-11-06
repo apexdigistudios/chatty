@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
+import { usePathname } from "next/navigation";
 import { Link } from "@/lib/router";
 import { CornerDownRight, EyeOff, Heart, Loader2, MessageCircle, Send, Sparkles, Trash2, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -24,6 +25,8 @@ const QUICK_REPLIES = ["Chale, facts!", "No size at all!", "Herh, campus gist!",
 
 /** Slide-up comment sheet shared by post and confession discussion threads. */
 export function CommentDrawer() {
+  const pathname = usePathname();
+  const spotlight = pathname === "/spotlight";
   const { toast } = useToast();
   const { user, profile, isGlobalAdmin } = useAuth();
   const canModerate = useCanModerate();
@@ -252,7 +255,7 @@ export function CommentDrawer() {
             onDragEnd={(_, info) => {
               if (info.offset.y > 110 || info.velocity.y > 620) closeComments();
             }}
-            className="relative z-10 mx-auto flex max-h-[86dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[28px] border-t-2 border-line bg-card text-ink shadow-2xl sm:border-x-2"
+            className={`relative z-10 mx-auto flex max-h-[86dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[28px] border-t-2 border-line bg-card text-ink shadow-2xl sm:border-x-2 ${spotlight ? "spotlight-theme" : ""}`}
           >
             <div onPointerDown={(event) => dragControls.start(event)} className="shrink-0 cursor-grab touch-none border-b-2 border-line px-4 pb-3 pt-2.5 active:cursor-grabbing sm:px-5">
               <div className="mx-auto mb-2.5 h-1.5 w-12 rounded-full bg-line" aria-hidden />

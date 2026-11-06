@@ -101,7 +101,7 @@ export function ImageLightbox({ images, index, onClose }: ImageLightboxProps) {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
           style={{ opacity: backdropOpacity }}
-          className="fixed inset-0 z-50 flex h-dvh w-screen flex-col overflow-hidden bg-black/95 backdrop-blur-md"
+          className="fixed inset-0 z-50 flex h-dvh w-screen flex-col overflow-hidden bg-page/95 text-ink backdrop-blur-md"
         >
           <div className="absolute inset-0" onClick={onClose} aria-hidden />
 
@@ -110,18 +110,18 @@ export function ImageLightbox({ images, index, onClose }: ImageLightboxProps) {
             className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 px-3 pb-3 sm:px-5"
             style={{ paddingTop: "max(0.85rem, env(safe-area-inset-top))" }}
           >
-            <span className="pointer-events-auto rounded-full border border-white/15 bg-black/60 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-white/90 backdrop-blur-md">
+            <span className="pointer-events-auto rounded-full border border-line bg-card/90 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-ink backdrop-blur-md">
               {images.length > 1 ? `${active + 1} / ${images.length}` : scale > 1 ? `${Math.round(scale * 100)}%` : "Full view"}
             </span>
             <div className="pointer-events-auto flex items-center gap-2">
-              <div className="hidden items-center gap-1 rounded-full border border-white/15 bg-black/60 p-1 backdrop-blur-md sm:flex">
-                <button type="button" onClick={() => zoom(scale - 0.5)} disabled={scale <= MIN_SCALE} aria-label="Zoom out" className="flex size-8 items-center justify-center rounded-full text-white hover:bg-white/15 disabled:opacity-35">
+              <div className="hidden items-center gap-1 rounded-full border border-line bg-card/90 p-1 backdrop-blur-md sm:flex">
+                <button type="button" onClick={() => zoom(scale - 0.5)} disabled={scale <= MIN_SCALE} aria-label="Zoom out" className="flex size-8 items-center justify-center rounded-full text-ink hover:bg-page disabled:opacity-35">
                   <Minus size={15} strokeWidth={2.6} aria-hidden />
                 </button>
-                <button type="button" onClick={resetZoom} disabled={scale === MIN_SCALE} aria-label="Reset zoom" className="flex size-8 items-center justify-center rounded-full text-white hover:bg-white/15 disabled:opacity-35">
+                <button type="button" onClick={resetZoom} disabled={scale === MIN_SCALE} aria-label="Reset zoom" className="flex size-8 items-center justify-center rounded-full text-ink hover:bg-page disabled:opacity-35">
                   <RotateCcw size={14} strokeWidth={2.6} aria-hidden />
                 </button>
-                <button type="button" onClick={() => zoom(scale + 0.5)} disabled={scale >= MAX_SCALE} aria-label="Zoom in" className="flex size-8 items-center justify-center rounded-full text-white hover:bg-white/15 disabled:opacity-35">
+                <button type="button" onClick={() => zoom(scale + 0.5)} disabled={scale >= MAX_SCALE} aria-label="Zoom in" className="flex size-8 items-center justify-center rounded-full text-ink hover:bg-page disabled:opacity-35">
                   <Plus size={15} strokeWidth={2.6} aria-hidden />
                 </button>
               </div>
@@ -132,7 +132,7 @@ export function ImageLightbox({ images, index, onClose }: ImageLightboxProps) {
                 whileTap={{ scale: 0.9, rotate: 90 }}
                 transition={springs.snappy}
                 aria-label="Close full-screen image"
-                className="flex size-11 items-center justify-center rounded-full border-2 border-white/25 bg-white text-[#0F0F11] shadow-[0_4px_16px_rgba(0,0,0,0.5)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand"
+                className="flex size-11 items-center justify-center rounded-full border-2 border-line bg-card text-ink shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand"
               >
                 <X size={20} strokeWidth={2.9} aria-hidden />
               </motion.button>
@@ -141,10 +141,10 @@ export function ImageLightbox({ images, index, onClose }: ImageLightboxProps) {
 
           {images.length > 1 && (
             <>
-              <button type="button" onClick={(e) => { e.stopPropagation(); setActive((i) => (i - 1 + images.length) % images.length); }} aria-label="Previous photo" className="absolute left-3 top-1/2 z-20 flex size-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/60 text-white backdrop-blur-md hover:bg-black/80">
+              <button type="button" onClick={(e) => { e.stopPropagation(); setActive((i) => (i - 1 + images.length) % images.length); }} aria-label="Previous photo" className="absolute left-3 top-1/2 z-20 flex size-11 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-card/90 text-ink backdrop-blur-md hover:bg-card">
                 <ChevronLeft size={22} strokeWidth={2.6} aria-hidden />
               </button>
-              <button type="button" onClick={(e) => { e.stopPropagation(); setActive((i) => (i + 1) % images.length); }} aria-label="Next photo" className="absolute right-3 top-1/2 z-20 flex size-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/60 text-white backdrop-blur-md hover:bg-black/80">
+              <button type="button" onClick={(e) => { e.stopPropagation(); setActive((i) => (i + 1) % images.length); }} aria-label="Next photo" className="absolute right-3 top-1/2 z-20 flex size-11 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-card/90 text-ink backdrop-blur-md hover:bg-card">
                 <ChevronRight size={22} strokeWidth={2.6} aria-hidden />
               </button>
             </>
@@ -196,11 +196,11 @@ export function ImageLightbox({ images, index, onClose }: ImageLightboxProps) {
 
           {(image.caption || image.alt) && (
             <div
-              className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-linear-to-t from-black/90 via-black/55 to-transparent px-4 pt-12 text-center sm:px-8"
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-20 border-t border-line bg-card/90 px-4 pt-4 text-center backdrop-blur-md sm:px-8"
               style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
             >
-              {image.caption && <p className="mx-auto max-w-2xl text-sm font-extrabold leading-snug text-white sm:text-base">{image.caption}</p>}
-              <p className="mt-1 text-[11px] font-semibold text-white/60">Swipe down or tap backdrop to close · Double-tap to zoom</p>
+              {image.caption && <p className="mx-auto max-w-2xl text-sm font-extrabold leading-snug text-ink sm:text-base">{image.caption}</p>}
+              <p className="mt-1 text-[11px] font-semibold text-ink-muted">Swipe down or tap backdrop to close · Double-tap to zoom</p>
             </div>
           )}
         </motion.div>

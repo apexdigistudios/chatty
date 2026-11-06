@@ -77,7 +77,7 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
           <NotificationListener />
           <OfflineSyncListener />
           <AppLayout
-            headerHidden={spotlightNavigationHidden && isSpotlight}
+            headerHidden={false}
             bottomNavHidden={isSpotlight ? spotlightNavigationHidden : navigationHidden && isHome}
             fullscreen={fullscreen}
           >

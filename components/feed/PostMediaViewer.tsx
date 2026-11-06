@@ -109,9 +109,9 @@ export function PostMediaViewer({
             initial={{ opacity: 0, y: 12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
-            className="relative flex h-dvh w-full flex-col overflow-hidden bg-neutral-950 text-white sm:h-[min(92dvh,900px)] sm:max-w-7xl sm:flex-row sm:rounded-2xl sm:border sm:border-white/15"
+            className="relative flex h-dvh w-full flex-col overflow-hidden bg-card text-ink sm:h-[min(92dvh,900px)] sm:max-w-7xl sm:flex-row sm:rounded-2xl sm:border sm:border-line"
           >
-            <button type="button" onClick={onClose} aria-label="Close post viewer" className="absolute right-3 top-3 z-30 flex size-11 items-center justify-center rounded-full bg-black/60 text-white ring-1 ring-white/20 backdrop-blur hover:bg-black/80">
+            <button type="button" onClick={onClose} aria-label="Close post viewer" className="absolute right-3 top-3 z-30 flex size-11 items-center justify-center rounded-full border border-line bg-card/90 text-ink shadow-lg backdrop-blur hover:bg-page">
               <X size={20} aria-hidden />
             </button>
 
@@ -164,7 +164,7 @@ export function PostMediaViewer({
               )}
             </div>
 
-            <aside className="flex max-h-[42dvh] w-full shrink-0 flex-col border-t border-white/10 bg-neutral-950 sm:max-h-none sm:w-[360px] sm:border-l sm:border-t-0">
+            <aside className="flex max-h-[42dvh] w-full shrink-0 flex-col border-t border-line bg-card sm:max-h-none sm:w-[360px] sm:border-l sm:border-t-0">
               <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-5">
                 <div className="flex items-center gap-3 pr-11">
                   <Link to={`/profile/${post.authorId}`} onClick={onClose} className="shrink-0 rounded-full">
@@ -172,27 +172,27 @@ export function PostMediaViewer({
                   </Link>
                   <div className="min-w-0">
                     <div className="flex min-w-0 items-center gap-1.5">
-                      <Link to={`/profile/${post.authorId}`} onClick={onClose} className="truncate text-sm font-black text-white hover:underline">
+                      <Link to={`/profile/${post.authorId}`} onClick={onClose} className="truncate text-sm font-black text-ink hover:underline">
                         {post.authorFullName || `@${post.authorName}`}
                       </Link>
                       <VerifiedBadge isVerified={post.authorIsVerified} verifiedExpiresAt={post.authorVerifiedExpiresAt} verifiedTitle={post.authorVerifiedTitle} isAdmin={post.authorIsAdmin} role={post.authorRole} />
                     </div>
-                    <p className="truncate text-xs font-semibold text-white/60">@{post.authorName}</p>
+                    <p className="truncate text-xs font-semibold text-ink-muted">@{post.authorName}</p>
                   </div>
                 </div>
-                <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-white/65">
-                  <SchoolTag schoolId={post.schoolId} crestUrl={post.schoolCrest} name={post.schoolShort} size="xs" nameClassName="text-[11px] font-bold text-white/70" />
+                <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-ink-muted">
+                  <SchoolTag schoolId={post.schoolId} crestUrl={post.schoolCrest} name={post.schoolShort} size="xs" nameClassName="text-[11px] font-bold text-ink-muted" />
                   {post.groupName && <span>· {post.groupName}</span>}
                 </div>
-                <p className="mt-4 whitespace-pre-wrap wrap-break-word text-sm font-semibold leading-relaxed text-white/90">{post.content}</p>
-                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold text-white/65">
+                <p className="mt-4 whitespace-pre-wrap wrap-break-word text-sm font-semibold leading-relaxed text-ink-soft">{post.content}</p>
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold text-ink-muted">
                   <span>{formatCompactNumber(post.likeCount)} likes</span>
                   <span>{formatCompactNumber(post.commentCount)} comments</span>
                   {post.viewCount !== undefined && <span>{formatCompactNumber(post.viewCount)} views</span>}
                 </div>
               </div>
 
-              <div className="grid shrink-0 grid-cols-5 border-t border-white/10 px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-3">
+              <div className="grid shrink-0 grid-cols-5 border-t border-line px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-3">
                 <ViewerAction label={post.likedByMe ? "Unlike" : "Like"} onClick={onLike} active={post.likedByMe}>
                   <Heart size={20} fill={post.likedByMe ? "currentColor" : "none"} />
                 </ViewerAction>
@@ -235,7 +235,7 @@ function ViewerAction({
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-bold transition hover:bg-white/10 disabled:opacity-50 ${active ? "text-pink-400" : "text-white/85"}`}
+      className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-bold transition hover:bg-page disabled:opacity-50 ${active ? "text-danger" : "text-ink"}`}
     >
       {children}
       <span>{label}</span>
