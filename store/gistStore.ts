@@ -46,6 +46,7 @@ function removeCommentBranch(comments: Comment[], commentId: string): Comment[] 
 interface GistState {
   /* schools */
   schools: School[];
+  schoolsHasLoaded: boolean;
   schoolsLoading: boolean;
   schoolsError: string | null;
   loadSchools: () => Promise<void>;
@@ -56,6 +57,8 @@ interface GistState {
   /* feed */
   posts: Post[];
   followingPosts: Post[];
+  feedHasLoaded: boolean;
+  followingHasLoaded: boolean;
   feedLoading: boolean;
   followingLoading: boolean;
   feedLoadingMore: boolean;
@@ -66,6 +69,7 @@ interface GistState {
   feedSchoolId: string | null;
   trendingPosts: Post[];
   trendingFallback: Post[];
+  trendingHasLoaded: boolean;
   trendingLoading: boolean;
   trendingThreshold: number;
   setFeedSchool: (schoolId: string | null) => void;
@@ -94,6 +98,7 @@ interface GistState {
 
   /* confessions */
   confessions: Confession[];
+  confessionsHasLoaded: boolean;
   confessionsLoading: boolean;
   confessionsError: string | null;
   myConfessions: Confession[];
@@ -113,6 +118,7 @@ interface GistState {
 export const useGistStore = create<GistState>()((set, get) => ({
   /* ───────────── schools ───────────── */
   schools: [],
+  schoolsHasLoaded: false,
   schoolsLoading: false,
   schoolsError: null,
 
@@ -120,7 +126,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
     set({ schoolsLoading: true, schoolsError: null });
     try {
       const schools = await schoolsService.fetchSchools();
-      set({ schools, schoolsLoading: false });
+      set({ schools, schoolsHasLoaded: true, schoolsLoading: false });
     } catch (error) {
       set({ schoolsLoading: false, schoolsError: describeError(error, "Could not load schools.") });
     }
@@ -151,6 +157,8 @@ export const useGistStore = create<GistState>()((set, get) => ({
   /* ───────────── feed ───────────── */
   posts: [],
   followingPosts: [],
+  feedHasLoaded: false,
+  followingHasLoaded: false,
   feedLoading: false,
   followingLoading: false,
   feedLoadingMore: false,
@@ -161,6 +169,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
   feedSchoolId: null,
   trendingPosts: [],
   trendingFallback: [],
+  trendingHasLoaded: false,
   trendingLoading: false,
   trendingThreshold: postsService.TRENDING_LIKE_THRESHOLD,
 
@@ -170,6 +179,8 @@ export const useGistStore = create<GistState>()((set, get) => ({
       feedSchoolId: schoolId,
       posts: [],
       followingPosts: [],
+      feedHasLoaded: false,
+      followingHasLoaded: false,
       feedHasMore: true,
       followingHasMore: true,
       feedLoadingMore: false,
@@ -197,6 +208,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
         );
         return {
           posts: [...postsCreatedDuringLoad, ...posts],
+          feedHasLoaded: true,
           feedLoading: false,
           feedHasMore: posts.length === PAGE_SIZE,
           feedError: null,
@@ -217,6 +229,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
       if (requestId !== followingLoadRequestId || get().feedSchoolId !== schoolId) return;
       set({
         followingPosts: posts,
+        followingHasLoaded: true,
         followingLoading: false,
         followingHasMore: posts.length === PAGE_SIZE,
         feedError: null,
@@ -286,7 +299,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
         postsService.fetchTrendingPosts(),
         postsService.fetchTopByLikes(4),
       ]);
-      set({ trendingPosts, trendingFallback: fallback, trendingLoading: false });
+      set({ trendingPosts, trendingFallback: fallback, trendingHasLoaded: true, trendingLoading: false });
     } catch (error) {
       set({ trendingLoading: false, feedError: describeError(error, "Could not load trending gists.") });
     }
@@ -454,6 +467,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
 
   /* ───────────── confessions ───────────── */
   confessions: [],
+  confessionsHasLoaded: false,
   confessionsLoading: false,
   confessionsError: null,
   myConfessions: [],
@@ -463,7 +477,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
     set({ confessionsLoading: true, confessionsError: null });
     try {
       const confessions = await confessionsService.fetchApprovedConfessions();
-      set({ confessions, confessionsLoading: false });
+      set({ confessions, confessionsHasLoaded: true, confessionsLoading: false });
     } catch (error) {
       set({ confessionsLoading: false, confessionsError: describeError(error, "Could not load confessions.") });
     }

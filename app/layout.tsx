@@ -6,9 +6,9 @@ import { AppProviders } from "@/components/AppProviders";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.gistme.online"),
-  title: "Gist me - Ghana SHS Community",
+  title: "Gist me | Ghana SHS Social & Study Community",
   description:
-    "Gist me is the social network for Ghanaian SHS students. Find your school community and join the conversation.",
+    "Gist me is a social and study community for Ghanaian Senior High School students to connect, discover school communities, and share campus stories.",
   applicationName: "Gist me",
   manifest: "/manifest.json",
   icons: {
@@ -17,17 +17,18 @@ export const metadata: Metadata = {
   },
   openGraph: {
     siteName: "Gist me",
-    title: "Gist me - Ghana SHS Community",
+    title: "Gist me | Ghana SHS Social & Study Community",
     description:
-      "Find your school community and join the conversation on Gist me, the social network for Ghanaian SHS students.",
+      "Gist me is a social and study community for Ghanaian Senior High School students to connect, discover school communities, and share campus stories.",
     type: "website",
     url: "https://www.gistme.online/",
     images: [{ url: "/logo.png", alt: "Gist me Logo" }],
   },
   twitter: {
-    card: "summary",
-    title: "Gist me - Ghana SHS Community",
-    description: "Find your school community and join the conversation on Gist me.",
+    card: "summary_large_image",
+    title: "Gist me | Ghana SHS Social & Study Community",
+    description:
+      "Gist me is a social and study community for Ghanaian Senior High School students to connect, discover school communities, and share campus stories.",
     images: [{ url: "/logo.png", alt: "Gist me Logo" }],
   },
   alternates: { canonical: "https://www.gistme.online/" },

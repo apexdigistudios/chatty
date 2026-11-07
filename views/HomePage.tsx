@@ -35,6 +35,8 @@ export function HomePage() {
   const followingPosts = useGistStore((state) => state.followingPosts);
   const feedLoading = useGistStore((state) => state.feedLoading);
   const followingLoading = useGistStore((state) => state.followingLoading);
+  const feedHasLoaded = useGistStore((state) => state.feedHasLoaded);
+  const followingHasLoaded = useGistStore((state) => state.followingHasLoaded);
   const feedLoadingMore = useGistStore((state) => state.feedLoadingMore);
   const followingLoadingMore = useGistStore((state) => state.followingLoadingMore);
   const feedError = useGistStore((state) => state.feedError);
@@ -50,10 +52,12 @@ export function HomePage() {
   const trendingPosts = useGistStore((state) => state.trendingPosts);
   const trendingFallback = useGistStore((state) => state.trendingFallback);
   const trendingLoading = useGistStore((state) => state.trendingLoading);
+  const trendingHasLoaded = useGistStore((state) => state.trendingHasLoaded);
   const trendingThreshold = useGistStore((state) => state.trendingThreshold);
   const schools = useGistStore((state) => state.schools);
   const confessions = useGistStore((state) => state.confessions);
   const confessionsLoading = useGistStore((state) => state.confessionsLoading);
+  const confessionsHasLoaded = useGistStore((state) => state.confessionsHasLoaded);
   const confessionsError = useGistStore((state) => state.confessionsError);
   const loadConfessions = useGistStore((state) => state.loadConfessions);
   const setComposerIntent = useGistStore((state) => state.setComposerIntent);
@@ -167,13 +171,26 @@ export function HomePage() {
   const showingConfessions = activeTab === "Confessions";
   const showingTrending = activeTab === "Trending";
   const showingFollowing = activeTab === "Following";
+  const feedPending = !feedHasLoaded && !feedError;
+  const confessionsPending = !confessionsHasLoaded && !confessionsError;
   const loading = showingConfessions
-    ? confessionsLoading && confessions.length === 0
+    ? confessionsPending || (confessionsLoading && confessions.length === 0)
     : showingFollowing
-      ? followingLoading && followingPosts.length === 0
-    : showingTrending
-      ? trendingLoading && trendingPosts.length === 0
-      : feedLoading && posts.length === 0 || confessionsLoading && confessions.length === 0;
+      ? (!followingHasLoaded && !feedError) || (followingLoading && followingPosts.length === 0)
+      : showingTrending
+        ? (!trendingHasLoaded && !feedError) || (trendingLoading && trendingPosts.length === 0)
+        : feedPending || confessionsPending ||
+          (feedLoading && posts.length === 0) ||
+          (confessionsLoading && confessions.length === 0);
+  const canShowEmptyState = showingConfessions
+    ? confessionsHasLoaded
+    : showingFollowing
+      ? followingHasLoaded
+      : showingTrending
+        ? trendingHasLoaded
+        : activeTab === "My School" && !profile?.schoolId
+          ? true
+          : feedHasLoaded && (!(activeTab === "All SHSs" || activeTab === "My School") || confessionsHasLoaded);
   const visibleHasMore = showingFollowing ? followingHasMore : feedHasMore;
 
   return (
@@ -295,14 +312,14 @@ export function HomePage() {
           <Link to="/confessions" className="inline-flex shrink-0 items-center gap-1 rounded-xl px-2 py-1 text-[10px] font-extrabold uppercase tracking-wider text-brand-deep hover:bg-brand-wash">
             Confessions portal <ArrowUpRight size={13} strokeWidth={2.6} aria-hidden />
           </Link>
-        ) : (
+        ) : feedHasLoaded && visiblePosts.length > 0 ? (
           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-ink-muted sm:text-xs">
             {showingTrending && <Flame size={11} className="text-warning" aria-hidden />}
             {showingTrending
               ? `≥ ${formatCompactNumber(trendingThreshold)} likes`
               : `${visiblePosts.length} loaded`}
           </span>
-        )}
+        ) : null}
       </div>
 
       {feedError && !showingConfessions && (
@@ -339,9 +356,9 @@ export function HomePage() {
                     <ConfessionCard confession={confession} />
                   </motion.div>
                 ))
-              ) : (
+              ) : confessionsHasLoaded ? (
                 <EmptyFeed title="No approved confessions yet" detail="Approved confessions from the global queue land here." action="Write a confession" onAction={() => startComposing("confession")} />
-              )
+              ) : null
             ) : showingTrending ? (
               trendingPosts.length > 0 ? (
                 trendingPosts.map((post) => (
@@ -349,7 +366,7 @@ export function HomePage() {
                     <GistCard post={post} />
                   </motion.div>
                 ))
-              ) : (
+              ) : trendingHasLoaded ? (
                 <>
                   <div className="rounded-2xl border-2 border-dashed border-warning-soft bg-warning-wash/60 px-4 py-6 text-center">
                     <span className="mx-auto flex size-10 items-center justify-center rounded-2xl bg-warning-wash text-warning-deep">
@@ -366,7 +383,7 @@ export function HomePage() {
                     </motion.div>
                   ))}
                 </>
-              )
+              ) : null
             ) : mixedItems.length > 0 ? (
               mixedItems.map((item) => (
                 <motion.div key={`${item.kind}:${item.id}`} variants={itemVariants}>
@@ -381,7 +398,7 @@ export function HomePage() {
                   <GistCard post={post} />
                 </motion.div>
               ))
-            ) : (
+            ) : canShowEmptyState ? (
               <EmptyFeed
                 title={
                   activeTab === "My School" && !profile?.schoolId
@@ -415,7 +432,7 @@ export function HomePage() {
                   else startComposing("gist");
                 }}
               />
-            )}
+            ) : null}
           </motion.div>
         )}
       </AnimatePresence>

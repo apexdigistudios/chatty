@@ -10,7 +10,9 @@ import { formatCompactNumber } from "@/lib/utils";
 /** Live context rail derived from the loaded feed and school directory. */
 export function TrendingSidebar() {
   const posts = useGistStore((state) => state.posts);
+  const feedHasLoaded = useGistStore((state) => state.feedHasLoaded);
   const schools = useGistStore((state) => state.schools);
+  const schoolsHasLoaded = useGistStore((state) => state.schoolsHasLoaded);
   const schoolsLoading = useGistStore((state) => state.schoolsLoading);
 
   const trending = useMemo(
@@ -49,7 +51,7 @@ export function TrendingSidebar() {
                 <ArrowUpRight size={15} className="mt-1 shrink-0 text-ink-faint" aria-hidden />
               </Link>
             ))}
-            {trending.length === 0 && (
+            {trending.length === 0 && feedHasLoaded && (
               <p className="px-3.5 py-6 text-center text-xs font-semibold text-ink-muted">
                 Nothing trending yet — be the first to post.
               </p>
@@ -81,7 +83,7 @@ export function TrendingSidebar() {
                 <span className="rounded-lg px-2 py-1 text-[10px] font-extrabold text-brand-deep">Feed</span>
               </Link>
             ))}
-            {topCommunities.length === 0 && (
+            {topCommunities.length === 0 && (schoolsLoading || schoolsHasLoaded) && (
               <p className="px-3.5 py-6 text-center text-xs font-semibold text-ink-muted">
                 {schoolsLoading ? "Loading communities…" : "No communities yet."}
               </p>

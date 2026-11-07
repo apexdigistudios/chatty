@@ -16,12 +16,12 @@ export interface SEOHeadProps {
 const SITE_NAME = "Gist me";
 const SITE_ORIGIN = "https://www.gistme.online";
 const DEFAULT_DESCRIPTION =
-  "Join Ghanaian SHS communities on Gist me. Share campus gists, student stories, confessions, shoutouts, and spotlighted posts.";
+  "Gist me is a social and study community for Ghanaian Senior High School students to connect, discover school communities, and share campus stories.";
 
 function routeMetadata(pathname: string): { title: string; description: string; noIndex?: boolean } {
   if (pathname === "/") {
     return {
-      title: "Gist me - Ghana SHS Community",
+      title: "Gist me | Ghana SHS Social & Study Community",
       description: DEFAULT_DESCRIPTION,
     };
   }

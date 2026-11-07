@@ -4,8 +4,7 @@ import { Card } from "@/components/ui/Card";
 
 export function FeedSkeleton({ count = 1 }: { count?: number }) {
   return (
-    <div className="space-y-4" aria-label="Loading gists" role="status">
-      <span className="sr-only">Loading gists…</span>
+    <div className="space-y-4" role="status" aria-busy="true">
       {Array.from({ length: count }, (_, index) => (
         <Card key={index} className="animate-pulse motion-reduce:animate-none">
           <div className="flex items-center gap-3 px-4 pb-3 pt-4 sm:px-5">

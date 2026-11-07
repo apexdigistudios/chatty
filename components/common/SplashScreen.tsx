@@ -6,8 +6,7 @@ import { FeedSkeleton } from "@/components/feed/FeedSkeleton";
 export function SplashScreen() {
   return (
     <motion.div
-      role="status"
-      aria-label="Loading Gist me"
+      aria-hidden="true"
       className="fixed inset-0 z-100 overflow-y-auto bg-page text-ink"
       initial={{ opacity: 1 }}
       animate={{ opacity: 1 }}

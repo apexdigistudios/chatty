@@ -46,10 +46,8 @@ function readSystemTheme(): ResolvedTheme {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [mode, setModeState] = useState<ThemeMode>(readStoredMode);
-  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() =>
-    typeof window === "undefined" ? "light" : readSystemTheme()
-  );
+  const [mode, setModeState] = useState<ThemeMode>("system");
+  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>("light");
   const resolvedTheme = mode === "system" ? systemTheme : mode;
 
   const setMode = useCallback((nextMode: ThemeMode) => {
@@ -78,6 +76,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
       ?.setAttribute("content", resolvedTheme === "dark" ? "#121215" : "#F4F4F5");
   }, [resolvedTheme]);
+
+  useEffect(() => {
+    setModeState(readStoredMode());
+    setSystemTheme(readSystemTheme());
+  }, []);
 
   useEffect(() => {
     try {
