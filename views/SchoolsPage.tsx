@@ -18,14 +18,16 @@ import { useGistStore } from "@/store/gistStore";
 import { SCHOOL_TYPES, schoolTypeLabel, type SchoolType } from "@/types/models";
 import { cn } from "@/utils/cn";
 import { GHANA_REGIONS } from "@/services/schoolsService";
+import type { School } from "@/types/models";
 
 /** SHS directory + "create a community" flow (the creator becomes its moderator). */
-export function SchoolsPage() {
+export function SchoolsPage({ initialSchools = [] }: { initialSchools?: School[] }) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
-  const schools = useGistStore((state) => state.schools);
+  const storeSchools = useGistStore((state) => state.schools);
+  const schools = storeSchools.length > 0 ? storeSchools : initialSchools;
   const schoolsLoading = useGistStore((state) => state.schoolsLoading);
   const schoolsError = useGistStore((state) => state.schoolsError);
   const loadSchools = useGistStore((state) => state.loadSchools);

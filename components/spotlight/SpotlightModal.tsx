@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import PaystackPop from "@paystack/inline-js";
 import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Loader2, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -169,7 +168,7 @@ export function SpotlightModal({ post, onClose }: SpotlightModalProps) {
       });
   };
 
-  const openPaystackCheckout = () => {
+  const openPaystackCheckout = async () => {
     if (!checkout) return;
     if (paymentVerified) {
       moderatePayment(checkout.reference);
@@ -179,6 +178,7 @@ export function SpotlightModal({ post, onClose }: SpotlightModalProps) {
     setCheckoutState("opening");
 
     try {
+      const { default: PaystackPop } = await import("@paystack/inline-js");
       new PaystackPop().resumeTransaction(checkout.access_code, {
         onSuccess: ({ reference }) => {
           if (reference !== checkout.reference) {

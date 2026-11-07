@@ -73,19 +73,19 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
         <>
           <NotificationListener />
           <OfflineSyncListener />
-          <AppLayout
-            headerHidden={false}
-            bottomNavHidden={isSpotlight ? spotlightNavigationHidden : navigationHidden && isHome}
-            fullscreen={fullscreen}
-          >
-            {children}
-          </AppLayout>
           <AuthGateModal />
           <CommentDrawer />
           <NotificationDrawer />
           <ToastViewport />
         </>
       )}
+      <AppLayout
+        headerHidden={false}
+        bottomNavHidden={isSpotlight ? spotlightNavigationHidden : navigationHidden && isHome}
+        fullscreen={fullscreen}
+      >
+        {children}
+      </AppLayout>
       <AnimatePresence>
         {loading && <SplashScreen key="startup-splash" />}
       </AnimatePresence>

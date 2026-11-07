@@ -109,7 +109,11 @@ export function SEOHead({
 
   useEffect(() => {
     const sharedConfession = pathname !== "/confessions/create" && /^\/confessions\/[^/]+$/.test(pathname);
-    if (pathname.startsWith("/posts/") || sharedConfession) return;
+    if (
+      pathname.startsWith("/posts/") ||
+      pathname.startsWith("/schools/") ||
+      sharedConfession
+    ) return;
     const defaults = routeMetadata(pathname);
     const pageTitle = title ?? defaults.title;
     const pageDescription = description ?? defaults.description;

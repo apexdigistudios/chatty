@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from "react";
-import PaystackPop from "@paystack/inline-js";
 import { BadgeCheck, BriefcaseBusiness, Loader2, TrendingUp } from "lucide-react";
 import { Link, useNavigate } from "@/lib/router";
 import { useAuth } from "@/context/AuthContext";
@@ -57,9 +56,10 @@ export function GetVerifiedPage() {
     return data.session.access_token;
   };
 
-  const openPaystackCheckout = (preparedCheckout: CheckoutResponse) => {
+  const openPaystackCheckout = async (preparedCheckout: CheckoutResponse) => {
     setCheckoutState("opening");
     try {
+      const { default: PaystackPop } = await import("@paystack/inline-js");
       new PaystackPop().resumeTransaction(preparedCheckout.access_code, {
         onSuccess: ({ reference }) => {
           if (reference !== preparedCheckout.reference) {

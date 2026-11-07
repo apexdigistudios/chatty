@@ -26,11 +26,12 @@ import { FeedSkeleton } from "@/views/HomePage";
 import { formatCompactNumber } from "@/lib/utils";
 
 type Tab = "feed" | "groups" | "manage";
+type SchoolPageProps = { initialSchool?: School | null };
 
 const GROUP_EMOJIS = ["👥", "🧠", "📚", "🍛", "⚽", "🎤", "🎨", "🔬", "📰", "🏆"] as const;
 
 /** /schools/:id — campus feed, sub-communities (clubs/squads), founder moderation. */
-export function SchoolPage() {
+export function SchoolPage({ initialSchool = null }: SchoolPageProps) {
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -44,11 +45,11 @@ export function SchoolPage() {
   const claimSchool = useGistStore((state) => state.claimSchool);
   const setComposerIntent = useGistStore((state) => state.setComposerIntent);
 
-  const [school, setSchool] = useState<School | null>(cached ?? null);
+  const [school, setSchool] = useState<School | null>(initialSchool ?? cached ?? null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [groups, setGroups] = useState<SchoolGroup[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialSchool && !cached);
   const [postsLoading, setPostsLoading] = useState(true);
   const [groupsLoading, setGroupsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -116,9 +117,15 @@ export function SchoolPage() {
   }, [activeGroupId, id, toast]);
 
   useEffect(() => {
-    void loadSchool();
+    if (initialSchool) {
+      setSchool(initialSchool);
+      setLoading(false);
+      upsertSchool(initialSchool);
+    } else {
+      void loadSchool();
+    }
     void loadGroups();
-  }, [loadSchool, loadGroups]);
+  }, [initialSchool, loadSchool, loadGroups, upsertSchool]);
 
   useEffect(() => {
     void loadPosts();

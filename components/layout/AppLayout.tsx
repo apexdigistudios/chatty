@@ -24,7 +24,7 @@ export function AppLayout({
   const pathname = usePathname();
   const isSpotlight = pathname === "/spotlight";
   const page = (
-    <Suspense fallback={<PageContentFallback />}>
+    <Suspense fallback={pathname === "/" ? <PublicPageFallback /> : <PageContentFallback />}>
       {children}
     </Suspense>
   );
@@ -60,6 +60,31 @@ function PageContentFallback() {
     <div className="mx-auto w-full max-w-[720px] space-y-4 px-4 py-6 sm:px-6" role="status" aria-label="Loading page">
       <div className="h-24 animate-pulse rounded-3xl border-2 border-line bg-card motion-reduce:animate-none" />
       <div className="h-48 animate-pulse rounded-3xl border-2 border-line bg-card motion-reduce:animate-none" />
+    </div>
+  );
+}
+
+function PublicPageFallback() {
+  return (
+    <div className="mx-auto w-full max-w-[720px] space-y-4 px-4 py-6 sm:px-6">
+      <section className="rounded-3xl border-2 border-line bg-card p-5 shadow-[0_3px_0_var(--border-color)]">
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-brand-deep">
+          Ghana SHS community
+        </p>
+        <h1 className="mt-1 text-2xl font-black tracking-tight text-ink">
+          Your school. Your people. Your gist.
+        </h1>
+        <p className="mt-2 text-sm font-semibold leading-relaxed text-ink-muted">
+          Discover student conversations, campus stories, and school communities across Ghana on Gist me.
+        </p>
+        <a
+          href="/schools"
+          className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-brand-deep px-4 text-xs font-extrabold uppercase tracking-wider text-brand-contrast"
+        >
+          Browse school communities
+        </a>
+      </section>
+      <div className="h-40 animate-pulse rounded-3xl border-2 border-line bg-card motion-reduce:animate-none" role="status" aria-label="Loading public gists" />
     </div>
   );
 }

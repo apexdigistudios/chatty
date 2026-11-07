@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { usePathname } from "next/navigation";
 import { ArrowUpRight, Flame, Plus, RefreshCw, Sparkles, TrendingUp, WifiOff, X } from "lucide-react";
-import { Link, useLocation, useNavigate } from "@/lib/router";
+import { Link, useNavigate } from "@/lib/router";
 import { ConfessionCard } from "@/components/feed/ConfessionCard";
 import { GistCard } from "@/components/feed/GistCard";
 import { Button } from "@/components/ui/Button";
@@ -50,7 +51,7 @@ export function FeedSkeleton({ count = 1 }: { count?: number }) {
 /** Live feed. Sticky frosted tab switcher, smart trending (>=1,000 likes), guests welcome. */
 export function HomePage() {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const pathname = usePathname();
   const { user, profile } = useAuth();
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
 
