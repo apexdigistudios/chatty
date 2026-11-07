@@ -10,7 +10,8 @@ Tailwind 4 theme are organized under the Next.js App Router.
 2. Set `SUPABASE_SERVICE_ROLE_KEY` and `PAYSTACK_SECRET_KEY` in the server
    environment for verified subscriptions. Keep both keys private and never use
    a `NEXT_PUBLIC_` prefix.
-3. Apply `supabase/migrations/verified_subscriptions.sql` to the Supabase project.
+3. Apply `supabase/migrations/profile_avatar_storage_policies.sql` and
+   `supabase/migrations/verified_subscriptions.sql` to the Supabase project.
 4. Run `npm install`.
 5. Run `npm run dev`, then open `http://localhost:3000`.
 

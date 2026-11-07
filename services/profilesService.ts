@@ -317,20 +317,30 @@ export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
     const username = patch.username.trim().replace(/^@/, "");
     const { data: current, error: currentError } = await supabase
       .from("profiles")
-      .select("username, username_last_changed_at")
+      .select("username")
       .eq("id", userId)
-      .maybeSingle<{ username: string; username_last_changed_at: string | null }>();
+      .maybeSingle<{ username: string }>();
     if (currentError) {
-      if (currentError.code === "42703" || currentError.code === "PGRST204") {
-        throw new Error("Username change rules need the profile_username_rules.sql migration.");
-      }
       throw new Error(currentError.message);
     }
     if (!current) throw new Error("Your profile could not be found.");
 
     if (username !== current.username) {
-      const lastChangedAt = current.username_last_changed_at
-        ? Date.parse(current.username_last_changed_at)
+      const { data: usernameRules, error: usernameRulesError } = await supabase
+        .from("profiles")
+        .select("username_last_changed_at")
+        .eq("id", userId)
+        .maybeSingle<{ username_last_changed_at: string | null }>();
+      if (usernameRulesError) {
+        if (usernameRulesError.code === "42703" || usernameRulesError.code === "PGRST204") {
+          throw new Error("Username change rules need the profile_username_rules.sql migration.");
+        }
+        throw new Error(usernameRulesError.message);
+      }
+      if (!usernameRules) throw new Error("Your profile could not be found.");
+
+      const lastChangedAt = usernameRules.username_last_changed_at
+        ? Date.parse(usernameRules.username_last_changed_at)
         : null;
       const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
       if (lastChangedAt !== null && Date.now() - lastChangedAt < sevenDaysMs) {
