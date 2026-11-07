@@ -6,9 +6,9 @@ import { usePathname } from "next/navigation";
 import { ArrowUpRight, Flame, Plus, RefreshCw, Sparkles, TrendingUp, WifiOff, X } from "lucide-react";
 import { Link, useNavigate } from "@/lib/router";
 import { ConfessionCard } from "@/components/feed/ConfessionCard";
+import { FeedSkeleton } from "@/components/feed/FeedSkeleton";
 import { GistCard } from "@/components/feed/GistCard";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { SchoolBadge } from "@/components/ui/SchoolBadge";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -23,30 +23,6 @@ type FeedTab = (typeof tabs)[number] | "Trending";
 
 const listVariants = { hidden: { opacity: 1 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } };
 const itemVariants = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.22, ease: "easeOut" as const } } };
-
-export function FeedSkeleton({ count = 1 }: { count?: number }) {
-  return (
-    <div className="space-y-4" aria-label="Loading gists" role="status">
-      <span className="sr-only">Loading gists…</span>
-      {Array.from({ length: count }, (_, index) => (
-        <Card key={index} className="animate-pulse motion-reduce:animate-none">
-          <div className="flex items-center gap-3 px-4 pb-4 pt-4 sm:px-5">
-            <span className="size-11 shrink-0 rounded-full bg-line" />
-            <span className="min-w-0 flex-1 space-y-2">
-              <span className="block h-3 w-32 rounded-full bg-line" />
-              <span className="block h-2.5 w-24 rounded-full bg-line" />
-            </span>
-          </div>
-          <div className="space-y-2 px-4 pb-5 sm:px-5">
-            <span className="block h-3 w-full rounded-full bg-line" />
-            <span className="block h-3 w-[88%] rounded-full bg-line" />
-            <span className="block h-3 w-[60%] rounded-full bg-line" />
-          </div>
-        </Card>
-      ))}
-    </div>
-  );
-}
 
 /** Live feed. Sticky frosted tab switcher, smart trending (>=1,000 likes), guests welcome. */
 export function HomePage() {

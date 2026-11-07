@@ -6,6 +6,7 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import { Header } from "@/components/layout/Header";
 import { SidebarNav } from "@/components/layout/SidebarNav";
 import { TrendingSidebar } from "@/components/layout/TrendingSidebar";
+import { FeedSkeleton } from "@/components/feed/FeedSkeleton";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -57,9 +58,8 @@ export function AppLayout({
 
 function PageContentFallback() {
   return (
-    <div className="mx-auto w-full max-w-[720px] space-y-4 px-4 py-6 sm:px-6" role="status" aria-label="Loading page">
-      <div className="h-24 animate-pulse rounded-3xl border-2 border-line bg-card motion-reduce:animate-none" />
-      <div className="h-48 animate-pulse rounded-3xl border-2 border-line bg-card motion-reduce:animate-none" />
+    <div className="mx-auto w-full max-w-[720px] px-4 py-6 sm:px-6">
+      <FeedSkeleton count={2} />
     </div>
   );
 }
@@ -84,7 +84,7 @@ function PublicPageFallback() {
           Browse school communities
         </a>
       </section>
-      <div className="h-40 animate-pulse rounded-3xl border-2 border-line bg-card motion-reduce:animate-none" role="status" aria-label="Loading public gists" />
+      <FeedSkeleton count={2} />
     </div>
   );
 }

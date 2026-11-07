@@ -11,7 +11,7 @@ import { useAuthGateStore } from "@/store/authGateStore";
 import { useGistStore } from "@/store/gistStore";
 import { CONFESSION_CATEGORIES, type ConfessionCategory } from "@/types/models";
 import { cn } from "@/utils/cn";
-import { FeedSkeleton } from "@/views/HomePage";
+import { FeedSkeleton } from "@/components/feed/FeedSkeleton";
 
 const filters: Array<ConfessionCategory | "All"> = ["All", ...CONFESSION_CATEGORIES];
 const listVariants = { hidden: { opacity: 1 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } };

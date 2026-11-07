@@ -27,7 +27,7 @@ import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
 import type { Post } from "@/types/models";
 import { cn } from "@/utils/cn";
-import { FeedSkeleton } from "@/views/HomePage";
+import { FeedSkeleton } from "@/components/feed/FeedSkeleton";
 import { SafeImage } from "@/components/common/SafeImage";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { FollowListModal } from "@/components/profile/FollowListModal";

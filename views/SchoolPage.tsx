@@ -22,7 +22,7 @@ import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
 import { schoolTypeLabel, type Post, type School, type SchoolGroup } from "@/types/models";
 import { cn } from "@/utils/cn";
-import { FeedSkeleton } from "@/views/HomePage";
+import { FeedSkeleton } from "@/components/feed/FeedSkeleton";
 import { formatCompactNumber } from "@/lib/utils";
 
 type Tab = "feed" | "groups" | "manage";
