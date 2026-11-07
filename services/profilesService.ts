@@ -7,7 +7,7 @@ import {
 } from "@/lib/offlineCache";
 import { COMPRESSION_PRESETS, compressImageWithStats } from "@/lib/imageCompression";
 import type { AdminRoleRow, Profile, ProfileRow, PublicProfile } from "@/types/models";
-import { uploadImage } from "@/services/storageService";
+import { uploadPreparedAvatar } from "@/services/storageService";
 import { findSchoolByName } from "@/services/schoolsService";
 
 const PROFILE_SELECT = "id, username, school_id, avatar_url, bio, created_at";
@@ -319,13 +319,14 @@ export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
       .from("profiles")
       .select("username, username_last_changed_at")
       .eq("id", userId)
-      .single<{ username: string; username_last_changed_at: string | null }>();
+      .maybeSingle<{ username: string; username_last_changed_at: string | null }>();
     if (currentError) {
       if (currentError.code === "42703" || currentError.code === "PGRST204") {
         throw new Error("Username change rules need the profile_username_rules.sql migration.");
       }
       throw new Error(currentError.message);
     }
+    if (!current) throw new Error("Your profile could not be found.");
 
     if (username !== current.username) {
       const lastChangedAt = current.username_last_changed_at
@@ -396,7 +397,7 @@ export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
 }
 
 export async function uploadMyAvatar(file: File): Promise<string> {
-  return uploadImage(file, "avatars");
+  return uploadPreparedAvatar(file);
 }
 
 export async function uploadMyCover(file: File): Promise<Profile> {
@@ -529,6 +530,7 @@ export interface SignUpInput {
 export interface SignUpResult {
   hasSession: boolean;
   profile: Profile | null;
+  avatarUploadError?: string;
 }
 
 /**
@@ -568,18 +570,29 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
   if (error) throw new Error(error.message);
 
   if (!data.session) {
-    return { hasSession: false, profile: null };
+    return {
+      hasSession: false,
+      profile: null,
+      ...(input.avatarFile
+        ? {
+            avatarUploadError:
+              "Your account was created, but the selected photo can only be uploaded after email confirmation and sign-in.",
+          }
+        : {}),
+    };
   }
 
   const profile = await ensureProfile();
 
   let finalAvatarUrl = fallbackAvatar;
+  let avatarUploadError: string | undefined;
   if (input.avatarFile) {
     try {
       finalAvatarUrl = await uploadMyAvatar(input.avatarFile);
-    } catch {
-      // Keep fallback illustrated avatar if storage upload fails so signup still completes
+    } catch (error) {
       finalAvatarUrl = fallbackAvatar;
+      avatarUploadError =
+        error instanceof Error ? error.message : "The selected profile photo could not be uploaded.";
     }
   }
 
@@ -589,7 +602,11 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
     avatarUrl: finalAvatarUrl,
   });
 
-  return { hasSession: true, profile: updatedProfile };
+  return {
+    hasSession: true,
+    profile: updatedProfile,
+    ...(avatarUploadError ? { avatarUploadError } : {}),
+  };
 }
 
 export async function signInWithEmail(email: string, password: string): Promise<void> {

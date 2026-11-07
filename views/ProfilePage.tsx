@@ -85,6 +85,11 @@ export function ProfilePage() {
   const [openGuideline, setOpenGuideline] = useState<string | null>("community");
   const avatarRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (!draftAvatar?.startsWith("blob:")) return;
+    return () => URL.revokeObjectURL(draftAvatar);
+  }, [draftAvatar]);
+
   const mySchool = useMemo(() => schools.find((school) => school.id === profile?.schoolId) ?? null, [schools, profile?.schoolId]);
   const activeVerification = hasActiveVerification({
     isVerified: profile?.isVerified,
@@ -245,6 +250,7 @@ export function ProfilePage() {
         ...(avatarUrl ? { avatarUrl } : {}),
       });
       setProfile(updated);
+      setDraftAvatar(updated.avatarUrl);
       setEditing(false);
       toast("Profile updated!", "success");
       void loadActivity();
@@ -398,7 +404,7 @@ export function ProfilePage() {
               type="button"
               onClick={() => editing && avatarRef.current?.click()}
               aria-label={editing ? "Upload new avatar" : "Profile avatar"}
-              className="relative shrink-0 rounded-full border-4 border-white shadow-md outline-1 outline-line focus-visible:outline-4 focus-visible:outline-violet-300"
+              className="relative shrink-0 rounded-full border-4 border-white shadow-md focus-visible:outline-4 focus-visible:outline-violet-300"
             >
               <Avatar name={profile.username} src={editing ? draftAvatar : profile.avatarUrl} size="3xl" online />
               {editing && (

@@ -10,7 +10,7 @@ export function SplashScreen() {
       className="fixed inset-0 z-100 flex h-screen items-center justify-center bg-neutral-950 text-white"
       initial={{ opacity: 1 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0, transition: { duration: 0.5, ease: "easeOut" } }}
+      exit={{ opacity: 0, transition: { duration: 0.18, ease: "easeOut" } }}
     >
       <div className="flex flex-col items-center gap-5">
         <motion.img
@@ -23,7 +23,7 @@ export function SplashScreen() {
           transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
         />
         <p className="text-sm font-extrabold tracking-[0.18em] text-white/85">GIST ME</p>
-        <span className="sr-only">Getting your feed ready…</span>
+        <span className="sr-only">Loading your account…</span>
       </div>
     </motion.main>
   );

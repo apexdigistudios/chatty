@@ -3,6 +3,32 @@ import { MEDIA_BUCKET, requireUserId, supabase } from "@/lib/supabase";
 
 export type MediaFolder = "posts" | "seed-posts" | "avatars" | "crests";
 
+async function uploadPreparedImage(file: File, folder: MediaFolder, userId: string): Promise<string> {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Only image files can be uploaded.");
+  }
+
+  const ext =
+    file.type === "image/webp"
+      ? "webp"
+      : file.type === "image/jpeg"
+        ? "jpg"
+        : (file.name.split(".").pop() ?? "webp").toLowerCase().replace(/[^a-z0-9]/g, "") ||
+          "webp";
+
+  const path = `${userId}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabase.storage
+    .from(MEDIA_BUCKET)
+    .upload(path, file, {
+      cacheControl: "31536000",
+      upsert: false,
+      contentType: file.type,
+    });
+  if (error) throw new Error(error.message);
+
+  return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
 /**
  * Automatically compresses the image client-side (max 1200px, quality 0.75,
  * WebP/JPEG <= 200KB) and uploads it to the public `letsgist-media` bucket
@@ -16,27 +42,13 @@ export async function uploadImage(file: File, folder: MediaFolder): Promise<stri
 
   const preset = folder === "seed-posts" ? COMPRESSION_PRESETS.posts : COMPRESSION_PRESETS[folder];
   const optimized = await compressImageFile(file, preset);
+  return uploadPreparedImage(optimized, folder, userId);
+}
 
-  const ext =
-    optimized.type === "image/webp"
-      ? "webp"
-      : optimized.type === "image/jpeg"
-        ? "jpg"
-        : (optimized.name.split(".").pop() ?? "webp").toLowerCase().replace(/[^a-z0-9]/g, "") ||
-          "webp";
-
-  const path = `${userId}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-  const { error } = await supabase.storage
-    .from(MEDIA_BUCKET)
-    .upload(path, optimized, {
-      cacheControl: "31536000",
-      upsert: false,
-      contentType: optimized.type,
-    });
-  if (error) throw new Error(error.message);
-
-  return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+/** Uploads an image that has already been compressed by a preview workflow. */
+export async function uploadPreparedAvatar(file: File): Promise<string> {
+  const userId = await requireUserId();
+  return uploadPreparedImage(file, "avatars", userId);
 }
 
 export async function uploadImages(files: File[], folder: MediaFolder): Promise<string[]> {

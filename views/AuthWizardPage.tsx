@@ -155,6 +155,7 @@ export function AuthWizardPage() {
   );
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [avatarUploadWarning, setAvatarUploadWarning] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Step 3 & Login: Credentials
@@ -362,6 +363,7 @@ export function AuthWizardPage() {
 
     setBusy(true);
     setInWizardFlow(true);
+    setAvatarUploadWarning(null);
     try {
       const result = await signUpWithEmail({
         email,
@@ -378,6 +380,7 @@ export function AuthWizardPage() {
       if (result.profile) {
         setProfile(result.profile);
       }
+      setAvatarUploadWarning(result.avatarUploadError ?? null);
       if (result.hasSession) {
         await refreshProfile();
         setEmailConfirmPending(false);
@@ -1430,6 +1433,11 @@ export function AuthWizardPage() {
                     {emailConfirmPending && (
                       <div className="mt-4 rounded-2xl border-2 border-warning-soft bg-warning-wash px-3.5 py-2.5 text-xs font-bold text-warning-deep">
                         Check your email inbox to confirm your link, then sign in anytime!
+                      </div>
+                    )}
+                    {avatarUploadWarning && (
+                      <div role="status" className="mt-4 rounded-2xl border-2 border-warning-soft bg-warning-wash px-3.5 py-2.5 text-xs font-bold text-warning-deep">
+                        {avatarUploadWarning}
                       </div>
                     )}
                   </div>

@@ -41,18 +41,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(isSupabaseConfigured);
   const [profileError, setProfileError] = useState<string | null>(null);
   const sessionUserId = useRef<string | null>(null);
+  const authEventRevision = useRef(0);
 
   // Session bootstrap + live auth changes.
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let active = true;
-    let sessionCheckComplete = false;
+    const bootstrapRevision = authEventRevision.current;
 
     supabase.auth
       .getSession()
       .then(({ data, error }) => {
-        if (!active) return;
-        sessionCheckComplete = true;
+        if (!active || authEventRevision.current !== bootstrapRevision) return;
         if (error) {
           setProfileError(error.message);
           setLoading(false);
@@ -64,25 +64,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!data.session) setLoading(false);
       })
       .catch((error: unknown) => {
-        if (!active) return;
+        if (!active || authEventRevision.current !== bootstrapRevision) return;
         setProfileError(
           error instanceof Error ? error.message : "Could not check your sign-in status."
         );
-        sessionCheckComplete = true;
         setLoading(false);
       });
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      authEventRevision.current += 1;
       const nextUserId = nextSession?.user.id ?? null;
       if (sessionUserId.current !== nextUserId) {
         sessionUserId.current = nextUserId;
-        setLoading(Boolean(nextSession));
+        setLoading(Boolean(nextUserId));
       }
       setSession(nextSession);
       if (!nextSession) {
         setProfileState(null);
         setRoles([]);
-        if (sessionCheckComplete) setLoading(false);
+        setProfileError(null);
+        setLoading(false);
       }
     });
 

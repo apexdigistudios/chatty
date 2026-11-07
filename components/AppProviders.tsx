@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, MotionConfig } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -36,8 +36,6 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
   const [spotlightNavigationHidden, setSpotlightNavigationHidden] = useState(false);
   const loadFeed = useGistStore((state) => state.loadFeed);
   const loadSchools = useGistStore((state) => state.loadSchools);
-  const initialFeedStarted = useRef(false);
-  const [initialFeedReady, setInitialFeedReady] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -45,9 +43,8 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
   }, [loadSchools]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || loading || initialFeedStarted.current) return;
-    initialFeedStarted.current = true;
-    void loadFeed().finally(() => setInitialFeedReady(true));
+    if (!isSupabaseConfigured || loading) return;
+    void loadFeed();
   }, [loading, loadFeed]);
 
   useEffect(() => {
@@ -90,7 +87,7 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
         </>
       )}
       <AnimatePresence>
-        {(loading || !initialFeedReady) && <SplashScreen key="startup-splash" />}
+        {loading && <SplashScreen key="startup-splash" />}
       </AnimatePresence>
     </MotionConfig>
   );

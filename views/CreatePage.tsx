@@ -374,8 +374,10 @@ export function CreatePage() {
                       src={activeAttachment.previewUrl}
                       autoPlay
                       loop
-                      muted
+                      controls
+                      muted={false}
                       playsInline
+                      preload="metadata"
                       controlsList="nodownload noremoteplayback"
                       disablePictureInPicture
                       onContextMenu={(event) => event.preventDefault()}
