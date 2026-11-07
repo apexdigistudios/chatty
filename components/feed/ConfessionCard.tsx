@@ -104,11 +104,12 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
   };
 
   const status = pending ? confession.moderationStatus : "approved";
+  const showSchool = Boolean(confession.seedUsername);
 
   return (
     <article
       role="article"
-      aria-label={`${confession.seedUsername ? `Confession by @${confession.seedUsername}` : "Anonymous confession"}${school ? `, ${school.shortName}` : ""}`}
+      aria-label={`${confession.seedUsername ? `Confession by @${confession.seedUsername}` : "Anonymous confession"}${showSchool && school ? `, ${school.shortName}` : ""}`}
       className="relative overflow-visible border-b-4 border-line/60 px-4 py-4 dark:border-neutral-900/60"
     >
       <div>
@@ -145,7 +146,7 @@ export function ConfessionCard({ confession, pending = false }: ConfessionCardPr
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="text-[11px] font-semibold text-ink-muted">{timeAgo(confession.publishedAt ?? confession.createdAt)}</span>
-              {school && (
+              {showSchool && school && (
                 <>
                   <span className="size-1 rounded-full bg-ink-faint" aria-hidden />
                   <SchoolTag schoolId={school.id} crestUrl={school.crestUrl} name={school.shortName} size="xs" nameClassName="text-[11px] font-semibold text-ink-muted" />

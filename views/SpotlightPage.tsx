@@ -35,12 +35,14 @@ export function SpotlightPage() {
   const previousSlideScrollTop = useRef(0);
   const slideScrollDownDistance = useRef(0);
   const slideScrollFrame = useRef(0);
+  const activeSlideIndexRef = useRef(0);
   const schools = useGistStore((state) => state.schools);
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
   const [items, setItems] = useState<SpotlightItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [videoProgress, setVideoProgress] = useState(0);
   const [sharePopover, setSharePopover] = useState<{
     item: SpotlightItem;
     anchor: { top: number; right: number };
@@ -88,6 +90,8 @@ export function SpotlightPage() {
         const rightCreatedAt = right.kind === "post" ? right.post.createdAt : right.confession.publishedAt ?? right.confession.createdAt;
         return Date.parse(rightCreatedAt) - Date.parse(leftCreatedAt);
       });
+      activeSlideIndexRef.current = 0;
+      setVideoProgress(0);
       setItems(rotateBySeed(chronologicalItems, Math.random()));
     } catch (cause) {
       setError(describeError(cause, "Could not load Spotlight videos."));
@@ -163,6 +167,11 @@ export function SpotlightPage() {
       const currentTop = Math.max(0, list.scrollTop);
       const delta = currentTop - previousSlideScrollTop.current;
       previousSlideScrollTop.current = currentTop;
+      const activeIndex = Math.min(items.length - 1, Math.max(0, Math.round(currentTop / Math.max(list.clientHeight, 1))));
+      if (activeIndex !== activeSlideIndexRef.current) {
+        activeSlideIndexRef.current = activeIndex;
+        setVideoProgress(0);
+      }
 
       if (currentTop <= 8 || delta < 0) {
         slideScrollDownDistance.current = 0;
@@ -186,6 +195,19 @@ export function SpotlightPage() {
 
   return (
     <div className="relative flex h-[calc(100dvh-4rem)] w-full overflow-hidden bg-neutral-950 text-white">
+      <div
+        role="progressbar"
+        aria-label="Spotlight video progress"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(videoProgress)}
+        className="pointer-events-none absolute inset-x-0 top-0 z-40 h-0.5 bg-white/20"
+      >
+        <div
+          className="h-full bg-[#8B5CF6] transition-[width] duration-150 ease-linear"
+          style={{ width: `${videoProgress}%` }}
+        />
+      </div>
       <section className="relative h-full min-w-0 flex-1 bg-neutral-950">
       <header className="pointer-events-none absolute inset-x-0 top-0 z-30 px-3 pb-5 pt-[max(0.7rem,env(safe-area-inset-top))]">
         <div className="pointer-events-auto flex items-center justify-between">
@@ -229,7 +251,7 @@ export function SpotlightPage() {
         </div>
       ) : (
         <div ref={slideListRef} onScroll={handleSlideScroll} className="h-full snap-y snap-mandatory overflow-y-auto overscroll-contain [scrollbar-width:none]">
-          {items.map((item) => {
+          {items.map((item, index) => {
             const threadId = item.kind === "post" ? item.post.id : item.confession.id;
             const cachedCount = commentsByThread[`${item.kind}:${threadId}`]?.length;
             const slideItem = item.kind === "post"
@@ -239,6 +261,11 @@ export function SpotlightPage() {
               <SpotlightSlide
                 key={slideItem.key}
                 item={slideItem}
+                index={index}
+                onVideoProgress={(index, currentTime, duration) => {
+                  if (index !== activeSlideIndexRef.current) return;
+                  setVideoProgress(duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0);
+                }}
                 schoolName={
                   item.kind === "post"
                     ? item.post.schoolShort
@@ -469,6 +496,8 @@ function renderCaption(content: string) {
 
 function SpotlightSlide({
   item,
+  index,
+  onVideoProgress,
   schoolName,
   onLike,
   onComment,
@@ -478,6 +507,8 @@ function SpotlightSlide({
   onMore,
 }: {
   item: SpotlightItem;
+  index: number;
+  onVideoProgress: (index: number, currentTime: number, duration: number) => void;
   schoolName: string;
   onLike: () => void;
   onComment: () => void;
@@ -552,6 +583,10 @@ function SpotlightSlide({
         }}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
+        onTimeUpdate={(event) => {
+          const video = event.currentTarget;
+          onVideoProgress(index, video.currentTime, video.duration);
+        }}
         className="absolute inset-0 size-full object-contain"
         aria-label={`Spotlight video by ${author}`}
       />
