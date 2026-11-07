@@ -21,7 +21,7 @@ const SCHOOL_SELECT =
 function publicSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return null;
+  if (!url || !anonKey) throw new Error("Public Supabase configuration is missing.");
 
   return createClient(url, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -45,7 +45,6 @@ function mapPublicSchool(row: PublicSchoolRow): School {
 
 export async function fetchPublicSchool(id: string): Promise<School | null> {
   const client = publicSupabase();
-  if (!client) return null;
 
   const { data, error } = await client
     .from("schools")
@@ -58,7 +57,6 @@ export async function fetchPublicSchool(id: string): Promise<School | null> {
 
 export async function fetchPublicSchools(): Promise<School[]> {
   const client = publicSupabase();
-  if (!client) return [];
 
   const schools: School[] = [];
   const pageSize = 1000;

@@ -24,7 +24,13 @@ type ExploreFilter = "All" | "Gists" | "People" | "Schools";
 const filters: ExploreFilter[] = ["All", "Gists", "People", "Schools"];
 
 /** Explore — server-side search across posts and profiles, client filter over schools. */
-export function ExplorePage() {
+export function ExplorePage({
+  initialGists,
+  initialGistsError = null,
+}: {
+  initialGists?: Post[] | null;
+  initialGistsError?: string | null;
+}) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tag = (searchParams.get("tag") ?? "").replace(/^#/, "").trim().toLowerCase();
@@ -35,10 +41,10 @@ export function ExplorePage() {
   const [query, setQuery] = useState(() => tag ? `#${tag}` : "");
   const [debounced, setDebounced] = useState("");
   const [filter, setFilter] = useState<ExploreFilter>("All");
-  const [gists, setGists] = useState<Post[]>([]);
+  const [gists, setGists] = useState<Post[]>(initialGists ?? []);
   const [people, setPeople] = useState<ProfileSearchHit[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(initialGists === undefined || initialGists === null);
+  const [error, setError] = useState<string | null>(initialGistsError);
   const [preview, setPreview] = useState<{ src: string; alt: string } | null>(null);
 
   useEffect(() => {
@@ -56,25 +62,28 @@ export function ExplorePage() {
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError(null);
+    const showServerResults = !tag && !debounced && initialGists !== undefined;
+    if (!showServerResults) setLoading(true);
+    setError(showServerResults ? initialGistsError : null);
     Promise.all([
-      tag
+      showServerResults
+        ? Promise.resolve(initialGists ?? [])
+        : tag
         ? fetchFeed({ tag, limit: 30 })
         : debounced ? fetchFeed({ search: debounced, limit: 20 }) : fetchPopularGists(),
       debounced && !tag ? searchProfiles(debounced) : fetchPopularProfiles(),
     ])
       .then(([nextGists, nextPeople]) => {
         if (!active) return;
-        setGists(nextGists);
+        if (!showServerResults || initialGists !== null) setGists(nextGists);
         setPeople(nextPeople);
       })
       .catch((err) => active && setError(describeError(err, "Search failed.")))
-      .finally(() => active && setLoading(false));
+      .finally(() => active && setLoading(!showServerResults));
     return () => {
       active = false;
     };
-  }, [debounced, tag]);
+  }, [debounced, initialGists, initialGistsError, tag]);
 
   const schoolHits = useMemo(() => {
     const q = debounced.toLowerCase();
@@ -84,7 +93,7 @@ export function ExplorePage() {
   const showGists = filter === "All" || filter === "Gists";
   const showPeople = filter === "All" || filter === "People";
   const showSchools = filter === "All" || filter === "Schools";
-  const empty = !loading && (showGists ? gists.length === 0 : true) && (showPeople ? people.length === 0 : true) && (showSchools ? schoolHits.length === 0 : true);
+  const empty = !loading && !error && (showGists ? gists.length === 0 : true) && (showPeople ? people.length === 0 : true) && (showSchools ? schoolHits.length === 0 : true);
 
   const openSchoolFeed = (schoolId: string) => {
     setFeedSchool(schoolId);

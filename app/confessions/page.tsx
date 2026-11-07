@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { ConfessionsPage } from "@/views/ConfessionsPage";
+import { fetchPublicConfessions } from "@/lib/publicContent.server";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Anonymous SHS Confessions | Gist me",
@@ -15,4 +18,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default ConfessionsPage;
+export default async function ConfessionsRoute() {
+  try {
+    return <ConfessionsPage initialConfessions={await fetchPublicConfessions(40)} />;
+  } catch (error) {
+    console.error("Could not preload approved public confessions.", error);
+    return <ConfessionsPage initialConfessions={null} initialConfessionsError="Approved confessions could not be loaded right now." />;
+  }
+}

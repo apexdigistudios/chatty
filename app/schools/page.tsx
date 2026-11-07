@@ -26,11 +26,13 @@ export const metadata: Metadata = {
 };
 
 export default async function SchoolsRoute() {
-  let schools: School[] = [];
+  let schools: School[] | null = null;
+  let schoolsError: string | null = null;
   try {
     schools = await fetchPublicSchools();
   } catch (error) {
     console.error("Could not preload public school communities.", error);
+    schoolsError = "School communities could not be loaded right now.";
   }
-  return <SchoolsPage initialSchools={schools} />;
+  return <SchoolsPage initialSchools={schools} initialSchoolsError={schoolsError} />;
 }

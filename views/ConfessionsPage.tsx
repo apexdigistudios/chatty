@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/context/AuthContext";
 import { useAuthGateStore } from "@/store/authGateStore";
 import { useGistStore } from "@/store/gistStore";
-import { CONFESSION_CATEGORIES, type ConfessionCategory } from "@/types/models";
+import { CONFESSION_CATEGORIES, type Confession, type ConfessionCategory } from "@/types/models";
 import { cn } from "@/utils/cn";
 import { FeedSkeleton } from "@/components/feed/FeedSkeleton";
 
@@ -18,18 +18,32 @@ const listVariants = { hidden: { opacity: 1 }, show: { opacity: 1, transition: {
 const itemVariants = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.22, ease: "easeOut" as const } } };
 
 /** Anonymous confessions portal: approved items from the public view + the author's own queue. */
-export function ConfessionsPage() {
+export function ConfessionsPage({
+  initialConfessions,
+  initialConfessionsError = null,
+}: {
+  initialConfessions?: Confession[] | null;
+  initialConfessionsError?: string | null;
+}) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
   const confessions = useGistStore((state) => state.confessions);
+  const confessionsHasLoaded = useGistStore((state) => state.confessionsHasLoaded);
   const confessionsLoading = useGistStore((state) => state.confessionsLoading);
   const confessionsError = useGistStore((state) => state.confessionsError);
   const myConfessions = useGistStore((state) => state.myConfessions);
   const myConfessionsError = useGistStore((state) => state.myConfessionsError);
   const loadConfessions = useGistStore((state) => state.loadConfessions);
   const loadMyConfessions = useGistStore((state) => state.loadMyConfessions);
+  const hydrateInitialPublicContent = useGistStore((state) => state.hydrateInitialPublicContent);
   const [filter, setFilter] = useState<ConfessionCategory | "All">("All");
+  const publicConfessions = confessionsHasLoaded ? confessions : initialConfessions ?? confessions;
+  const publicError = confessionsError ?? (!confessionsHasLoaded ? initialConfessionsError : null);
+
+  useEffect(() => {
+    hydrateInitialPublicContent(undefined, initialConfessions);
+  }, [hydrateInitialPublicContent, initialConfessions]);
 
   useEffect(() => {
     void loadConfessions();
@@ -40,8 +54,8 @@ export function ConfessionsPage() {
   }, [user, loadMyConfessions]);
 
   const visible = useMemo(
-    () => (filter === "All" ? confessions : confessions.filter((item) => item.category === filter)),
-    [confessions, filter]
+    () => (filter === "All" ? publicConfessions : publicConfessions.filter((item) => item.category === filter)),
+    [publicConfessions, filter]
   );
   const mine = useMemo(() => myConfessions.filter((item) => item.moderationStatus !== "approved"), [myConfessions]);
 
@@ -120,20 +134,22 @@ export function ConfessionsPage() {
       <section className="mt-8 pb-8" aria-labelledby="approved-heading">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 id="approved-heading" className="text-sm font-extrabold text-ink sm:text-base">{filter === "All" ? "Approved confessions" : filter}</h2>
-          <span className="text-[10px] font-bold text-ink-muted sm:text-xs">{visible.length} posts</span>
+          <span className="text-[10px] font-bold text-ink-muted sm:text-xs">
+            {publicError && initialConfessions == null ? "Unavailable" : `${visible.length} posts`}
+          </span>
         </div>
 
-        {confessionsError && (
+        {publicError && (
           <div className="mb-4 flex items-center gap-3 rounded-2xl border-2 border-danger-soft bg-danger-wash px-3.5 py-3">
             <WifiOff size={16} className="shrink-0 text-danger-deep" aria-hidden />
-            <p className="min-w-0 flex-1 text-xs font-semibold text-danger-deep">{confessionsError}</p>
+            <p className="min-w-0 flex-1 text-xs font-semibold text-danger-deep">{publicError}</p>
             <Button size="sm" variant="outline" onClick={() => void loadConfessions()}>Retry</Button>
           </div>
         )}
 
-        {confessionsLoading && confessions.length === 0 ? (
+        {confessionsLoading && publicConfessions.length === 0 && !initialConfessionsError ? (
           <FeedSkeleton count={3} />
-        ) : (
+        ) : publicError && initialConfessions == null ? null : (
           <motion.div key={filter} variants={listVariants} initial="hidden" animate="show" className="space-y-4">
             {visible.length > 0 ? (
               visible.map((confession) => (

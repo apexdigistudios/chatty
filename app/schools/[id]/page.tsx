@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { SchoolPage } from "@/views/SchoolPage";
 import { fetchPublicSchool } from "@/lib/publicSchools";
-import type { School } from "@/types/models";
+import { fetchPublicPosts } from "@/lib/publicContent.server";
+import type { Post, School } from "@/types/models";
 
 export const dynamic = "force-dynamic";
 
@@ -55,10 +56,20 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
 export default async function SchoolRoute({ params }: RouteProps) {
   const { id } = await params;
   let initialSchool: School | null = null;
+  let initialSchoolError: string | null = null;
+  let initialPosts: Post[] | null = null;
+  let initialPostsError: string | null = null;
   try {
     initialSchool = await fetchPublicSchool(id);
   } catch (error) {
     console.error("Could not preload public school community.", error);
+    initialSchoolError = "This public school community could not be loaded right now.";
   }
-  return <SchoolPage initialSchool={initialSchool} />;
+  try {
+    initialPosts = await fetchPublicPosts({ schoolId: id, limit: 30 });
+  } catch (error) {
+    console.error("Could not preload public school gists.", error);
+    initialPostsError = "Public campus gists could not be loaded right now.";
+  }
+  return <SchoolPage key={id} initialSchool={initialSchool} initialSchoolError={initialSchoolError} initialPosts={initialPosts} initialPostsError={initialPostsError} />;
 }

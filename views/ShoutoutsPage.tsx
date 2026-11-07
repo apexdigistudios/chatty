@@ -112,7 +112,7 @@ export function ShoutoutsPage() {
               Paper Plane Shoutouts
             </h1>
             <p className="mt-1.5 max-w-[48ch] pl-2 text-sm font-semibold leading-relaxed text-ink-muted sm:pl-0 sm:text-base">
-              The classic Ghanaian SHS letter, reimagined. Send a sealed digital envelope to any student at any SHS—no follow required.
+              A private student mailbox for sending and receiving sealed digital envelopes across SHSs. Only you and the recipient can read your letters.
             </p>
           </div>
           <div className="w-[80%] max-w-xs sm:w-[210px]">

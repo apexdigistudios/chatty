@@ -17,6 +17,7 @@ import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
 import { rotateBySeed } from "@/lib/feedRotation";
 import { formatCompactNumber } from "@/lib/utils";
+import type { Confession, Post } from "@/types/models";
 
 const tabs = ["All SHSs", "Following", "My School", "Confessions"] as const;
 type FeedTab = (typeof tabs)[number] | "Trending";
@@ -25,7 +26,21 @@ const listVariants = { hidden: { opacity: 1 }, show: { opacity: 1, transition: {
 const itemVariants = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.22, ease: "easeOut" as const } } };
 
 /** Live feed. Sticky frosted tab switcher, smart trending (>=1,000 likes), guests welcome. */
-export function HomePage() {
+export function HomePage({
+  initialPosts,
+  initialConfessions,
+  initialTrendingPosts,
+  initialTrendingFallback,
+  initialPostsError = null,
+  initialConfessionsError = null,
+}: {
+  initialPosts?: Post[] | null;
+  initialConfessions?: Confession[] | null;
+  initialTrendingPosts?: Post[] | null;
+  initialTrendingFallback?: Post[] | null;
+  initialPostsError?: string | null;
+  initialConfessionsError?: string | null;
+}) {
   const navigate = useNavigate();
   const pathname = usePathname();
   const { user, profile } = useAuth();
@@ -61,16 +76,30 @@ export function HomePage() {
   const confessionsError = useGistStore((state) => state.confessionsError);
   const loadConfessions = useGistStore((state) => state.loadConfessions);
   const setComposerIntent = useGistStore((state) => state.setComposerIntent);
+  const hydrateInitialPublicContent = useGistStore((state) => state.hydrateInitialPublicContent);
 
+  const displayPosts = feedHasLoaded ? posts : feedSchoolId ? posts : initialPosts ?? posts;
+  const displayConfessions = confessionsHasLoaded ? confessions : initialConfessions ?? confessions;
+  const displayTrendingPosts = trendingHasLoaded ? trendingPosts : initialTrendingPosts ?? trendingPosts;
+  const displayTrendingFallback = trendingHasLoaded ? trendingFallback : initialTrendingFallback ?? trendingFallback;
+  const trendingInitialized = trendingHasLoaded || initialTrendingPosts != null;
+  const feedInitialized = feedHasLoaded || initialPosts != null;
+  const confessionsInitialized = confessionsHasLoaded || initialConfessions != null;
+  const publicFeedError = feedError ?? (!feedHasLoaded ? initialPostsError : null);
+  const publicConfessionsError = confessionsError ?? (!confessionsHasLoaded ? initialConfessionsError : null);
   const [activeTab, setActiveTab] = useState<FeedTab>(
     pathname === "/trending" ? "Trending" : "All SHSs"
   );
   const [refreshing, setRefreshing] = useState(false);
-  const [rotationSeed, setRotationSeed] = useState(() => Math.random());
+  const [rotationSeed, setRotationSeed] = useState(0);
 
   const feedSchool = schools.find((school) => school.id === feedSchoolId) ?? null;
   const mySchool = schools.find((school) => school.id === profile?.schoolId) ?? null;
   const headerSchool = feedSchool ?? mySchool;
+
+  useEffect(() => {
+    hydrateInitialPublicContent(initialPosts, initialConfessions, initialTrendingPosts, initialTrendingFallback);
+  }, [hydrateInitialPublicContent, initialPosts, initialConfessions, initialTrendingFallback, initialTrendingPosts]);
 
   useEffect(() => {
     const channel = supabase
@@ -89,10 +118,10 @@ export function HomePage() {
     if (activeTab === "Following" && followingPosts.length === 0 && !followingLoading) void loadFollowingFeed();
     if (
       (activeTab === "All SHSs" || activeTab === "My School" || activeTab === "Confessions") &&
-      confessions.length === 0 &&
+      displayConfessions.length === 0 &&
       !confessionsLoading
     ) void loadConfessions();
-    if (activeTab === "Trending" && trendingPosts.length === 0 && trendingFallback.length === 0 && !trendingLoading) void loadTrending();
+    if (activeTab === "Trending" && initialTrendingPosts == null && trendingPosts.length === 0 && trendingFallback.length === 0 && !trendingLoading) void loadTrending();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
@@ -115,7 +144,7 @@ export function HomePage() {
     if (activeTab === "My School") {
       const schoolId = profile?.schoolId;
       return schoolId
-        ? posts.filter((post) =>
+        ? displayPosts.filter((post) =>
             post.schoolId === schoolId ||
             (post.spotlightStatus === "active" &&
               (!post.spotlightTargetSchoolIds ||
@@ -124,17 +153,17 @@ export function HomePage() {
           )
         : [];
     }
-    return activeTab === "Following" ? followingPosts : posts;
-  }, [activeTab, followingPosts, posts, profile?.schoolId]);
+    return activeTab === "Following" ? followingPosts : displayPosts;
+  }, [activeTab, displayPosts, followingPosts, profile?.schoolId]);
   const mixedItems = useMemo(() => {
     const includeConfessions = activeTab === "All SHSs" || activeTab === "My School";
     const schoolFilter = activeTab === "My School" ? profile?.schoolId : feedSchoolId;
     const items: Array<
       | { kind: "post"; id: string; createdAt: string; post: (typeof visiblePosts)[number] }
-      | { kind: "confession"; id: string; createdAt: string; confession: (typeof confessions)[number] }
+      | { kind: "confession"; id: string; createdAt: string; confession: (typeof displayConfessions)[number] }
     > = visiblePosts.map((post) => ({ kind: "post", id: post.id, createdAt: post.createdAt, post }));
     if (includeConfessions && !(activeTab === "My School" && !profile?.schoolId)) {
-      for (const confession of confessions) {
+      for (const confession of displayConfessions) {
         if (schoolFilter && confession.schoolId !== schoolFilter && confession.schoolId !== null) continue;
         items.push({
           kind: "confession",
@@ -146,7 +175,7 @@ export function HomePage() {
     }
     items.sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
     return rotateBySeed(items, rotationSeed);
-  }, [activeTab, confessions, feedSchoolId, profile?.schoolId, rotationSeed, visiblePosts]);
+  }, [activeTab, displayConfessions, feedSchoolId, profile?.schoolId, rotationSeed, visiblePosts]);
 
   const startComposing = (type: "gist" | "confession") => {
     const returnTo = type === "confession" ? "/confessions/create" : "/create";
@@ -171,26 +200,29 @@ export function HomePage() {
   const showingConfessions = activeTab === "Confessions";
   const showingTrending = activeTab === "Trending";
   const showingFollowing = activeTab === "Following";
-  const feedPending = !feedHasLoaded && !feedError;
-  const confessionsPending = !confessionsHasLoaded && !confessionsError;
+  const feedPending = !feedInitialized && !feedError && !initialPostsError;
+  const confessionsPending = !confessionsInitialized && !confessionsError && !initialConfessionsError;
   const loading = showingConfessions
-    ? confessionsPending || (confessionsLoading && confessions.length === 0)
+    ? confessionsPending || (confessionsLoading && displayConfessions.length === 0 && !initialConfessionsError)
     : showingFollowing
       ? (!followingHasLoaded && !feedError) || (followingLoading && followingPosts.length === 0)
       : showingTrending
-        ? (!trendingHasLoaded && !feedError) || (trendingLoading && trendingPosts.length === 0)
+        ? (!trendingInitialized && !publicFeedError) ||
+          (trendingLoading && displayTrendingPosts.length === 0 && !initialPostsError)
         : feedPending || confessionsPending ||
-          (feedLoading && posts.length === 0) ||
-          (confessionsLoading && confessions.length === 0);
+          (feedLoading && displayPosts.length === 0 && !initialPostsError) ||
+          (confessionsLoading && displayConfessions.length === 0 && !initialConfessionsError);
   const canShowEmptyState = showingConfessions
-    ? confessionsHasLoaded
+    ? (confessionsHasLoaded || initialConfessions != null) && !publicConfessionsError
     : showingFollowing
       ? followingHasLoaded
       : showingTrending
-        ? trendingHasLoaded
+        ? trendingInitialized
         : activeTab === "My School" && !profile?.schoolId
           ? true
-          : feedHasLoaded && (!(activeTab === "All SHSs" || activeTab === "My School") || confessionsHasLoaded);
+          : (feedHasLoaded || initialPosts != null) &&
+            (!(activeTab === "All SHSs" || activeTab === "My School") || confessionsHasLoaded || initialConfessions != null) &&
+            !publicFeedError && (!(activeTab === "All SHSs" || activeTab === "My School") || !publicConfessionsError);
   const visibleHasMore = showingFollowing ? followingHasMore : feedHasMore;
 
   return (
@@ -312,7 +344,7 @@ export function HomePage() {
           <Link to="/confessions" className="inline-flex shrink-0 items-center gap-1 rounded-xl px-2 py-1 text-[10px] font-extrabold uppercase tracking-wider text-brand-deep hover:bg-brand-wash">
             Confessions portal <ArrowUpRight size={13} strokeWidth={2.6} aria-hidden />
           </Link>
-        ) : feedHasLoaded && visiblePosts.length > 0 ? (
+        ) : (feedHasLoaded || initialPosts != null) && visiblePosts.length > 0 ? (
           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-ink-muted sm:text-xs">
             {showingTrending && <Flame size={11} className="text-warning" aria-hidden />}
             {showingTrending
@@ -322,16 +354,16 @@ export function HomePage() {
         ) : null}
       </div>
 
-      {feedError && !showingConfessions && (
+      {publicFeedError && !showingConfessions && (
         <div className="mx-4 mb-4 flex items-center gap-3 rounded-2xl border-2 border-danger-soft bg-danger-wash px-3.5 py-3 sm:mx-0">
           <WifiOff size={16} className="shrink-0 text-danger-deep" aria-hidden />
-          <p className="min-w-0 flex-1 text-xs font-semibold text-danger-deep">{feedError}</p>
+          <p className="min-w-0 flex-1 text-xs font-semibold text-danger-deep">{publicFeedError}</p>
           <Button size="sm" variant="outline" onClick={() => void loadFeed()}>Retry</Button>
         </div>
       )}
-      {confessionsError && (activeTab === "All SHSs" || activeTab === "My School" || showingConfessions) && (
+      {publicConfessionsError && (activeTab === "All SHSs" || activeTab === "My School" || showingConfessions) && (
         <div role="alert" className="mx-4 mb-4 rounded-2xl border-2 border-danger-soft bg-danger-wash px-3.5 py-3 text-xs font-semibold text-danger-deep sm:mx-0">
-          Approved confessions could not be loaded. {confessionsError}
+          {publicConfessionsError}
         </div>
       )}
 
@@ -350,23 +382,23 @@ export function HomePage() {
             className="space-y-0"
           >
             {showingConfessions ? (
-              confessions.length > 0 ? (
-                confessions.map((confession) => (
+              displayConfessions.length > 0 ? (
+                displayConfessions.map((confession) => (
                   <motion.div key={confession.id} variants={itemVariants}>
                     <ConfessionCard confession={confession} />
                   </motion.div>
                 ))
-              ) : confessionsHasLoaded ? (
+              ) : (confessionsHasLoaded || initialConfessions != null) && !publicConfessionsError ? (
                 <EmptyFeed title="No approved confessions yet" detail="Approved confessions from the global queue land here." action="Write a confession" onAction={() => startComposing("confession")} />
               ) : null
             ) : showingTrending ? (
-              trendingPosts.length > 0 ? (
-                trendingPosts.map((post) => (
+              displayTrendingPosts.length > 0 ? (
+                displayTrendingPosts.map((post) => (
                   <motion.div key={post.id} variants={itemVariants}>
                     <GistCard post={post} />
                   </motion.div>
                 ))
-              ) : trendingHasLoaded ? (
+              ) : trendingInitialized ? (
                 <>
                   <div className="rounded-2xl border-2 border-dashed border-warning-soft bg-warning-wash/60 px-4 py-6 text-center">
                     <span className="mx-auto flex size-10 items-center justify-center rounded-2xl bg-warning-wash text-warning-deep">
@@ -377,7 +409,7 @@ export function HomePage() {
                       Trending only promotes gists with {formatCompactNumber(trendingThreshold)}+ likes. Below are the campus favourites right now.
                     </p>
                   </div>
-                  {trendingFallback.map((post) => (
+                  {displayTrendingFallback.map((post) => (
                     <motion.div key={post.id} variants={itemVariants}>
                       <GistCard post={post} />
                     </motion.div>

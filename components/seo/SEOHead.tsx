@@ -27,8 +27,10 @@ function routeMetadata(pathname: string): { title: string; description: string; 
   }
   if (pathname === "/explore" || pathname === "/trending") {
     return {
-      title: pathname === "/trending" ? "Trending Gists | Gist me" : "Explore Ghana SHS Gists | Gist me",
-      description: "Explore trending gists, student conversations, and Ghanaian SHS communities on Gist me.",
+      title: pathname === "/trending" ? "Trending Ghana SHS Gists | Gist me" : "Explore Ghana SHS Gists | Gist me",
+      description: pathname === "/trending"
+        ? "See popular student conversations and trending campus gists from Ghanaian Senior High Schools."
+        : "Explore student conversations, campus communities, and gists from Senior High Schools across Ghana.",
     };
   }
   if (pathname === "/spotlight") {
@@ -47,6 +49,14 @@ function routeMetadata(pathname: string): { title: string; description: string; 
     return {
       title: "Anonymous SHS Confessions | Gist me",
       description: "Read moderated anonymous confessions and student stories from Ghanaian SHS communities.",
+    };
+  }
+  if (pathname === "/shoutouts") {
+    return {
+      title: "Student Shoutouts | Gist me",
+      description:
+        "A private inbox and outbox for sending and receiving student shoutouts. Mail is available only to the signed-in sender and recipient.",
+      noIndex: true,
     };
   }
   if (pathname === "/login" || pathname === "/register" || pathname === "/auth") {
@@ -112,6 +122,7 @@ export function SEOHead({
     if (
       pathname.startsWith("/posts/") ||
       pathname.startsWith("/schools/") ||
+      /^\/profile\/[^/]+$/.test(pathname) ||
       sharedConfession
     ) return;
     const defaults = routeMetadata(pathname);

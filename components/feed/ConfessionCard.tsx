@@ -53,11 +53,16 @@ interface ConfessionCardProps {
 }
 
 /** Anonymous confession card — reads from the public view, never exposes the author. */
-export function ConfessionCard({ confession, pending = false }: ConfessionCardProps) {
+export function ConfessionCard({ confession: initialConfession, pending = false }: ConfessionCardProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
+  const confession = useGistStore((state) =>
+    state.confessions.find((item) => item.id === initialConfession.id) ??
+    state.myConfessions.find((item) => item.id === initialConfession.id) ??
+    initialConfession
+  );
   const toggleReaction = useGistStore((state) => state.toggleReaction);
   const openComments = useGistStore((state) => state.openComments);
   const school = useGistStore((state) =>

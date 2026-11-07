@@ -21,13 +21,20 @@ import { GHANA_REGIONS } from "@/services/schoolsService";
 import type { School } from "@/types/models";
 
 /** SHS directory + "create a community" flow (the creator becomes its moderator). */
-export function SchoolsPage({ initialSchools = [] }: { initialSchools?: School[] }) {
+export function SchoolsPage({
+  initialSchools,
+  initialSchoolsError = null,
+}: {
+  initialSchools?: School[] | null;
+  initialSchoolsError?: string | null;
+}) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
   const storeSchools = useGistStore((state) => state.schools);
-  const schools = storeSchools.length > 0 ? storeSchools : initialSchools;
+  const schoolsHasLoaded = useGistStore((state) => state.schoolsHasLoaded);
+  const schools = storeSchools.length > 0 ? storeSchools : initialSchools ?? [];
   const schoolsLoading = useGistStore((state) => state.schoolsLoading);
   const schoolsError = useGistStore((state) => state.schoolsError);
   const loadSchools = useGistStore((state) => state.loadSchools);
@@ -44,6 +51,7 @@ export function SchoolsPage({ initialSchools = [] }: { initialSchools?: School[]
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const directoryError = schoolsError ?? (!schoolsHasLoaded ? initialSchoolsError : null);
 
   useEffect(() => {
     void loadSchools();
@@ -202,18 +210,18 @@ export function SchoolsPage({ initialSchools = [] }: { initialSchools?: School[]
       <div className="mb-3 mt-6 flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-1.5 text-sm font-extrabold text-ink sm:text-base" aria-live="polite">
           <List size={15} strokeWidth={2.7} className="text-brand-deep" aria-hidden />
-          {results.length} communities
+          {directoryError && initialSchools == null ? "Communities unavailable" : `${results.length} communities`}
         </h2>
-        <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+        {!(directoryError && initialSchools == null) && <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
           <span className="inline-flex items-center gap-1"><Users size={12} strokeWidth={2.5} aria-hidden />{formatCompactNumber(results.reduce((sum, school) => sum + school.memberCount, 0))} students</span>
           <span className="inline-flex items-center gap-1"><MapPin size={12} strokeWidth={2.5} aria-hidden />{formatCompactNumber(results.reduce((sum, school) => sum + school.postCount, 0))} gists</span>
-        </div>
+        </div>}
       </div>
 
-      {schoolsError && (
+      {directoryError && (
         <div className="mb-4 flex items-center gap-3 rounded-2xl border-2 border-danger-soft bg-danger-wash px-3.5 py-3">
           <WifiOff size={16} className="shrink-0 text-danger-deep" aria-hidden />
-          <p className="min-w-0 flex-1 text-xs font-semibold text-danger-deep">{schoolsError}</p>
+          <p className="min-w-0 flex-1 text-xs font-semibold text-danger-deep">{directoryError}</p>
           <Button size="sm" variant="outline" onClick={() => void loadSchools()}>Retry</Button>
         </div>
       )}
@@ -226,7 +234,7 @@ export function SchoolsPage({ initialSchools = [] }: { initialSchools?: School[]
         <div className="flex flex-col gap-3">
           {results.map((school) => <SchoolCard key={school.id} school={school} view="list" />)}
         </div>
-      ) : (
+      ) : directoryError ? null : (
         <div className="rounded-2xl border-2 border-dashed border-line px-5 py-12 text-center">
           <p className="text-sm font-extrabold text-ink">No communities found</p>
           <p className="mx-auto mt-1 max-w-[30ch] text-xs font-semibold leading-relaxed text-ink-muted">Can&apos;t see your school? Found its community and become the moderator.</p>

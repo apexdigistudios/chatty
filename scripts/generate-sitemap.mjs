@@ -14,7 +14,6 @@ const routes = [
   ["/spotlight", "hourly", "0.8"],
   ["/schools", "weekly", "0.9"],
   ["/confessions", "daily", "0.7"],
-  ["/shoutouts", "daily", "0.6"],
   ["/privacy", "yearly", "0.3"],
   ["/terms", "yearly", "0.3"],
 ];
@@ -78,8 +77,68 @@ async function getPublicSchoolEntries() {
   }
 }
 
-const schoolEntries = await getPublicSchoolEntries();
-entries.push(...schoolEntries);
+async function getPublicContentEntries(table, route, filters, dateColumn) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !anonKey) return [];
+
+  const results = [];
+  try {
+    const pageSize = 1000;
+    for (let offset = 0; ; offset += pageSize) {
+      const url = new URL(`${supabaseUrl}/rest/v1/${table}`);
+      url.searchParams.set("select", `id,${dateColumn}`);
+      for (const [key, value] of Object.entries(filters)) url.searchParams.set(key, value);
+      url.searchParams.set("order", `${dateColumn}.desc`);
+      url.searchParams.set("limit", String(pageSize));
+
+      const response = await fetch(url, {
+        headers: {
+          apikey: anonKey,
+          Range: `${offset}-${offset + pageSize - 1}`,
+        },
+        signal: AbortSignal.timeout(8000),
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(`Supabase returned HTTP ${response.status}.`);
+
+      const rows = await response.json();
+      if (!Array.isArray(rows)) throw new Error("Supabase returned an invalid content list.");
+      for (const row of rows) {
+        if (typeof row.id !== "string" || !/^[0-9a-f-]{36}$/i.test(row.id)) continue;
+        const parsedDate = typeof row[dateColumn] === "string" ? new Date(row[dateColumn]) : null;
+        results.push({
+          loc: `${origin}${route}/${encodeURIComponent(row.id)}`,
+          lastmod:
+            parsedDate && !Number.isNaN(parsedDate.getTime())
+              ? parsedDate.toISOString().slice(0, 10)
+              : lastmod,
+          changefreq: "weekly",
+          priority: "0.6",
+        });
+      }
+      if (rows.length < pageSize) return results;
+    }
+  } catch (error) {
+    console.warn(
+      `Could not load public ${table} URLs for the sitemap; static routes will still be generated.`,
+      error instanceof Error ? error.message : error
+    );
+  }
+  return results;
+}
+
+const [schoolEntries, publicPostEntries, approvedConfessionEntries] = await Promise.all([
+  getPublicSchoolEntries(),
+  getPublicContentEntries(
+    "posts",
+    "/posts",
+    { post_type: "eq.public", status: "eq.active", is_hidden: "eq.false" },
+    "updated_at"
+  ),
+  getPublicContentEntries("public_confessions", "/confessions", {}, "published_at"),
+]);
+entries.push(...schoolEntries, ...publicPostEntries, ...approvedConfessionEntries);
 const sitemapEntries = entries.map((entry) => `  <url>
     <loc>${escapeXml(entry.loc)}</loc>
     <lastmod>${escapeXml(entry.lastmod)}</lastmod>
@@ -94,4 +153,6 @@ ${sitemapEntries}
 const output = resolve(root, "public", "sitemap.xml");
 await mkdir(dirname(output), { recursive: true });
 await writeFile(output, sitemap, "utf8");
-console.log(`Generated ${entries.length} sitemap URLs (${schoolEntries.length} schools) at ${output}`);
+console.log(
+  `Generated ${entries.length} sitemap URLs (${schoolEntries.length} schools, ${publicPostEntries.length} public posts, ${approvedConfessionEntries.length} approved confessions) at ${output}`
+);

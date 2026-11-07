@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { SpotlightPage } from "@/views/SpotlightPage";
+import { fetchPublicConfessions, fetchPublicPosts } from "@/lib/publicContent.server";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "SHS Spotlight Gists | Gist me",
@@ -15,4 +18,18 @@ export const metadata: Metadata = {
   },
 };
 
-export default SpotlightPage;
+export default async function SpotlightRoute() {
+  const [postsResult, confessionsResult] = await Promise.allSettled([
+    fetchPublicPosts({ limit: 100 }),
+    fetchPublicConfessions(100),
+  ]);
+  if (postsResult.status === "rejected") console.error("Could not preload public Spotlight gists.", postsResult.reason);
+  if (confessionsResult.status === "rejected") console.error("Could not preload approved Spotlight confessions.", confessionsResult.reason);
+  return (
+    <SpotlightPage
+      initialPosts={postsResult.status === "fulfilled" ? postsResult.value : null}
+      initialConfessions={confessionsResult.status === "fulfilled" ? confessionsResult.value : null}
+      initialError={postsResult.status === "rejected" || confessionsResult.status === "rejected" ? "Public Spotlight videos could not be loaded right now." : null}
+    />
+  );
+}

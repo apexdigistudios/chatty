@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate, useParams, useSearchParams } from "@/lib/router";
-import { ArrowLeft, Hash, Loader2, MapPin, Plus, ShieldCheck, Sparkles, Users, X } from "lucide-react";
+import { ArrowLeft, Hash, Loader2, MapPin, Plus, ShieldCheck, Sparkles, Users, WifiOff, X } from "lucide-react";
 import { GistCard } from "@/components/feed/GistCard";
 import { ManageCommunityPanel } from "@/components/moderation/ManageCommunityPanel";
 import { SchoolCrestUploader } from "@/components/schools/SchoolCrestUploader";
@@ -26,12 +26,22 @@ import { FeedSkeleton } from "@/components/feed/FeedSkeleton";
 import { formatCompactNumber } from "@/lib/utils";
 
 type Tab = "feed" | "groups" | "manage";
-type SchoolPageProps = { initialSchool?: School | null };
+type SchoolPageProps = {
+  initialSchool?: School | null;
+  initialSchoolError?: string | null;
+  initialPosts?: Post[] | null;
+  initialPostsError?: string | null;
+};
 
 const GROUP_EMOJIS = ["👥", "🧠", "📚", "🍛", "⚽", "🎤", "🎨", "🔬", "📰", "🏆"] as const;
 
 /** /schools/:id — campus feed, sub-communities (clubs/squads), founder moderation. */
-export function SchoolPage({ initialSchool = null }: SchoolPageProps) {
+export function SchoolPage({
+  initialSchool,
+  initialSchoolError = null,
+  initialPosts,
+  initialPostsError = null,
+}: SchoolPageProps) {
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -46,13 +56,15 @@ export function SchoolPage({ initialSchool = null }: SchoolPageProps) {
   const setComposerIntent = useGistStore((state) => state.setComposerIntent);
 
   const [school, setSchool] = useState<School | null>(initialSchool ?? cached ?? null);
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<Post[]>(initialPosts ?? []);
   const [groups, setGroups] = useState<SchoolGroup[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(!initialSchool && !cached);
-  const [postsLoading, setPostsLoading] = useState(true);
+  const hasInitialSchool = initialSchool !== undefined;
+  const [loading, setLoading] = useState(!hasInitialSchool && !cached);
+  const [postsLoading, setPostsLoading] = useState(initialPosts === undefined);
+  const [postsError, setPostsError] = useState<string | null>(initialPostsError);
   const [groupsLoading, setGroupsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialSchoolError ?? null);
   const [claiming, setClaiming] = useState(false);
 
   // Club creation form
@@ -107,29 +119,36 @@ export function SchoolPage({ initialSchool = null }: SchoolPageProps) {
   const loadPosts = useCallback(async () => {
     if (!id) return;
     setPostsLoading(true);
+    setPostsError(null);
     try {
       setPosts(await fetchFeed({ schoolId: id, groupId: activeGroupId, limit: 30 }));
     } catch (err) {
-      toast(describeError(err, "Could not load this campus feed."), "danger");
+      const message = describeError(err, "Could not load this campus feed.");
+      setPostsError(message);
+      toast(message, "danger");
     } finally {
       setPostsLoading(false);
     }
   }, [activeGroupId, id, toast]);
 
   useEffect(() => {
-    if (initialSchool) {
-      setSchool(initialSchool);
+    if (hasInitialSchool) {
+      if (initialSchool) {
+        setSchool(initialSchool);
+        upsertSchool(initialSchool);
+      } else {
+        setError(initialSchoolError ?? "This community does not exist.");
+      }
       setLoading(false);
-      upsertSchool(initialSchool);
     } else {
       void loadSchool();
     }
     void loadGroups();
-  }, [initialSchool, loadSchool, loadGroups, upsertSchool]);
+  }, [hasInitialSchool, initialSchool, initialSchoolError, loadSchool, loadGroups, upsertSchool]);
 
   useEffect(() => {
-    void loadPosts();
-  }, [loadPosts]);
+    if (activeGroupId || initialPosts === undefined) void loadPosts();
+  }, [activeGroupId, initialPosts, loadPosts]);
 
   const claim = async () => {
     if (!id) return;
@@ -244,6 +263,7 @@ export function SchoolPage({ initialSchool = null }: SchoolPageProps) {
       <div className="mx-auto w-full max-w-[760px] min-w-0 px-4 pt-6 sm:px-6">
         <div className="rounded-2xl border-2 border-dashed border-line px-5 py-12 text-center">
           <p className="text-sm font-extrabold text-ink">{error ?? "Community not found"}</p>
+          {initialSchoolError && <Button size="sm" variant="outline" className="mt-4" onClick={() => void loadSchool()}>Try again</Button>}
           <Link to="/schools" className="mt-4 inline-flex items-center gap-1 text-xs font-extrabold text-brand-deep hover:underline"><ArrowLeft size={14} aria-hidden />Back to schools</Link>
         </div>
       </div>
@@ -490,6 +510,13 @@ export function SchoolPage({ initialSchool = null }: SchoolPageProps) {
                 </button>
               </div>
             )}
+            {postsError && (
+              <div role="alert" className="mb-4 flex items-center gap-3 rounded-2xl border-2 border-danger-soft bg-danger-wash px-3.5 py-3">
+                <WifiOff size={16} className="shrink-0 text-danger-deep" aria-hidden />
+                <p className="min-w-0 flex-1 text-xs font-semibold text-danger-deep">{postsError}</p>
+                <Button size="sm" variant="outline" onClick={() => void loadPosts()}>Retry</Button>
+              </div>
+            )}
             {postsLoading && posts.length === 0 ? (
               <FeedSkeleton count={2} />
             ) : posts.length > 0 ? (
@@ -498,7 +525,7 @@ export function SchoolPage({ initialSchool = null }: SchoolPageProps) {
                   <GistCard key={post.id} post={post} onRemoved={(postId) => setPosts((prev) => prev.filter((item) => item.id !== postId))} />
                 ))}
               </div>
-            ) : (
+            ) : postsError ? null : (
               <div className="rounded-2xl border-2 border-dashed border-line px-5 py-12 text-center">
                 <p className="text-sm font-extrabold text-ink">
                   {activeGroup ? `No gists in ${activeGroup.name} yet` : `No gists from ${school.shortName} yet`}

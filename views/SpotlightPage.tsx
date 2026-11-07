@@ -26,7 +26,45 @@ type SpotlightItem =
   | { kind: "post"; key: string; videoUrl: string; post: Post }
   | { kind: "confession"; key: string; videoUrl: string; confession: Confession };
 
-export function SpotlightPage() {
+function collectSpotlightItems(feed: Post[], confessions: Confession[]): SpotlightItem[] {
+  const videoPosts = feed
+    .filter((post) =>
+      post.mediaType === "video" ||
+      post.mediaTypes?.includes("video") ||
+      post.mediaUrls.some(isVideoUrl)
+    )
+    .flatMap((post) =>
+      post.mediaUrls.flatMap((videoUrl, index) =>
+        post.mediaTypes?.[index] === "video" ||
+        isVideoUrl(videoUrl) ||
+        (index === 0 && post.mediaType === "video")
+          ? [{ kind: "post" as const, key: `post:${post.id}:${index}`, videoUrl, post }]
+          : []
+      )
+    );
+  const videoConfessions = confessions.flatMap((confession) =>
+    confession.mediaUrls?.flatMap((videoUrl, index) =>
+      confession.mediaTypes?.[index] === "video" || isVideoUrl(videoUrl)
+        ? [{ kind: "confession" as const, key: `confession:${confession.id}:${index}`, videoUrl, confession }]
+        : []
+    ) ?? []
+  );
+  return [...videoPosts, ...videoConfessions].sort((left, right) => {
+    const leftCreatedAt = left.kind === "post" ? left.post.createdAt : left.confession.publishedAt ?? left.confession.createdAt;
+    const rightCreatedAt = right.kind === "post" ? right.post.createdAt : right.confession.publishedAt ?? right.confession.createdAt;
+    return Date.parse(rightCreatedAt) - Date.parse(leftCreatedAt);
+  });
+}
+
+export function SpotlightPage({
+  initialPosts,
+  initialConfessions,
+  initialError = null,
+}: {
+  initialPosts?: Post[] | null;
+  initialConfessions?: Confession[] | null;
+  initialError?: string | null;
+}) {
   const { user } = useAuth();
   const { toast } = useToast();
   const openComments = useGistStore((state) => state.openComments);
@@ -36,12 +74,17 @@ export function SpotlightPage() {
   const slideScrollDownDistance = useRef(0);
   const slideScrollFrame = useRef(0);
   const activeSlideIndexRef = useRef(0);
+  const reactionTouched = useRef(new Set<string>());
   const schools = useGistStore((state) => state.schools);
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
-  const [items, setItems] = useState<SpotlightItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<SpotlightItem[]>(() =>
+    collectSpotlightItems(initialPosts ?? [], initialConfessions ?? [])
+  );
+  const [loading, setLoading] = useState(
+    (initialPosts === undefined || initialPosts === null || initialConfessions === undefined || initialConfessions === null) && !initialError
+  );
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
   const [videoProgress, setVideoProgress] = useState(0);
   const [sharePopover, setSharePopover] = useState<{
     item: SpotlightItem;
@@ -58,41 +101,9 @@ export function SpotlightPage() {
         fetchFeed({ limit: 100 }),
         fetchApprovedConfessions(100),
       ]);
-      const videoPosts = feed
-        .filter((post) =>
-          post.mediaType === "video" ||
-          post.mediaTypes?.includes("video") ||
-          post.mediaUrls.some(isVideoUrl)
-        )
-        .flatMap((post) =>
-          post.mediaUrls.flatMap((videoUrl, index) =>
-            post.mediaTypes?.[index] === "video" ||
-            isVideoUrl(videoUrl) ||
-            (index === 0 && post.mediaType === "video")
-              ? [{ kind: "post" as const, key: `post:${post.id}:${index}`, videoUrl, post }]
-              : []
-          )
-        );
-      const videoConfessions = confessions.flatMap((confession) =>
-        confession.mediaUrls?.flatMap((videoUrl, index) =>
-          confession.mediaTypes?.[index] === "video" || isVideoUrl(videoUrl)
-            ? [{
-                kind: "confession" as const,
-                key: `confession:${confession.id}:${index}`,
-                videoUrl,
-                confession,
-              }]
-            : []
-        ) ?? []
-      );
-      const chronologicalItems = [...videoPosts, ...videoConfessions].sort((left, right) => {
-        const leftCreatedAt = left.kind === "post" ? left.post.createdAt : left.confession.publishedAt ?? left.confession.createdAt;
-        const rightCreatedAt = right.kind === "post" ? right.post.createdAt : right.confession.publishedAt ?? right.confession.createdAt;
-        return Date.parse(rightCreatedAt) - Date.parse(leftCreatedAt);
-      });
       activeSlideIndexRef.current = 0;
       setVideoProgress(0);
-      setItems(rotateBySeed(chronologicalItems, Math.random()));
+      setItems(rotateBySeed(collectSpotlightItems(feed, confessions), Math.random()));
     } catch (cause) {
       setError(describeError(cause, "Could not load Spotlight videos."));
     } finally {
@@ -102,8 +113,30 @@ export function SpotlightPage() {
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (initialPosts === undefined && initialConfessions === undefined) void load();
+  }, [initialPosts, initialConfessions, load]);
+
+  useEffect(() => {
+    if (!initialConfessions) return;
+    void fetchApprovedConfessions(100).then((latest) => {
+      const byId = new Map(latest.map((confession) => [confession.id, confession]));
+      setItems((current) => current.map((item) => {
+        if (item.kind !== "confession" || reactionTouched.current.has(item.confession.id)) return item;
+        const fresh = byId.get(item.confession.id);
+        return fresh
+          ? {
+              ...item,
+              confession: {
+                ...item.confession,
+                reactions: fresh.reactions,
+                myReaction: fresh.myReaction,
+                commentCount: fresh.commentCount,
+              },
+            }
+          : item;
+      }));
+    }).catch(() => undefined);
+  }, [initialConfessions]);
 
   const share = async (post: Post) => {
     const url = sharePreviewUrl("post", post.id);
@@ -316,6 +349,7 @@ export function SpotlightPage() {
                     const confession = item.confession;
                     const current = confession.myReaction;
                     const next = current === "heart" ? null : "heart";
+                    reactionTouched.current.add(confession.id);
                     await toggleReaction(confession.id, "heart", current);
                     setItems((currentItems) => currentItems.map((entry) => {
                       if (entry.kind !== "confession" || entry.confession.id !== confession.id) return entry;

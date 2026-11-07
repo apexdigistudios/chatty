@@ -26,17 +26,27 @@ import { hasActiveVerification, isGlobalAdminProfile, verificationTitle } from "
 import { formatCompactNumber } from "@/lib/utils";
 
 /** Facebook-style public student profile: `/profile/:userId`. */
-export function PublicProfilePage() {
+export function PublicProfilePage({
+  initialUserId,
+  initialProfile,
+  initialPosts,
+  initialError = null,
+}: {
+  initialUserId?: string;
+  initialProfile?: PublicProfile | null;
+  initialPosts?: Post[] | null;
+  initialError?: string | null;
+}) {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
 
-  const [profile, setProfile] = useState<PublicProfile | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<PublicProfile | null>(initialProfile ?? null);
+  const [posts, setPosts] = useState<Post[]>(initialPosts ?? []);
+  const [loading, setLoading] = useState(initialProfile === undefined && initialPosts === undefined);
+  const [error, setError] = useState<string | null>(initialError);
   const [followSummary, setFollowSummary] = useState<FollowSummary>({
     followerCount: 0,
     followingCount: 0,
@@ -78,8 +88,22 @@ export function PublicProfilePage() {
   }, [userId, user?.id, toast]);
 
   useEffect(() => {
+    if (initialUserId === userId && initialProfile !== undefined) return;
     void load();
-  }, [load]);
+  }, [initialProfile, initialUserId, load, userId]);
+
+  useEffect(() => {
+    if (initialUserId !== userId || !initialProfile || initialProfile.isSeed) return;
+    let active = true;
+    void fetchFollowSummary(userId, user?.id)
+      .then((summary) => active && setFollowSummary(summary))
+      .catch((cause) => active && toast(describeError(cause, "Could not load follow counts."), "danger"));
+    return () => {
+      active = false;
+    };
+  }, [initialProfile, initialUserId, toast, user?.id, userId]);
+
+  const retryProfile = () => void load();
 
   const shareProfile = async () => {
     if (!profile) return;
@@ -145,6 +169,7 @@ export function PublicProfilePage() {
         <div className="rounded-3xl border-2 border-dashed border-line bg-card px-5 py-12 text-center">
           <WifiOff size={22} className="mx-auto text-ink-muted" aria-hidden />
           <p className="mt-2 text-sm font-extrabold text-ink">{error ?? "Student not found"}</p>
+          {error && <Button size="sm" variant="outline" className="mt-4" onClick={retryProfile}>Try again</Button>}
           <Link to="/" className="mt-4 inline-flex items-center gap-1 text-xs font-extrabold text-brand-deep hover:underline">
             <ArrowLeft size={14} aria-hidden />Back to feed
           </Link>
@@ -264,7 +289,7 @@ export function PublicProfilePage() {
                   nameClassName="text-xs"
                 />
               </Link>
-            ) : (
+            ) : initialPosts === null && error ? null : (
               <span className="text-xs font-semibold text-ink-muted">No SHS community linked yet</span>
             )}
           </div>
@@ -316,8 +341,18 @@ export function PublicProfilePage() {
           <h2 id="public-gists-heading" className="text-sm font-extrabold text-ink sm:text-base">
             Public gists by @{profile.username}
           </h2>
-          <span className="text-[10px] font-bold text-ink-muted">{formatCompactNumber(posts.length)} posts</span>
+          <span className="text-[10px] font-bold text-ink-muted">
+            {initialPosts === null && error ? "Unavailable" : `${formatCompactNumber(posts.length)} posts`}
+          </span>
         </div>
+
+        {error && initialProfile && initialPosts === null && (
+          <div role="alert" className="mb-4 flex items-center gap-3 rounded-2xl border-2 border-danger-soft bg-danger-wash px-3.5 py-3">
+            <WifiOff size={16} className="shrink-0 text-danger-deep" aria-hidden />
+            <p className="min-w-0 flex-1 text-xs font-semibold text-danger-deep">{error}</p>
+            <Button size="sm" variant="outline" onClick={retryProfile}>Retry</Button>
+          </div>
+        )}
 
         {posts.length > 0 ? (
           <div className="space-y-0">

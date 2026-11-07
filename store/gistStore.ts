@@ -74,6 +74,12 @@ interface GistState {
   trendingThreshold: number;
   setFeedSchool: (schoolId: string | null) => void;
   loadFeed: (options?: { silent?: boolean }) => Promise<void>;
+  hydrateInitialPublicContent: (
+    posts?: Post[] | null,
+    confessions?: Confession[] | null,
+    trendingPosts?: Post[] | null,
+    trendingFallback?: Post[] | null
+  ) => void;
   loadFollowingFeed: (options?: { silent?: boolean }) => Promise<void>;
   loadMoreFeed: () => Promise<void>;
   loadMoreFollowingFeed: () => Promise<void>;
@@ -105,6 +111,7 @@ interface GistState {
   myConfessionsError: string | null;
   loadConfessions: () => Promise<void>;
   loadMyConfessions: () => Promise<void>;
+  upsertPublicConfession: (confession: Confession) => void;
   submitConfession: (input: { content: string; category: ConfessionCategory; schoolId: string | null }) => Promise<Confession>;
   publishConfessionLocally: (confession: Confession) => void;
   toggleReaction: (confessionId: string, kind: ReactionKind) => Promise<void>;
@@ -189,6 +196,34 @@ export const useGistStore = create<GistState>()((set, get) => ({
     void get().loadFeed();
     void get().loadFollowingFeed();
   },
+
+  hydrateInitialPublicContent: (initialPosts, initialConfessions, initialTrendingPosts, initialTrendingFallback) =>
+    set((state) => ({
+      ...(initialPosts !== undefined && initialPosts !== null && !state.feedHasLoaded
+        ? {
+            posts: initialPosts,
+            feedHasLoaded: true,
+            feedLoading: false,
+            feedHasMore: initialPosts.length >= PAGE_SIZE,
+          }
+        : {}),
+      ...(initialConfessions !== undefined && initialConfessions !== null && !state.confessionsHasLoaded
+        ? {
+            confessions: initialConfessions,
+            confessionsHasLoaded: true,
+            confessionsLoading: false,
+            confessionsError: null,
+          }
+        : {}),
+      ...(initialTrendingPosts !== undefined && initialTrendingPosts !== null && !state.trendingHasLoaded
+        ? {
+            trendingPosts: initialTrendingPosts,
+            trendingFallback: initialTrendingFallback ?? [],
+            trendingHasLoaded: true,
+            trendingLoading: false,
+          }
+        : {}),
+    })),
 
   loadFeed: async ({ silent } = {}) => {
     const schoolId = get().feedSchoolId;
@@ -491,6 +526,14 @@ export const useGistStore = create<GistState>()((set, get) => ({
     } catch (error) {
       set({ myConfessionsError: describeError(error, "Could not load your submissions.") });
     }
+  },
+
+  upsertPublicConfession: (confession) => {
+    if (confession.moderationStatus !== "approved") return;
+    set((state) => ({
+      confessions: [confession, ...state.confessions.filter((item) => item.id !== confession.id)]
+        .sort((left, right) => Date.parse(right.publishedAt ?? right.createdAt) - Date.parse(left.publishedAt ?? left.createdAt)),
+    }));
   },
 
   submitConfession: async (input) => {
