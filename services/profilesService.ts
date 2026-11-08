@@ -1,4 +1,4 @@
-import { MEDIA_BUCKET, requireUserId, supabase } from "@/lib/supabase";
+import { requireUserId, supabase } from "@/lib/supabase";
 import { defaultAvatarUrl, shortNameOf } from "@/lib/media";
 import {
   isBrowserOffline,
@@ -8,6 +8,7 @@ import {
 import { COMPRESSION_PRESETS, compressImageWithStats } from "@/lib/imageCompression";
 import type { AdminRoleRow, Profile, ProfileRow, PublicProfile } from "@/types/models";
 import { uploadPreparedAvatar } from "@/services/storageService";
+import { uploadFileToR2 } from "@/lib/r2Upload";
 import { findSchoolByName } from "@/services/schoolsService";
 
 const PROFILE_SELECT = "id, username, school_id, avatar_url, bio, created_at";
@@ -418,23 +419,12 @@ export async function uploadMyAvatar(file: File): Promise<string> {
 }
 
 export async function uploadMyCover(file: File): Promise<Profile> {
-  const userId = await requireUserId();
+  await requireUserId();
   if (!(await supportsProfileCover())) {
     throw new Error("Cover photos need migration-step13.sql to be applied first.");
   }
   const compressed = await compressImageWithStats(file, COMPRESSION_PRESETS.covers);
-  const path = `${userId}/covers/${userId}.jpg`;
-  const { error } = await supabase.storage
-    .from(MEDIA_BUCKET)
-    .upload(path, compressed.file, {
-      cacheControl: "3600",
-      upsert: true,
-      contentType: compressed.file.type,
-    });
-  if (error) throw new Error(error.message);
-
-  const publicUrl = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
-  const coverUrl = `${publicUrl}?v=${Date.now()}`;
+  const coverUrl = await uploadFileToR2(compressed.file, "covers", compressed.file.type);
   return updateMyProfile({ coverUrl });
 }
 

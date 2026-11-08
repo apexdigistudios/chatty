@@ -1,8 +1,8 @@
 # Gist me — Setup (Step 07 · Supabase backend)
 
 Mobile-first social network for Ghanaian SHS students. Next.js App Router,
-TypeScript, Tailwind CSS v4, Motion, Zustand, and **Supabase** (Postgres, Auth,
-Storage, Realtime).
+TypeScript, Tailwind CSS v4, Motion, Zustand, **Supabase** (Postgres, Auth,
+Realtime), and Cloudflare R2 for media storage.
 There is no mock data: every screen reads and writes the live database.
 
 ---
@@ -18,8 +18,8 @@ npm install
 ### A · Existing project (`wemdjlyxorixmknfruam`) — **this is the one in `.env`**
 
 The project already has `schools`, `profiles`, `posts`, `comments`, `likes`,
-`confessions`, `reports`, `admin_roles`, the `public_confessions` view and the
-`letsgist-media` bucket, with real student data in it. **Do not run `schema.sql`
+`confessions`, `reports`, and the `public_confessions` view, with real student
+data in it. **Do not run `schema.sql`
 here.** Instead paste `migration-step7.sql` into **SQL Editor → New query** and run
 it. It is additive and idempotent; it adds:
 
@@ -36,8 +36,9 @@ and "Claim & moderate" are the only features that wait for it.
 
 Run `supabase/migrations/clean_and_deduplicate_schools.sql` in the SQL Editor.
 It clears existing school image URLs without deleting communities, adds case- and
-whitespace-insensitive name uniqueness, creates the public `school-assets` bucket,
-and provisions signup-time community creation. If normalized duplicate names
+whitespace-insensitive name uniqueness, and provisions signup-time community creation.
+The migration also creates legacy Supabase Storage policies; media uploads now use
+Cloudflare R2. If normalized duplicate names
 already exist, the migration stops and lists them so their records can be merged
 without silently reassigning students or posts. Apply this migration before
 deploying the updated school queries or signup flow.
@@ -81,8 +82,7 @@ Read/unread receipts are stored on the device in `localStorage`, so a future
 ### A6 · Applying Step 13 (Profile Cover Photos)
 
 Run `migration-step13.sql` after Step 12. It adds `profiles.cover_url` for student
-cover photos. Uploads are compressed on-device and stored in the existing
-`letsgist-media` bucket under each user's own `covers/` folder.
+cover photos. Cover photos are compressed on-device and uploaded to Cloudflare R2.
 
 ### Flexible student usernames
 
@@ -137,8 +137,8 @@ can also export a customizable PNG card in the browser.
    - the `public_confessions` view (anonymity enforced in the DB)
    - triggers: profile-on-signup, founder-becomes-moderator
    - RPC: `claim_school(uuid)`
-   - the public `letsgist-media` storage bucket + object policies
-   - a user-created school community directory with optional school logos in Storage
+   - a legacy public `letsgist-media` Storage bucket + policies (not used for app uploads)
+   - a user-created school community directory with optional R2-hosted school logos
 3. **Auth → Providers → Email**: enabled by default. For a frictionless local dev
    loop, turn **off** "Confirm email" so sign-up creates a session immediately.
 4. For Spotlight, reports, and account safety actions, also run
@@ -155,9 +155,23 @@ For a different project, copy `.env.example` and fill in from
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon public key>
+CLOUDFLARE_R2_BUCKET_NAME=<bucket>
+CLOUDFLARE_R2_ACCESS_KEY_ID=<R2 access key>
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=<R2 secret key>
+CLOUDFLARE_R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL=https://<public R2 domain>
 ```
 
-Until these exist the app renders a setup screen instead of the feed.
+Keep the R2 access key and secret server-only. Configure the bucket's public
+custom domain in `NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL`. After applying the
+existing seed-media migrations, run `supabase/migrations/cloudflare_r2_seed_media.sql`
+to allow the seed-post RPC to accept R2 object URLs.
+For the one-time asset copy, set the Supabase S3 endpoint, region and credentials,
+and set `SUPABASE_BUCKET_NAMES` to the exact three source bucket names (comma-separated).
+Then run `npm run migrate:r2`; the script copies each bucket under a matching R2
+prefix and leaves the source buckets unchanged.
+
+Until the Supabase variables exist the app renders a setup screen instead of the feed.
 
 > Schema contract the client expects (matches the live project): `schools.school_type`
 > is lowercase (`public` / `private` / `mission` / `technical`); short display names are

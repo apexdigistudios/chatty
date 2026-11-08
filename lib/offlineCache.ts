@@ -244,7 +244,13 @@ export async function cacheLoadedImage(url: string): Promise<void> {
 export function isPublicStorageMedia(url: string): boolean {
   try {
     const parsed = new URL(url, typeof location === "undefined" ? "https://gistme.online" : location.href);
-    return parsed.protocol === "https:" && parsed.pathname.includes("/storage/v1/object/public/");
+    if (parsed.protocol !== "https:") return false;
+    if (parsed.pathname.includes("/storage/v1/object/public/")) return true;
+    const r2PublicUrl = process.env.NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL;
+    if (!r2PublicUrl) return false;
+    const publicBase = new URL(r2PublicUrl);
+    const basePath = publicBase.pathname.replace(/\/+$/, "");
+    return parsed.origin === publicBase.origin && parsed.pathname.startsWith(`${basePath}/`);
   } catch {
     return false;
   }

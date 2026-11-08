@@ -1,5 +1,6 @@
 import { COMPRESSION_PRESETS, compressImageWithStats } from "@/lib/imageCompression";
 import { requireUserId, supabase } from "@/lib/supabase";
+import { uploadFileToR2 } from "@/lib/r2Upload";
 
 export type SchoolLogoUploadStage = "compressing" | "uploading" | "saving";
 
@@ -24,19 +25,8 @@ export async function uploadSchoolLogo(
     throw new Error("This browser cannot encode WebP school logos.");
   }
 
-  const path = `${schoolId}/logo.webp`;
   onStage?.("uploading");
-  const { error: uploadError } = await supabase.storage
-    .from("school-assets")
-    .upload(path, optimized.file, {
-      cacheControl: "0",
-      contentType: "image/webp",
-      upsert: true,
-    });
-  if (uploadError) throw new Error(uploadError.message);
-
-  const publicUrl = supabase.storage.from("school-assets").getPublicUrl(path).data.publicUrl;
-  const logoUrl = `${publicUrl}${publicUrl.includes("?") ? "&" : "?"}v=${Date.now()}`;
+  const logoUrl = await uploadFileToR2(optimized.file, "crests", "image/webp", schoolId);
   onStage?.("saving");
   const { error: updateError } = await supabase
     .from("schools")

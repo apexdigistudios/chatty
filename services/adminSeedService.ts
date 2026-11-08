@@ -1,4 +1,4 @@
-import { MEDIA_BUCKET, requireUserId, supabase } from "@/lib/supabase";
+import { requireUserId, supabase } from "@/lib/supabase";
 import type { AdminSeedProfile } from "@/types/models";
 
 interface RawSeedProfile {
@@ -160,26 +160,41 @@ export async function clearAllSeedData(): Promise<void> {
 export async function removeSeedMedia(urls: string[]): Promise<void> {
   if (urls.length === 0) return;
   await requireUserId();
-  const marker = `/storage/v1/object/public/${MEDIA_BUCKET}/`;
-  const paths = urls.map((url) => {
+  const configuredPublicUrl = process.env.NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL;
+  if (!configuredPublicUrl) throw new Error("Cloudflare R2 is not configured.");
+  const publicBase = new URL(configuredPublicUrl);
+  const basePath = publicBase.pathname.replace(/\/+$/, "");
+  const keys = urls.flatMap((url) => {
     const parsed = new URL(url);
-    const markerIndex = parsed.pathname.indexOf(marker);
-    const path = markerIndex >= 0
-      ? decodeURIComponent(parsed.pathname.slice(markerIndex + marker.length))
-      : "";
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/seed-posts\/[^/]+$/i.test(path)) {
+    if (parsed.origin !== publicBase.origin || !parsed.pathname.startsWith(`${basePath}/`)) {
+      return [];
+    }
+    const key = decodeURIComponent(parsed.pathname.slice(basePath.length + 1));
+    if (!/^seed-posts\/\d+-[0-9a-f-]{36}\/[0-9a-f-]{36}\/seed-posts\/[a-zA-Z0-9._-]+$/i.test(key)) {
       throw new Error("Seed records were deleted, but a media path could not be safely verified.");
     }
-    return path;
+    return [key];
   });
-  if (paths.length === 0) return;
+  if (keys.length === 0) return;
 
-  for (let index = 0; index < paths.length; index += 100) {
-    const { error: removeError } = await supabase.storage
-      .from(MEDIA_BUCKET)
-      .remove(paths.slice(index, index + 100));
-    if (removeError) {
-      throw new Error(`Seed records were deleted, but some media could not be removed: ${removeError.message}`);
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw new Error(error.message);
+  const accessToken = data.session?.access_token;
+  if (!accessToken) throw new Error("Please sign in to continue.");
+  for (let index = 0; index < keys.length; index += 100) {
+    const response = await fetch("/api/upload", {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ keys: keys.slice(index, index + 100) }),
+    });
+    if (!response.ok) {
+      const result = await response.json().catch(() => null) as { error?: string } | null;
+      throw new Error(
+        `Seed records were deleted, but some media could not be removed: ${result?.error ?? "unknown error"}`
+      );
     }
   }
 }

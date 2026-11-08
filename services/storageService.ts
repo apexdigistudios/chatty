@@ -1,54 +1,33 @@
 import { COMPRESSION_PRESETS, compressImageFile } from "@/lib/imageCompression";
-import { MEDIA_BUCKET, requireUserId, supabase } from "@/lib/supabase";
+import { uploadFileToR2, type R2UploadFolder } from "@/lib/r2Upload";
 
-export type MediaFolder = "posts" | "seed-posts" | "avatars" | "crests";
+export type MediaFolder = R2UploadFolder;
 
-async function uploadPreparedImage(file: File, folder: MediaFolder, userId: string): Promise<string> {
+async function uploadPreparedImage(file: File, folder: MediaFolder): Promise<string> {
   if (!file.type.startsWith("image/")) {
     throw new Error("Only image files can be uploaded.");
   }
 
-  const ext =
-    file.type === "image/webp"
-      ? "webp"
-      : file.type === "image/jpeg"
-        ? "jpg"
-        : (file.name.split(".").pop() ?? "webp").toLowerCase().replace(/[^a-z0-9]/g, "") ||
-          "webp";
-
-  const path = `${userId}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const { error } = await supabase.storage
-    .from(MEDIA_BUCKET)
-    .upload(path, file, {
-      cacheControl: "31536000",
-      upsert: false,
-      contentType: file.type,
-    });
-  if (error) throw new Error(error.message);
-
-  return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+  return uploadFileToR2(file, folder, file.type);
 }
 
 /**
  * Automatically compresses the image client-side (max 1200px, quality 0.75,
- * WebP/JPEG <= 200KB) and uploads it to the public `letsgist-media` bucket
- * under `{auth.uid()}/{folder}/...`.
+ * WebP/JPEG <= 200KB) and uploads it to Cloudflare R2 under the user's folder.
  */
 export async function uploadImage(file: File, folder: MediaFolder): Promise<string> {
-  const userId = await requireUserId();
   if (!file.type.startsWith("image/")) {
     throw new Error("Only image files can be uploaded.");
   }
 
   const preset = folder === "seed-posts" ? COMPRESSION_PRESETS.posts : COMPRESSION_PRESETS[folder];
   const optimized = await compressImageFile(file, preset);
-  return uploadPreparedImage(optimized, folder, userId);
+  return uploadPreparedImage(optimized, folder);
 }
 
 /** Uploads an image that has already been compressed by a preview workflow. */
 export async function uploadPreparedAvatar(file: File): Promise<string> {
-  const userId = await requireUserId();
-  return uploadPreparedImage(file, "avatars", userId);
+  return uploadPreparedImage(file, "avatars");
 }
 
 export async function uploadImages(files: File[], folder: MediaFolder): Promise<string[]> {
@@ -83,17 +62,11 @@ export function isVideoFile(file: File): boolean {
 
 /** Uploads a TikTok/WhatsApp-status style video without transcoding it. */
 export async function uploadVideo(file: File, folder: MediaFolder = "posts"): Promise<string> {
-  const userId = await requireUserId();
   const format = getVideoFormat(file);
   if (!format) throw new Error("Choose an MP4, WebM, MOV, or Ogg video.");
   if (file.size > MAX_VIDEO_BYTES) throw new Error("Videos must be 80MB or smaller.");
 
-  const path = `${userId}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${format.extension}`;
-  const { error } = await supabase.storage
-    .from(MEDIA_BUCKET)
-    .upload(path, file, { cacheControl: "31536000", upsert: false, contentType: format.contentType });
-  if (error) throw new Error(error.message);
-  return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+  return uploadFileToR2(file, folder, format.contentType);
 }
 
 export interface UploadedMedia {

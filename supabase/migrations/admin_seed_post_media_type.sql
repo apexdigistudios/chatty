@@ -63,7 +63,7 @@ begin
     from jsonb_to_recordset(coalesce(p_media, '[]'::jsonb)) as item(url text, media_type text)
     where item.url is null
       or item.media_type not in ('image', 'video')
-      or position('/storage/v1/object/public/letsgist-media/' || admin_id::text || '/seed-posts/' in item.url) = 0
+      or position('/' || admin_id::text || '/seed-posts/' in item.url) = 0
   ) then
     raise exception 'Media must be uploaded through the seed-post uploader';
   end if;
