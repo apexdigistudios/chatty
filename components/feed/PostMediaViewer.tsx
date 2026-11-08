@@ -176,11 +176,10 @@ export function PostMediaViewer({
                   <div className="min-w-0">
                     <div className="flex min-w-0 items-center gap-1.5">
                       <Link to={`/profile/${post.authorId}`} onClick={onClose} className="truncate text-sm font-black text-ink hover:underline">
-                        {post.authorFullName || `@${post.authorName}`}
+                        @{post.authorName}
                       </Link>
                       <VerifiedBadge isVerified={post.authorIsVerified} verifiedExpiresAt={post.authorVerifiedExpiresAt} verifiedTitle={post.authorVerifiedTitle} isAdmin={post.authorIsAdmin} role={post.authorRole} />
                     </div>
-                    <p className="truncate text-xs font-semibold text-ink-muted">@{post.authorName}</p>
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-ink-muted">

@@ -16,6 +16,11 @@ const COVER_SELECT = `${PROFILE_SELECT}, cover_url`;
 const IDENTITY_COVER_SELECT = `${IDENTITY_SELECT}, cover_url`;
 const VERIFICATION_SELECT = ", is_verified, verified_title, verified_expires_at, is_admin, role";
 
+export function isValidUsername(username: string): boolean {
+  const length = Array.from(username).length;
+  return length >= 3 && length <= 24;
+}
+
 /** Step 10 profile identity columns are optional until migration-step10.sql runs. */
 let identitySupportPromise: Promise<boolean> | null = null;
 let coverSupportPromise: Promise<boolean> | null = null;
@@ -153,10 +158,9 @@ export async function checkUsernameAvailable(
   username: string,
   excludeUserId?: string
 ): Promise<boolean> {
-  const clean = username.trim().replace(/^@/, "");
-  if (!/^[A-Za-z0-9_]{3,24}$/.test(clean)) return false;
+  if (!isValidUsername(username)) return false;
 
-  const pattern = clean.replace(/[\\%_]/g, "\\$&");
+  const pattern = username.replace(/[\\%_]/g, "\\$&");
   const { data, error } = await supabase
     .from("profiles")
     .select("id")
@@ -314,7 +318,10 @@ export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
   const userId = await requireUserId();
   const update: Partial<ProfileRow> = {};
   if (patch.username !== undefined) {
-    const username = patch.username.trim().replace(/^@/, "");
+    const username = patch.username;
+    if (!isValidUsername(username)) {
+      throw new Error("Usernames must be between 3 and 24 characters.");
+    }
     const { data: current, error: currentError } = await supabase
       .from("profiles")
       .select("username")
@@ -548,8 +555,11 @@ export interface SignUpResult {
  * nickname, SHS community, and preset or uploaded profile photo when a session is active.
  */
 export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult> {
-  const cleanUsername = input.username.trim().replace(/^@/, "");
-  const fallbackAvatar = input.avatarUrl || defaultAvatarUrl(cleanUsername);
+  const username = input.username;
+  if (!isValidUsername(username)) {
+    throw new Error("Usernames must be between 3 and 24 characters.");
+  }
+  const fallbackAvatar = input.avatarUrl || defaultAvatarUrl(username);
   let schoolId = input.schoolId ?? null;
   let schoolName = input.schoolName?.trim() ?? "";
 
@@ -568,7 +578,7 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
     password: input.password,
     options: {
       data: {
-        username: cleanUsername,
+        username,
         school_id: schoolId ?? "",
         school_name: schoolName,
         school_region: input.schoolRegion?.trim() || "",
@@ -607,7 +617,7 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
   }
 
   const updatedProfile = await updateMyProfile({
-    username: cleanUsername,
+    username,
     schoolId: schoolId ?? profile.schoolId,
     avatarUrl: finalAvatarUrl,
   });

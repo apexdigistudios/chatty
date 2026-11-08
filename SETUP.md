@@ -84,6 +84,12 @@ Run `migration-step13.sql` after Step 12. It adds `profiles.cover_url` for stude
 cover photos. Uploads are compressed on-device and stored in the existing
 `letsgist-media` bucket under each user's own `covers/` folder.
 
+### Flexible student usernames
+
+Run `supabase/migrations/username_all_characters.sql` after the core profile
+migrations. It allows usernames from 3 to 24 characters with any character type
+and keeps the signup trigger from stripping symbols, spaces, or emoji.
+
 ### A7 · Spotlight and blocked-user feeds
 
 Run `supabase/migrations/spotlight_and_reports.sql` and

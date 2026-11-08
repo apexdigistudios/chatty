@@ -33,14 +33,14 @@ create table if not exists public.schools (
 
 create table if not exists public.profiles (
   id          uuid primary key references auth.users (id) on delete cascade,
-  username    text not null unique
-              check (char_length(username) between 3 and 24 and username ~ '^[A-Za-z0-9_]+$'),
+  username    text not null unique,
   school_id   uuid references public.schools (id) on delete set null,
   avatar_url  text,
   cover_url   text,
   bio         text not null default '' check (char_length(bio) <= 160),
   created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now()
+  updated_at  timestamptz not null default now(),
+  constraint profiles_username_length_check check (char_length(username) between 3 and 24)
 );
 
 alter table public.schools
@@ -307,13 +307,16 @@ declare
   pending_school_type text;
   attempt          int := 0;
 begin
-  base_username := lower(regexp_replace(
-    coalesce(nullif(new.raw_user_meta_data->>'username', ''), split_part(coalesce(new.email, ''), '@', 1), 'student'),
-    '[^A-Za-z0-9_]', '', 'g'));
-  if char_length(base_username) < 3 then
-    base_username := 'student' || substr(replace(new.id::text, '-', ''), 1, 6);
+  base_username := nullif(new.raw_user_meta_data->>'username', '');
+  if base_username is null or char_length(base_username) < 3 or char_length(base_username) > 24 then
+    base_username := lower(regexp_replace(
+      coalesce(nullif(split_part(coalesce(new.email, ''), '@', 1), ''), 'student'),
+      '[^A-Za-z0-9_]', '', 'g'));
+    if char_length(base_username) < 3 then
+      base_username := 'student' || substr(replace(new.id::text, '-', ''), 1, 6);
+    end if;
   end if;
-  base_username := left(base_username, 20);
+  base_username := left(base_username, 24);
   candidate := base_username;
 
   begin
@@ -338,7 +341,10 @@ begin
       insert into public.profiles (id, username, school_id, avatar_url, bio)
       values (
         new.id, candidate, requested_school,
-        'https://api.dicebear.com/9.x/notionists/svg?seed=' || candidate || '&backgroundColor=ede9fe',
+        coalesce(
+          nullif(new.raw_user_meta_data->>'avatar_url', ''),
+          'https://api.dicebear.com/9.x/notionists/svg?seed=' || candidate || '&backgroundColor=ede9fe'
+        ),
         '');
       exit;
     exception when unique_violation then

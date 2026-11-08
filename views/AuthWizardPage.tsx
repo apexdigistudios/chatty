@@ -54,6 +54,7 @@ import { defaultAvatarUrl } from "@/lib/media";
 import { describeError } from "@/lib/supabase";
 import {
   checkUsernameAvailable,
+  isValidUsername,
   signInWithEmail,
   signUpWithEmail,
 } from "@/services/profilesService";
@@ -204,20 +205,17 @@ export function AuthWizardPage() {
     };
   }, [avatarPreviewUrl]);
 
-  const cleanUsername = useMemo(
-    () => username.trim().replace(/^@/, ""),
-    [username]
-  );
+  const usernameValue = username;
 
   // Live debounced nickname validation & Supabase uniqueness check
   useEffect(() => {
     if (mode !== "signup" || step !== 2) return;
-    if (!cleanUsername) {
+    if (!usernameValue) {
       setNickStatus("idle");
       setReaction("idle");
       return;
     }
-    if (!/^[A-Za-z0-9_]{3,24}$/.test(cleanUsername)) {
+    if (!isValidUsername(usernameValue)) {
       setNickStatus("invalid");
       triggerReaction("error");
       return;
@@ -227,7 +225,7 @@ export function AuthWizardPage() {
     setNickStatus("checking");
     const timer = window.setTimeout(async () => {
       try {
-        const available = await checkUsernameAvailable(cleanUsername);
+        const available = await checkUsernameAvailable(usernameValue);
         if (!active) return;
         if (available) {
           setNickStatus("available");
@@ -247,7 +245,7 @@ export function AuthWizardPage() {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [cleanUsername, mode, step]);
+  }, [usernameValue, mode, step]);
 
   const selectedSchool = useMemo(
     () => schools.find((s) => s.id === selectedSchoolId) ?? null,
@@ -262,7 +260,7 @@ export function AuthWizardPage() {
     );
   }, [schools, schoolQuery]);
 
-  const activeAvatarSrc = avatarPreviewUrl || selectedAvatarUrl || defaultAvatarUrl(cleanUsername || "CampusKing");
+  const activeAvatarSrc = avatarPreviewUrl || selectedAvatarUrl || defaultAvatarUrl(usernameValue || "CampusKing");
   const pwStrength = useMemo(() => passwordScore(password), [password]);
 
   const switchMode = (nextMode: AuthMode) => {
@@ -368,7 +366,7 @@ export function AuthWizardPage() {
       const result = await signUpWithEmail({
         email,
         password,
-        username: cleanUsername,
+        username: usernameValue,
         schoolId: skippedSchool ? null : selectedSchoolId || null,
         schoolName: skippedSchool ? null : pendingSchoolName || null,
         schoolRegion: pendingSchoolRegion,
@@ -389,7 +387,7 @@ export function AuthWizardPage() {
       }
 
       goStep(4);
-      toast(`Welcome to Gist me, @${cleanUsername}!`, "success");
+      toast(`Welcome to Gist me, @${usernameValue}!`, "success");
     } catch (error) {
       const msg = describeError(error, "Could not create your account.");
       setErrorMessage(msg);
@@ -480,22 +478,21 @@ export function AuthWizardPage() {
         return {
           outfit: "detective" as const,
           badge: "STEP 2 · CODENAME ALERT",
-          speech:
-            "Hold up Agent! Nicknames must be 3–24 letters, numbers, or underscores (no spaces).",
+          speech: "Hold up Agent! Choose a username between 3 and 24 characters.",
         };
       }
       if (nickStatus === "taken") {
         return {
           outfit: "detective" as const,
           badge: "STEP 2 · ALREADY CLAIMED",
-          speech: `Whoa Agent, @${cleanUsername} is already claimed on campus! Pick another secret nickname.`,
+          speech: `Whoa Agent, @${usernameValue} is already claimed on campus! Pick another secret nickname.`,
         };
       }
-      if (nickStatus === "available" && cleanUsername) {
+      if (nickStatus === "available" && usernameValue) {
         return {
           outfit: "detective" as const,
           badge: "STEP 2 · IDENTITY READY",
-          speech: `Clean codename, @${cleanUsername}! Pick an avatar disguise or upload a photo too.`,
+          speech: `Clean codename, @${usernameValue}! Pick an avatar disguise or upload a photo too.`,
         };
       }
       return {
@@ -518,7 +515,7 @@ export function AuthWizardPage() {
         return {
           outfit: "fbi_security" as const,
           badge: "STEP 3 · VAULT LOCKED",
-          speech: `Vault secured, Agent @${cleanUsername}! Hit Create Account to mint your SHS Student Pass.`,
+          speech: `Vault secured, Agent @${usernameValue}! Hit Create Account to mint your SHS Student Pass.`,
         };
       }
       return {
@@ -540,7 +537,7 @@ export function AuthWizardPage() {
     pendingSchoolName,
     skippedSchool,
     nickStatus,
-    cleanUsername,
+    usernameValue,
     errorMessage,
     email,
     password,
@@ -549,7 +546,7 @@ export function AuthWizardPage() {
   const progressPct = (step / 4) * 100;
   const canProceedStep1 = Boolean(selectedSchoolId || pendingSchoolName) || skippedSchool || schools.length === 0;
   const canProceedStep2 =
-    /^[A-Za-z0-9_]{3,24}$/.test(cleanUsername) &&
+    isValidUsername(usernameValue) &&
     (nickStatus === "available" || nickStatus === "checking");
 
   const slideVariants = {
@@ -1028,7 +1025,7 @@ export function AuthWizardPage() {
                     {/* Live Undercover ID Preview Pill */}
                     <div className="flex items-center gap-3 rounded-2xl border-2 border-line bg-page p-3">
                       <Avatar
-                        name={cleanUsername || "CampusKing"}
+                        name={usernameValue || "CampusKing"}
                         src={activeAvatarSrc}
                         size="lg"
                         ring
@@ -1037,7 +1034,7 @@ export function AuthWizardPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                           <span className="truncate text-sm font-black text-ink">
-                            @{cleanUsername || "CampusKing"}
+                            @{usernameValue || "CampusKing"}
                           </span>
                           <Badge tone="brand" className="px-2 py-0.5 text-[9px]">
                             Undercover ID
@@ -1092,9 +1089,8 @@ export function AuthWizardPage() {
                         <input
                           id="wizard-nickname-input"
                           value={username}
-                          onChange={(event) => setUsername(event.target.value.replace(/^@/, ""))}
+                          onChange={(event) => setUsername(event.target.value)}
                           placeholder="CampusKing"
-                          maxLength={24}
                           autoFocus
                           className="h-full min-w-0 flex-1 bg-transparent text-sm font-extrabold text-ink outline-none placeholder:text-ink-faint"
                         />
@@ -1108,6 +1104,12 @@ export function AuthWizardPage() {
                           <XCircle size={18} strokeWidth={2.7} className="shrink-0 text-danger" aria-label="Unavailable" />
                         )}
                       </div>
+
+                      {nickStatus === "invalid" && (
+                        <p className="mt-1 text-[11px] font-semibold text-danger">
+                          Choose a username between 3 and 24 characters. Any characters are allowed.
+                        </p>
+                      )}
 
                       {/* Quick Nickname Suggestion Chips */}
                       <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto pb-0.5">
@@ -1228,14 +1230,14 @@ export function AuthWizardPage() {
                       {/* Identity Summary Header */}
                       <div className="flex items-center gap-3 rounded-2xl border-2 border-line bg-page px-3.5 py-2.5">
                         <Avatar
-                          name={cleanUsername}
+                          name={usernameValue}
                           src={activeAvatarSrc}
                           size="md"
                           ring
                         />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-xs font-black text-ink">
-                            Agent @{cleanUsername}
+                            Agent @{usernameValue}
                           </p>
                           <p className="truncate text-[10px] font-bold text-ink-muted">
                             {selectedSchool
@@ -1397,7 +1399,7 @@ export function AuthWizardPage() {
 
                     <div className="relative mt-5 flex items-center gap-4">
                       <Avatar
-                        name={cleanUsername}
+                        name={usernameValue}
                         src={activeAvatarSrc}
                         size="2xl"
                         ring
@@ -1405,7 +1407,7 @@ export function AuthWizardPage() {
                       />
                       <div className="min-w-0 flex-1">
                         <h1 className="truncate text-2xl font-black tracking-tight text-ink">
-                          @{cleanUsername}
+                          @{usernameValue}
                         </h1>
                         <p className="mt-0.5 truncate text-xs font-bold text-ink-muted">
                           Undercover Student Identity · Verified

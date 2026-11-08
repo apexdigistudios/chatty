@@ -129,7 +129,7 @@ export function ConfessionCard({ confession: initialConfession, pending = false 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <p className="text-sm font-extrabold text-ink">
-                {confession.seedUsername ? confession.seedFullName || `@${confession.seedUsername}` : "Anonymous"}
+                {confession.seedUsername ? `@${confession.seedUsername}` : "Anonymous"}
               </p>
               {confession.seedUsername && (
                 <VerifiedBadge
@@ -140,9 +140,7 @@ export function ConfessionCard({ confession: initialConfession, pending = false 
                   role={confession.seedRole}
                 />
               )}
-              {confession.seedUsername ? (
-                confession.seedFullName && <span className="text-[11px] font-semibold text-ink-muted">@{confession.seedUsername}</span>
-              ) : (
+              {!confession.seedUsername && (
                 <Badge tone="neutral" className="px-2 py-0.5 text-[9px]">
                   <Lock size={10} strokeWidth={2.6} aria-hidden />
                   Identity hidden

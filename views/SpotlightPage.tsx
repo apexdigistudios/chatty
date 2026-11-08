@@ -560,8 +560,8 @@ function SpotlightSlide({
   const post = item.kind === "post" ? item.post : null;
   const caption = post?.content ?? confession?.content ?? "";
   const author = post
-    ? post.authorFullName || `@${post.authorName}`
-    : confession?.seedFullName || (confession?.seedUsername ? `@${confession.seedUsername}` : "Anonymous");
+    ? `@${post.authorName}`
+    : confession?.seedUsername ? `@${confession.seedUsername}` : "Anonymous";
   const username = post?.authorName ?? confession?.seedUsername ?? null;
   const hasLongCaption = caption.length > 90;
 

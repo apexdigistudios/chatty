@@ -21,7 +21,7 @@ import {
 } from "@/lib/imageCompression";
 import { describeError } from "@/lib/supabase";
 import { isUserGlobalAdmin } from "@/lib/adminAccess";
-import { checkUsernameAvailable, updateMyProfile, uploadMyAvatar } from "@/services/profilesService";
+import { checkUsernameAvailable, isValidUsername, updateMyProfile, uploadMyAvatar } from "@/services/profilesService";
 import { fetchFeed, fetchLikedPosts } from "@/services/postsService";
 import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
@@ -164,12 +164,12 @@ export function ProfilePage() {
       return;
     }
 
-    const username = draftUsername.trim().replace(/^@/, "");
+    const username = draftUsername;
     if (username === profile.username) {
       setUsernameAvailability("idle");
       return;
     }
-    if (!/^[A-Za-z0-9_]{3,24}$/.test(username)) {
+    if (!isValidUsername(username)) {
       setUsernameAvailability("invalid");
       return;
     }
@@ -225,15 +225,14 @@ export function ProfilePage() {
 
   const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!/^[A-Za-z0-9_]{3,24}$/.test(draftUsername.replace(/^@/, ""))) {
-      toast("Nicknames are 3–24 letters, numbers or underscores.", "danger");
+    if (!isValidUsername(draftUsername)) {
+      toast("Usernames must be between 3 and 24 characters. Any characters are allowed.", "danger");
       return;
     }
     setSaving(true);
     try {
-      const cleanUsername = draftUsername.trim().replace(/^@/, "");
-      if (cleanUsername !== profile?.username) {
-        const available = await checkUsernameAvailable(cleanUsername, user?.id);
+      if (draftUsername !== profile?.username) {
+        const available = await checkUsernameAvailable(draftUsername, user?.id);
         if (!available) {
           toast("That nickname is already taken.", "danger");
           setUsernameAvailability("taken");
@@ -509,7 +508,7 @@ export function ProfilePage() {
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-brand-deep">Edit student profile</p>
                   <label className="block">
                     <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Nickname</span>
-                    <input value={draftUsername} onChange={(event) => setDraftUsername(event.target.value.slice(0, 24))} maxLength={24} className="h-10 w-full rounded-xl border-2 border-line bg-card px-3 text-xs font-extrabold text-ink outline-none focus:border-brand" />
+                    <input value={draftUsername} onChange={(event) => setDraftUsername(event.target.value)} className="h-10 w-full rounded-xl border-2 border-line bg-card px-3 text-xs font-extrabold text-ink outline-none focus:border-brand" />
                     {usernameAvailability !== "idle" && (
                       <span
                         role="status"
@@ -523,7 +522,7 @@ export function ProfilePage() {
                         {usernameAvailability === "checking" && "Checking username…"}
                         {usernameAvailability === "available" && "Username is available."}
                         {usernameAvailability === "taken" && "That nickname is already taken."}
-                        {usernameAvailability === "invalid" && "Use 3–24 letters, numbers or underscores."}
+                        {usernameAvailability === "invalid" && "Use 3–24 characters. Any characters are allowed."}
                         {usernameAvailability === "error" && "Couldn’t check username availability."}
                       </span>
                     )}
@@ -538,6 +537,9 @@ export function ProfilePage() {
                         placeholder="e.g. Kwame Mensah"
                         className="h-10 w-full rounded-xl border-2 border-line bg-card px-3 text-xs font-bold text-ink outline-none focus:border-brand"
                       />
+                      <span className="mt-1 block text-[10px] font-semibold text-ink-muted">
+                        Full names are only used when sending shoutouts.
+                      </span>
                     </label>
                     <label className="block">
                       <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Class / Form (optional)</span>

@@ -16,7 +16,6 @@ import { formatCompactNumber } from "@/lib/utils";
 interface ProfileHoverCardProps {
   userId: string;
   username: string;
-  fullName?: string | null;
   isVerified?: boolean;
   verifiedExpiresAt?: string | null;
   verifiedTitle?: string | null;
@@ -33,7 +32,6 @@ const EMPTY_SUMMARY: FollowSummary = { followerCount: 0, followingCount: 0, isFo
 export function ProfileHoverCard({
   userId,
   username,
-  fullName,
   isVerified,
   verifiedExpiresAt,
   verifiedTitle,
@@ -134,7 +132,7 @@ export function ProfileHoverCard({
                   to={`/profile/${userId}`}
                   className="truncate text-sm font-black text-ink hover:text-brand-deep hover:underline"
                 >
-                  {fullName || `@${username}`}
+                  @{username}
                 </Link>
                 <VerifiedBadge
                   isVerified={isVerified}
@@ -144,7 +142,6 @@ export function ProfileHoverCard({
                   role={role}
                 />
               </span>
-              {fullName && <span className="block truncate text-[10px] font-semibold text-ink-muted">@{username}</span>}
               <span className="mt-0.5 block truncate text-xs font-semibold text-ink-muted">{schoolName}</span>
             </span>
           </span>
