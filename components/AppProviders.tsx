@@ -62,6 +62,7 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
   if (!isSupabaseConfigured) return <SetupGate />;
 
   const fullscreen = FULLSCREEN_PATHS.has(pathname);
+  const standaloneAuth = pathname === "/auth" || pathname === "/login" || pathname === "/register";
   const isHome = pathname === "/";
   const isSpotlight = pathname === "/spotlight";
 
@@ -79,13 +80,17 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
           <ToastViewport />
         </>
       )}
-      <AppLayout
-        headerHidden={false}
-        bottomNavHidden={isSpotlight ? spotlightNavigationHidden : navigationHidden && isHome}
-        fullscreen={fullscreen}
-      >
-        {children}
-      </AppLayout>
+      {standaloneAuth ? (
+        children
+      ) : (
+        <AppLayout
+          headerHidden={false}
+          bottomNavHidden={isSpotlight ? spotlightNavigationHidden : navigationHidden && isHome}
+          fullscreen={fullscreen}
+        >
+          {children}
+        </AppLayout>
+      )}
       <AnimatePresence>
         {loading && <SplashScreen key="startup-splash" />}
       </AnimatePresence>
