@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { springs } from "@/theme/tokens";
+import { cloudflareMediaUrl } from "@/lib/mediaUrl";
 
 interface VideoLightboxProps {
   src: string | null;
@@ -13,8 +14,9 @@ interface VideoLightboxProps {
 
 /** Full-screen, edge-to-edge video lightbox with native playback controls. */
 export function VideoLightbox({ src, onClose }: VideoLightboxProps) {
+  const mediaSrc = src ? cloudflareMediaUrl(src) : null;
   useEffect(() => {
-    if (!src) return;
+    if (!mediaSrc) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = (event: KeyboardEvent) => {
@@ -25,13 +27,13 @@ export function VideoLightbox({ src, onClose }: VideoLightboxProps) {
       document.body.style.overflow = previous;
       window.removeEventListener("keydown", onKey);
     };
-  }, [src, onClose]);
+  }, [mediaSrc, onClose]);
 
   if (typeof document === "undefined") return null;
 
   return createPortal(
     <AnimatePresence>
-      {src && (
+      {mediaSrc && (
         <motion.div
           key="video-lightbox"
           initial={{ opacity: 0 }}
@@ -54,8 +56,8 @@ export function VideoLightbox({ src, onClose }: VideoLightboxProps) {
             <X size={20} strokeWidth={2.8} aria-hidden />
           </motion.button>
           <motion.video
-            key={src}
-            src={src}
+            key={mediaSrc}
+            src={mediaSrc}
             controls
             autoPlay
             playsInline

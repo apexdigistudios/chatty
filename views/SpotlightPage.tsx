@@ -21,6 +21,7 @@ import { reportSpotlightScrollDirection } from "@/hooks/useScrollDirection";
 import { downloadSpotlightVideo } from "@/lib/download";
 import { formatCompactNumber } from "@/lib/utils";
 import { isVideoUrl } from "@/lib/video";
+import { cloudflareMediaUrl } from "@/lib/mediaUrl";
 
 type SpotlightItem =
   | { kind: "post"; key: string; videoUrl: string; post: Post }
@@ -601,7 +602,7 @@ function SpotlightSlide({
     <article className="relative h-full w-full snap-start snap-always overflow-hidden bg-neutral-950">
       <video
         ref={videoRef}
-        src={item.videoUrl}
+        src={cloudflareMediaUrl(item.videoUrl)}
         controlsList="nodownload noremoteplayback"
         disablePictureInPicture
         playsInline

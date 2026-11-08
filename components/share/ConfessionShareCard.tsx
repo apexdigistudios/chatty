@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Copy, Download, MessageCircle, Share2 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { copyShareLink } from "@/lib/shareLinks";
+import { cloudflareMediaUrl } from "@/lib/mediaUrl";
 
 type CardTheme = "pink" | "purple" | "midnight" | "school";
 
@@ -62,7 +63,7 @@ async function loadCrest(url: string): Promise<HTMLImageElement | null> {
     image.crossOrigin = "anonymous";
     image.onload = () => resolve(image);
     image.onerror = () => resolve(null);
-    image.src = url;
+    image.src = cloudflareMediaUrl(url);
   });
 }
 
@@ -261,7 +262,7 @@ export function ConfessionShareCard({
           <div className="flex h-full w-full min-h-0 flex-col items-center rounded-2xl bg-white/95 p-4 text-zinc-900 sm:p-5">
             <span className="rounded-full bg-violet-100 px-3 py-1 text-[9px] font-black uppercase tracking-wider text-violet-800">🤫 Anonymous Confession</span>
             {data.schoolCrestUrl
-              ? <img src={data.schoolCrestUrl} alt="" className="mt-4 size-12 shrink-0 rounded-full border border-zinc-200 object-cover" crossOrigin="anonymous" />
+              ? <img src={cloudflareMediaUrl(data.schoolCrestUrl)} alt="" className="mt-4 size-12 shrink-0 rounded-full border border-zinc-200 object-cover" crossOrigin="anonymous" />
               : <span className="mt-4 flex size-12 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-black text-violet-800">{data.schoolName.slice(0, 3).toUpperCase()}</span>}
             <p className="mt-2 max-w-full shrink-0 truncate text-[10px] font-bold text-zinc-500">{data.schoolName}</p>
             <p style={{ fontSize: `clamp(0.75rem, ${previewFontSize}px, 1rem)`, display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 16 }} className="mt-4 min-h-0 w-full flex-1 overflow-hidden whitespace-pre-wrap wrap-break-word font-extrabold leading-snug">“{cardText}”</p>

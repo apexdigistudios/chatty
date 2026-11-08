@@ -22,6 +22,7 @@ import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { copyShareLink, shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLinks";
 import { formatCompactNumber } from "@/lib/utils";
 import { isVideoUrl } from "@/lib/video";
+import { cloudflareMediaUrl } from "@/lib/mediaUrl";
 
 interface ReactionMeta {
   kind: ReactionKind;
@@ -183,7 +184,7 @@ export function ConfessionCard({ confession: initialConfession, pending = false 
               <div key={`${confession.id}-media-${index}`} className="overflow-hidden rounded-2xl border-2 border-line bg-page">
                 {confession.mediaTypes?.[index] === "video" || isVideoUrl(url) ? (
                   <video
-                    src={url}
+                    src={cloudflareMediaUrl(url)}
                     controls
                     controlsList="nodownload noremoteplayback"
                     disablePictureInPicture

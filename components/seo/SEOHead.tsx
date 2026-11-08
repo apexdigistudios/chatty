@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { SEO_KEYWORDS_CONTENT } from "@/constants/seoKeywords";
+import { cloudflareMediaUrl } from "@/lib/mediaUrl";
 
 export interface SEOHeadProps {
   title?: string;
@@ -129,7 +130,7 @@ export function SEOHead({
     const pageTitle = title ?? defaults.title;
     const pageDescription = description ?? defaults.description;
     const canonicalUrl = `${SITE_ORIGIN}${pathname === "/" ? "/" : pathname.replace(/\/+$/, "")}`;
-    const imageUrl = image.startsWith("http") ? image : `${SITE_ORIGIN}${image}`;
+    const imageUrl = cloudflareMediaUrl(image.startsWith("http") ? image : `${SITE_ORIGIN}${image}`);
 
     document.title = pageTitle.slice(0, 60);
     setMeta("name", "description", pageDescription.slice(0, 160));

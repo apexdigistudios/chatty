@@ -1,3 +1,5 @@
+import { CLOUDFLARE_MEDIA_ORIGIN } from "@/lib/mediaUrl";
+
 const DATABASE_NAME = "gist_me_local_cache";
 const DATABASE_VERSION = 1;
 const STORE_NAME = "entries";
@@ -245,12 +247,8 @@ export function isPublicStorageMedia(url: string): boolean {
   try {
     const parsed = new URL(url, typeof location === "undefined" ? "https://gistme.online" : location.href);
     if (parsed.protocol !== "https:") return false;
-    if (parsed.pathname.includes("/storage/v1/object/public/")) return true;
-    const r2PublicUrl = process.env.NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL;
-    if (!r2PublicUrl) return false;
-    const publicBase = new URL(r2PublicUrl);
-    const basePath = publicBase.pathname.replace(/\/+$/, "");
-    return parsed.origin === publicBase.origin && parsed.pathname.startsWith(`${basePath}/`);
+    const mediaBase = new URL(CLOUDFLARE_MEDIA_ORIGIN);
+    return parsed.origin === mediaBase.origin && parsed.pathname !== "/";
   } catch {
     return false;
   }

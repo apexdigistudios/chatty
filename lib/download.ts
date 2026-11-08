@@ -1,9 +1,11 @@
+import { cloudflareMediaUrl } from "@/lib/mediaUrl";
+
 export async function downloadImage(
   src: string,
   filenameHint = "gist-me-image"
 ): Promise<void> {
   const safeName = filenameHint.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 48) || "gist-me-image";
-  const response = await fetch(src, { mode: "cors", credentials: "omit" });
+  const response = await fetch(cloudflareMediaUrl(src), { mode: "cors", credentials: "omit" });
   if (!response.ok) throw new Error(`Image download failed (HTTP ${response.status}).`);
 
   const blob = await response.blob();
@@ -36,7 +38,7 @@ export async function downloadSpotlightVideo(
   filenameHint = "gist-me-spotlight"
 ): Promise<void> {
   const safeName = filenameHint.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 48) || "gist-me-spotlight";
-  const response = await fetch(src, { mode: "cors", credentials: "omit" });
+  const response = await fetch(cloudflareMediaUrl(src), { mode: "cors", credentials: "omit" });
   if (!response.ok) throw new Error(`Video download failed (HTTP ${response.status}).`);
 
   const blob = await response.blob();

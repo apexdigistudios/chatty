@@ -159,11 +159,11 @@ CLOUDFLARE_R2_BUCKET_NAME=<bucket>
 CLOUDFLARE_R2_ACCESS_KEY_ID=<R2 access key>
 CLOUDFLARE_R2_SECRET_ACCESS_KEY=<R2 secret key>
 CLOUDFLARE_R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
-NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL=https://<public R2 domain>
 ```
 
 Keep the R2 access key and secret server-only. Configure the bucket's public
-custom domain in `NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL`. After applying the
+custom domain as `media.gistme.online`. The app serves all uploaded media through
+`https://media.gistme.online`. After applying the
 existing seed-media migrations, run `supabase/migrations/cloudflare_r2_seed_media.sql`
 to allow the seed-post RPC to accept R2 object URLs.
 For the one-time asset copy, set the Supabase S3 endpoint, region and credentials,

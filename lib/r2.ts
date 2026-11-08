@@ -1,5 +1,6 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { randomUUID } from "node:crypto";
+import { CLOUDFLARE_MEDIA_ORIGIN } from "@/lib/mediaUrl";
 
 type UploadFile = File | Buffer;
 
@@ -8,11 +9,10 @@ function getR2Config() {
   const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;
   const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
   const endpoint = process.env.CLOUDFLARE_R2_ENDPOINT;
-  const publicUrl = process.env.NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL;
-  if (!bucketName || !accessKeyId || !secretAccessKey || !endpoint || !publicUrl) {
+  if (!bucketName || !accessKeyId || !secretAccessKey || !endpoint) {
     throw new Error("Cloudflare R2 is not fully configured.");
   }
-  return { bucketName, accessKeyId, secretAccessKey, endpoint, publicUrl };
+  return { bucketName, accessKeyId, secretAccessKey, endpoint };
 }
 
 function createR2Client(endpoint: string, accessKeyId: string, secretAccessKey: string): S3Client {
@@ -24,9 +24,9 @@ function createR2Client(endpoint: string, accessKeyId: string, secretAccessKey: 
   });
 }
 
-function objectUrl(publicUrl: string, key: string): string {
+function objectUrl(key: string): string {
   const encodedKey = key.split("/").map(encodeURIComponent).join("/");
-  return `${publicUrl.replace(/\/+$/, "")}/${encodedKey}`;
+  return `${CLOUDFLARE_MEDIA_ORIGIN}/${encodedKey}`;
 }
 
 export async function uploadToR2(
@@ -64,7 +64,7 @@ export async function uploadToR2(
     ContentType: contentType,
     CacheControl: "public, max-age=31536000, immutable",
   }));
-  return objectUrl(config.publicUrl, key);
+  return objectUrl(key);
 }
 
 export async function deleteFromR2(key: string): Promise<void> {

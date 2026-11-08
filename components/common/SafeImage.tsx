@@ -7,6 +7,7 @@ import {
   persistImageBlob,
   readImageBlob,
 } from "@/lib/offlineCache";
+import { cloudflareMediaUrl } from "@/lib/mediaUrl";
 import { cn } from "@/utils/cn";
 
 export interface SafeImageProps extends ImgHTMLAttributes<HTMLImageElement> {
@@ -23,24 +24,25 @@ export function SafeImage({
   onUnavailable,
   ...props
 }: SafeImageProps) {
+  const mediaSrc = cloudflareMediaUrl(src);
   const [cachedImage, setCachedImage] = useState<{ source: string; objectUrl: string } | null>(null);
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
-  const displaySrc = cachedImage?.source === src ? cachedImage.objectUrl : src;
+  const displaySrc = cachedImage?.source === mediaSrc ? cachedImage.objectUrl : mediaSrc;
 
   useEffect(() => {
     return () => {
       if (cachedImage) URL.revokeObjectURL(cachedImage.objectUrl);
     };
-  }, [cachedImage, src]);
+  }, [cachedImage, mediaSrc]);
 
   useEffect(() => {
     let active = true;
     const loadCachedImage = async () => {
       if (!isBrowserOffline()) return;
       try {
-        const blob = await readImageBlob(src);
+        const blob = await readImageBlob(mediaSrc);
         if (active && blob) {
-          setCachedImage({ source: src, objectUrl: URL.createObjectURL(blob) });
+          setCachedImage({ source: mediaSrc, objectUrl: URL.createObjectURL(blob) });
         }
       } catch (error) {
         console.warn("Could not read the cached image.", error);
@@ -54,7 +56,7 @@ export function SafeImage({
       active = false;
       window.removeEventListener("offline", handleOffline);
     };
-  }, [src]);
+  }, [mediaSrc]);
 
   return (
     <img
@@ -64,7 +66,7 @@ export function SafeImage({
       style={{ ...style, visibility: loadedSrc === displaySrc ? style?.visibility : "hidden" }}
       onLoad={(event) => {
         setLoadedSrc(displaySrc);
-        if (displaySrc === src) void cacheLoadedImage(src);
+        if (displaySrc === mediaSrc) void cacheLoadedImage(mediaSrc);
         onLoad?.(event);
       }}
       onError={(event) => {
@@ -78,15 +80,15 @@ export function SafeImage({
               if (cachedResponse && cachedResponse.type !== "opaque") {
                 const blob = await cachedResponse.blob();
                 if (blob.size > 0) {
-                  await persistImageBlob(src, blob);
-                  setCachedImage({ source: src, objectUrl: URL.createObjectURL(blob) });
+                  await persistImageBlob(mediaSrc, blob);
+                  setCachedImage({ source: mediaSrc, objectUrl: URL.createObjectURL(blob) });
                   return;
                 }
               }
             }
-            const blob = await readImageBlob(src);
+            const blob = await readImageBlob(mediaSrc);
             if (blob) {
-              setCachedImage({ source: src, objectUrl: URL.createObjectURL(blob) });
+              setCachedImage({ source: mediaSrc, objectUrl: URL.createObjectURL(blob) });
               return;
             }
           } catch (error) {

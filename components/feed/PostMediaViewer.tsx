@@ -9,6 +9,7 @@ import type { Post } from "@/types/models";
 import { downloadImage } from "@/lib/download";
 import { formatCompactNumber } from "@/lib/utils";
 import { isVideoUrl } from "@/lib/video";
+import { cloudflareMediaUrl } from "@/lib/mediaUrl";
 import { useToast } from "@/components/ui/Toast";
 import { Avatar } from "@/components/ui/Avatar";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
@@ -131,7 +132,7 @@ export function PostMediaViewer({
                   <div key={`${item.src}-${index}`} className="flex h-full min-w-full snap-center items-center justify-center">
                     {item.type === "video" ? (
                       <video
-                        src={item.src}
+                        src={cloudflareMediaUrl(item.src)}
                         controls
                         autoPlay={index === currentIndex}
                         playsInline
@@ -143,7 +144,7 @@ export function PostMediaViewer({
                       />
                     ) : (
                       <img
-                        src={item.src}
+                        src={cloudflareMediaUrl(item.src)}
                         alt={`Photo ${index + 1} by @${post.authorName}`}
                         draggable={false}
                         className="max-h-full max-w-full select-none object-contain"

@@ -1,4 +1,5 @@
 import { requireUserId, supabase } from "@/lib/supabase";
+import { cloudflareMediaUrl, CLOUDFLARE_MEDIA_ORIGIN } from "@/lib/mediaUrl";
 import type { AdminSeedProfile } from "@/types/models";
 
 interface RawSeedProfile {
@@ -46,7 +47,7 @@ function mapSeedProfile(row: RawSeedProfile): AdminSeedProfile {
     id: row.id,
     username: row.username,
     fullName: row.full_name,
-    avatarUrl: row.avatar_url,
+    avatarUrl: row.avatar_url ? cloudflareMediaUrl(row.avatar_url) : null,
     schoolId: row.school_id,
     createdAt: row.created_at,
     seedFollowersCount: row.seed_followers_count ?? 0,
@@ -105,7 +106,10 @@ export async function createSeedProfiles(profiles: Array<{
   school_id: string;
 }>): Promise<AdminSeedProfile[]> {
   const { data, error } = await supabase.rpc("admin_create_seed_profiles", {
-    p_profiles: profiles,
+    p_profiles: profiles.map((profile) => ({
+      ...profile,
+      avatar_url: profile.avatar_url ? cloudflareMediaUrl(profile.avatar_url) : null,
+    })),
   });
   if (error) throw new Error(error.message);
   return ((data ?? []) as RawSeedProfile[]).map(mapSeedProfile);
@@ -116,7 +120,7 @@ export async function updateSeedProfile(profile: AdminSeedProfile): Promise<void
     p_seed_profile_id: profile.id,
     p_username: profile.username.trim(),
     p_full_name: profile.fullName.trim(),
-    p_avatar_url: profile.avatarUrl?.trim() || null,
+    p_avatar_url: profile.avatarUrl?.trim() ? cloudflareMediaUrl(profile.avatarUrl.trim()) : null,
     p_school_id: profile.schoolId,
   });
   if (error) throw new Error(error.message);
@@ -143,7 +147,7 @@ export async function createSeedPost(input: {
     p_seed_profile_id: input.seedProfileId,
     p_school_id: input.schoolId,
     p_content: input.content,
-    p_media: input.media,
+    p_media: input.media.map((item) => ({ ...item, url: cloudflareMediaUrl(item.url) })),
     p_is_confession: input.isConfession,
     p_is_anonymous: input.isAnonymous,
     p_category: input.category,
@@ -160,12 +164,10 @@ export async function clearAllSeedData(): Promise<void> {
 export async function removeSeedMedia(urls: string[]): Promise<void> {
   if (urls.length === 0) return;
   await requireUserId();
-  const configuredPublicUrl = process.env.NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL;
-  if (!configuredPublicUrl) throw new Error("Cloudflare R2 is not configured.");
-  const publicBase = new URL(configuredPublicUrl);
+  const publicBase = new URL(CLOUDFLARE_MEDIA_ORIGIN);
   const basePath = publicBase.pathname.replace(/\/+$/, "");
   const keys = urls.flatMap((url) => {
-    const parsed = new URL(url);
+    const parsed = new URL(cloudflareMediaUrl(url));
     if (parsed.origin !== publicBase.origin || !parsed.pathname.startsWith(`${basePath}/`)) {
       return [];
     }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cloudflareMediaUrl } from "@/lib/mediaUrl";
 import { fetchPublicConfession, fetchPublicPost } from "@/lib/publicContent.server";
 
 const SITE_NAME = "Gist me";
@@ -10,7 +11,7 @@ const DEFAULT_IMAGE = `${SITE_ORIGIN}/logo.png`;
 function absoluteUrl(value: string | null | undefined): string | null {
   if (!value) return null;
   try {
-    const url = new URL(value, SITE_ORIGIN);
+    const url = new URL(cloudflareMediaUrl(value), SITE_ORIGIN);
     return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
   } catch {
     return null;

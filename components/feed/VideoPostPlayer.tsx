@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Expand, Loader2, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { formatVideoTime } from "@/lib/video";
+import { cloudflareMediaUrl } from "@/lib/mediaUrl";
 import { isBrowserOffline, readVideoBlob } from "@/lib/offlineCache";
 import { springs } from "@/theme/tokens";
 import { cn } from "@/utils/cn";
@@ -18,6 +19,7 @@ interface VideoPostPlayerProps {
 
 /** TikTok-style video: muted autoplay in view, pause offscreen, custom overlays. */
 export function VideoPostPlayer({ src, durationSeconds, edgeToEdge = false, onOpenFullScreen }: VideoPostPlayerProps) {
+  const mediaSrc = cloudflareMediaUrl(src);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -27,7 +29,7 @@ export function VideoPostPlayer({ src, durationSeconds, edgeToEdge = false, onOp
   const [loading, setLoading] = useState(true);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [cachedVideo, setCachedVideo] = useState<{ source: string; objectUrl: string } | null>(null);
-  const playbackSrc = cachedVideo?.source === src ? cachedVideo.objectUrl : src;
+  const playbackSrc = cachedVideo?.source === mediaSrc ? cachedVideo.objectUrl : mediaSrc;
 
   useEffect(() => {
     let active = true;
@@ -35,10 +37,10 @@ export function VideoPostPlayer({ src, durationSeconds, edgeToEdge = false, onOp
     const loadOfflineVideo = async () => {
       if (!isBrowserOffline()) return;
       try {
-        const blob = await readVideoBlob(src);
+        const blob = await readVideoBlob(mediaSrc);
         if (active && blob) {
           objectUrl = URL.createObjectURL(blob);
-          setCachedVideo({ source: src, objectUrl });
+          setCachedVideo({ source: mediaSrc, objectUrl });
         }
       } catch (error) {
         console.warn("Could not read the cached video.", error);
@@ -52,7 +54,7 @@ export function VideoPostPlayer({ src, durationSeconds, edgeToEdge = false, onOp
       window.removeEventListener("offline", handleOffline);
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [src]);
+  }, [mediaSrc]);
 
   useEffect(() => {
     const container = containerRef.current;

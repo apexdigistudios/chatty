@@ -9,6 +9,7 @@ import { COMPRESSION_PRESETS, compressImageWithStats } from "@/lib/imageCompress
 import type { AdminRoleRow, Profile, ProfileRow, PublicProfile } from "@/types/models";
 import { uploadPreparedAvatar } from "@/services/storageService";
 import { uploadFileToR2 } from "@/lib/r2Upload";
+import { cloudflareMediaUrl } from "@/lib/mediaUrl";
 import { findSchoolByName } from "@/services/schoolsService";
 
 const PROFILE_SELECT = "id, username, school_id, avatar_url, bio, created_at";
@@ -200,7 +201,7 @@ export async function ensureProfile(): Promise<Profile> {
       id: user.id,
       username: candidate,
       school_id: meta.school_id || null,
-      avatar_url: meta.avatar_url || defaultAvatarUrl(candidate),
+      avatar_url: cloudflareMediaUrl(meta.avatar_url || defaultAvatarUrl(candidate)),
       bio: "",
     })
     .select(await profileSelect())
@@ -366,12 +367,14 @@ export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
     }
     if (supportsWebsite) update.website = website || null;
   }
-  if (patch.avatarUrl !== undefined) update.avatar_url = patch.avatarUrl;
+  if (patch.avatarUrl !== undefined) {
+    update.avatar_url = patch.avatarUrl ? cloudflareMediaUrl(patch.avatarUrl) : null;
+  }
   if (patch.coverUrl !== undefined) {
     if (!(await supportsProfileCover())) {
       throw new Error("Cover photos need migration-step13.sql to be applied first.");
     }
-    update.cover_url = patch.coverUrl;
+    update.cover_url = patch.coverUrl ? cloudflareMediaUrl(patch.coverUrl) : null;
   }
   if (patch.schoolId !== undefined) update.school_id = patch.schoolId;
   if (patch.fullName !== undefined || patch.classForm !== undefined) {

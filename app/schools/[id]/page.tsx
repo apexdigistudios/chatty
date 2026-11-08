@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { SchoolPage } from "@/views/SchoolPage";
 import { fetchPublicSchool } from "@/lib/publicSchools";
 import { fetchPublicPosts } from "@/lib/publicContent.server";
+import { cloudflareMediaUrl } from "@/lib/mediaUrl";
 import type { Post, School } from "@/types/models";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export async function generateMetadata({ params }: RouteProps): Promise<Metadata
     const title = `${school.name} SHS Community | Gist me`;
     const description = `Join the ${school.name} community in ${school.region}. Discover campus gists and connect with students on Gist me.`;
     const canonical = `https://www.gistme.online/schools/${encodeURIComponent(school.id)}`;
-    const image = school.crestUrl || "/logo.png";
+    const image = cloudflareMediaUrl(school.crestUrl || "/logo.png");
 
     return {
       title,
