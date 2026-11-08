@@ -169,7 +169,11 @@ to allow the seed-post RPC to accept R2 object URLs.
 For the one-time asset copy, set the Supabase S3 endpoint, region and credentials,
 and set `SUPABASE_BUCKET_NAMES` to the exact three source bucket names (comma-separated).
 Then run `npm run migrate:r2`; the script copies each bucket under a matching R2
-prefix and leaves the source buckets unchanged.
+prefix in the single destination bucket and leaves the source buckets unchanged.
+After the copy succeeds, run
+`supabase/migrations/migrate_public_media_urls_to_r2.sql` in the Supabase SQL Editor
+to rewrite persisted public Storage URLs. It updates profile avatars and covers,
+school crests and logos, post and confession media, and synthetic-profile avatars.
 
 Until the Supabase variables exist the app renders a setup screen instead of the feed.
 

@@ -23,7 +23,14 @@ function sourceBuckets(): string[] {
   if (buckets.length !== 3 || new Set(buckets).size !== 3) {
     throw new Error("Exactly three distinct Supabase source bucket names are required.");
   }
+  if (buckets.some((bucket) => !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(bucket))) {
+    throw new Error("Supabase bucket names must be valid single folder names for R2 prefixes.");
+  }
   return buckets;
+}
+
+function destinationKey(bucket: string, key: string): string {
+  return `${bucket}/${key}`;
 }
 
 function createS3Client(input: {
@@ -58,12 +65,13 @@ async function main(): Promise<void> {
     secretAccessKey: requiredEnv("CLOUDFLARE_R2_SECRET_ACCESS_KEY"),
   });
   const destinationBucket = requiredEnv("CLOUDFLARE_R2_BUCKET_NAME");
+  console.log(`Migrating ${buckets.length} Supabase buckets into the single R2 bucket "${destinationBucket}".`);
 
   let totalCopied = 0;
   let totalFailed = 0;
 
   for (const bucket of buckets) {
-    console.log(`\nMigrating Supabase bucket "${bucket}" to R2 prefix "${bucket}/".`);
+    console.log(`\nMigrating Supabase bucket "${bucket}" to R2 prefix "${bucket}/" in "${destinationBucket}".`);
     let continuationToken: string | undefined;
     let copied = 0;
     let failed = 0;
@@ -79,7 +87,7 @@ async function main(): Promise<void> {
         for (const object of objects) {
           const key = object.Key;
           if (!key || key.endsWith("/")) continue;
-          const destinationKey = `${bucket}/${key}`;
+          const targetKey = destinationKey(bucket, key);
 
           try {
             const download = await source.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
@@ -87,7 +95,7 @@ async function main(): Promise<void> {
 
             await destination.send(new PutObjectCommand({
               Bucket: destinationBucket,
-              Key: destinationKey,
+              Key: targetKey,
               Body: download.Body,
               ContentLength: download.ContentLength,
               ContentType: download.ContentType,
@@ -99,7 +107,7 @@ async function main(): Promise<void> {
               Metadata: download.Metadata,
             }));
             copied += 1;
-            console.log(`[${bucket}] Copied ${key} -> ${destinationKey}`);
+            console.log(`[${bucket}] Copied ${key} -> ${targetKey}`);
           } catch (error) {
             failed += 1;
             const reason = error instanceof Error ? error.message : String(error);
