@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   applicationName: "Gist me",
   manifest: "/manifest.json",
   icons: {
-    icon: [{ url: "/logo.png", type: "image/png" }, { url: "/favicon.svg", type: "image/svg+xml" }],
+    icon: [{ url: "/logo.png", type: "image/png" }, { url: "/favicon.ico", type: "image/svg+xml" }],
     apple: "/logo.png",
   },
   openGraph: {
