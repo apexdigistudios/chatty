@@ -133,6 +133,7 @@ export function PostMediaViewer({
                     {item.type === "video" ? (
                       <video
                         src={cloudflareMediaUrl(item.src)}
+                        crossOrigin="anonymous"
                         controls
                         autoPlay={index === currentIndex}
                         playsInline

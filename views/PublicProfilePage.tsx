@@ -199,7 +199,7 @@ export function PublicProfilePage({
               animate={{ opacity: 1, scale: 1 }}
               transition={springs.bouncy}
             >
-              <Avatar name={profile.username} src={profile.avatarUrl} size="3xl" />
+              <Avatar name={profile.username} src={profile.avatarUrl} size="3xl" className="size-20 sm:size-28" />
             </motion.div>
           </div>
 
@@ -214,18 +214,18 @@ export function PublicProfilePage({
                 role={profile.role}
               />
             </h1>
-            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-              <span className="inline-flex min-h-9 items-center gap-1.5 text-xs font-semibold text-ink-muted">
+            <div className="mt-2 flex flex-nowrap items-center gap-x-1.5 whitespace-nowrap">
+              <span className="inline-flex min-h-9 items-center gap-1 text-[10px] font-semibold text-ink-muted">
                 <strong className="font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followingCount)}</strong>
-                <span className="text-[10px] font-extrabold uppercase tracking-wide">Following</span>
+                <span className="text-[8px] font-extrabold uppercase tracking-tight">Following</span>
               </span>
-              <span className="inline-flex min-h-9 items-center gap-1.5 text-xs font-semibold text-ink-muted">
+              <span className="inline-flex min-h-9 items-center gap-1 text-[10px] font-semibold text-ink-muted">
                 <strong className="font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followerCount)}</strong>
-                <span className="text-[10px] font-extrabold uppercase tracking-wide">Followers</span>
+                <span className="text-[8px] font-extrabold uppercase tracking-tight">Followers</span>
               </span>
-              <span className="inline-flex min-h-9 items-center gap-1.5 text-xs font-semibold text-ink-muted">
+              <span className="inline-flex min-h-9 items-center gap-1 text-[10px] font-semibold text-ink-muted">
                 <strong className="font-black tabular-nums text-ink">{formatCompactNumber(likesReceived)}</strong>
-                <span className="text-[10px] font-extrabold uppercase tracking-wide">Likes</span>
+                <span className="text-[8px] font-extrabold uppercase tracking-tight">Likes</span>
               </span>
             </div>
 
@@ -262,19 +262,23 @@ export function PublicProfilePage({
               {!profile.isSeed && (
                 <Button
                   size="sm"
+                  className="px-3 text-[10px] sm:px-4 sm:text-xs"
                   leftIcon={<Send size={14} strokeWidth={2.6} aria-hidden />}
                   onClick={() => navigate(`/shoutouts/create?to=${profile.id}`)}
                 >
-                  Send Paper Plane Shoutout
+                  <span className="sm:hidden">Shoutout</span>
+                  <span className="hidden sm:inline">Send Paper Plane Shoutout</span>
                 </Button>
               )}
               <Button
                 size="sm"
                 variant="outline"
+                className="px-3 text-[10px] sm:px-4 sm:text-xs"
                 leftIcon={<Share2 size={14} strokeWidth={2.5} aria-hidden />}
                 onClick={shareProfile}
               >
-                Share profile
+                <span className="sm:hidden">Share</span>
+                <span className="hidden sm:inline">Share profile</span>
               </Button>
             </div>
 

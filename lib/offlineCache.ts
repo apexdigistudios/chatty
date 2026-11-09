@@ -230,7 +230,7 @@ export async function cacheLoadedImage(url: string): Promise<void> {
       }
     }
     if (isBrowserOffline()) return;
-    const response = await fetch(normalizedUrl, { credentials: "omit" });
+    const response = await fetch(normalizedUrl, { mode: "cors", credentials: "omit" });
     if (!response.ok || response.type === "opaque") return;
     const blob = await response.clone().blob();
     await persistImageBlob(url, blob);
@@ -238,8 +238,8 @@ export async function cacheLoadedImage(url: string): Promise<void> {
       const imageCache = await caches.open(IMAGE_CACHE_NAME);
       await imageCache.put(normalizedUrl, response);
     }
-  } catch (error) {
-    console.warn("Could not persist image for offline use.", error);
+  } catch {
+    console.debug("Skipping unavailable image in offline cache.");
   }
 }
 
@@ -270,7 +270,7 @@ export async function cachePublicMedia(
     if (existing) return;
     if (isBrowserOffline()) return;
 
-    const head = await fetch(url, { method: "HEAD", credentials: "omit" });
+    const head = await fetch(url, { method: "HEAD", mode: "cors", credentials: "omit" });
     if (!head.ok) return;
     const contentType = head.headers.get("content-type") ?? "";
     const contentLength = Number(head.headers.get("content-length"));
@@ -278,14 +278,14 @@ export async function cachePublicMedia(
       return;
     }
 
-    const response = await fetch(url, { credentials: "omit" });
+    const response = await fetch(url, { mode: "cors", credentials: "omit" });
     if (!response.ok || response.type === "opaque") return;
     const blob = await response.blob();
     if (blob.size <= maxVideoBytes && blob.type.startsWith("video/")) {
       await persistMediaBlob(url, blob);
     }
-  } catch (error) {
-    console.warn("Could not pre-cache public media for offline use.", error);
+  } catch {
+    console.debug("Skipping unavailable public media in offline cache.");
   }
 }
 

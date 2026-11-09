@@ -267,6 +267,7 @@ export function ProfilePage() {
               name={profile.username}
               src={profile.avatarUrl}
               size="3xl"
+              className="size-20 sm:size-28"
               viewable
             />
           </div>
@@ -282,28 +283,28 @@ export function ProfilePage() {
               websiteHref={websiteHref}
               website={profile.website}
               stats={
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <div className="flex flex-nowrap items-center gap-x-2 whitespace-nowrap">
                   <button
                     type="button"
                     onClick={() => setFollowList("following")}
                     aria-label={`${formatCompactNumber(followSummary.followingCount)} following`}
-                    className="inline-flex min-h-9 items-center gap-1.5 rounded-lg text-xs font-semibold text-ink-muted transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+                    className="inline-flex min-h-9 items-center gap-1 rounded-lg text-[10px] font-semibold text-ink-muted transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
                   >
                     <strong className="font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followingCount)}</strong>
-                    <span className="text-[10px] font-extrabold uppercase tracking-wide">Following</span>
+                    <span className="text-[8px] font-extrabold uppercase tracking-tight">Following</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setFollowList("followers")}
                     aria-label={`${formatCompactNumber(followSummary.followerCount)} followers`}
-                    className="inline-flex min-h-9 items-center gap-1.5 rounded-lg text-xs font-semibold text-ink-muted transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+                    className="inline-flex min-h-9 items-center gap-1 rounded-lg text-[10px] font-semibold text-ink-muted transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
                   >
                     <strong className="font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followerCount)}</strong>
-                    <span className="text-[10px] font-extrabold uppercase tracking-wide">Followers</span>
+                    <span className="text-[8px] font-extrabold uppercase tracking-tight">Followers</span>
                   </button>
-                  <span className="inline-flex min-h-9 items-center gap-1.5 text-xs font-semibold text-ink-muted">
+                  <span className="inline-flex min-h-9 items-center gap-1 text-[10px] font-semibold text-ink-muted">
                     <strong className="font-black tabular-nums text-ink">{formatCompactNumber(likesReceived)}</strong>
-                    <span className="text-[10px] font-extrabold uppercase tracking-wide">Likes</span>
+                    <span className="text-[8px] font-extrabold uppercase tracking-tight">Likes</span>
                   </span>
                 </div>
               }

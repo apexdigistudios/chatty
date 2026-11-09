@@ -185,6 +185,7 @@ export function ConfessionCard({ confession: initialConfession, pending = false 
                 {confession.mediaTypes?.[index] === "video" || isVideoUrl(url) ? (
                   <video
                     src={cloudflareMediaUrl(url)}
+                    crossOrigin="anonymous"
                     controls
                     controlsList="nodownload noremoteplayback"
                     disablePictureInPicture

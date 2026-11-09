@@ -603,6 +603,7 @@ function SpotlightSlide({
       <video
         ref={videoRef}
         src={cloudflareMediaUrl(item.videoUrl)}
+        crossOrigin="anonymous"
         controlsList="nodownload noremoteplayback"
         disablePictureInPicture
         playsInline

@@ -1,9 +1,8 @@
 'use client';
 
-import { Search, Sparkles } from "lucide-react";
+import { Search, Send, Sparkles } from "lucide-react";
 import NextLink from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { BrandLogo } from "@/components/brand/BrandLogo";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
@@ -25,7 +24,9 @@ export function Header({ hidden = false, spotlight = false }: { hidden?: boolean
           className="flex min-w-0 shrink-0 items-center gap-2 rounded-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:gap-2.5"
           aria-label="Gist me home"
         >
-          <BrandLogo className="h-9 w-auto max-w-10 shrink-0 object-contain sm:h-10" />
+          <span className={`flex size-9 shrink-0 items-center justify-center rounded-xl sm:size-10 ${spotlight ? "bg-white text-[#6D28D9]" : "bg-brand-deep text-brand-contrast"}`}>
+            <Send size={19} strokeWidth={2.8} aria-hidden />
+          </span>
           <span className={`truncate text-[18px] font-black leading-none tracking-tight sm:text-xl ${spotlight ? "text-white" : "text-ink"}`}>
             Gist me
           </span>

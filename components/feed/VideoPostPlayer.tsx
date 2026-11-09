@@ -128,6 +128,7 @@ export function VideoPostPlayer({ src, durationSeconds, edgeToEdge = false, onOp
         <video
           ref={videoRef}
           src={playbackSrc}
+          crossOrigin="anonymous"
           controlsList="nodownload noremoteplayback"
           disablePictureInPicture
           playsInline

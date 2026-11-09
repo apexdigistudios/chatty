@@ -6,15 +6,12 @@ export interface VerificationStatus {
 }
 
 export function isGlobalAdminProfile(profile: VerificationStatus): boolean {
-  return profile.isAdmin === true || profile.role === "admin" || profile.role === "global_admin";
+  const role = profile.role?.toLowerCase();
+  return profile.isAdmin === true || role === "admin" || role === "global_admin";
 }
 
-export function hasActiveVerification(profile: VerificationStatus, now = Date.now()): boolean {
-  return isGlobalAdminProfile(profile) || (
-    profile.isVerified === true &&
-    Boolean(profile.verifiedExpiresAt) &&
-    Date.parse(profile.verifiedExpiresAt!) > now
-  );
+export function hasActiveVerification(profile: VerificationStatus): boolean {
+  return isGlobalAdminProfile(profile) || profile.isVerified === true;
 }
 
 export function verificationTitle(
