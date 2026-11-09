@@ -57,6 +57,11 @@ export interface SchoolRow {
   name: string;
   region: string;
   school_type: SchoolType;
+  code?: string | null;
+  motto?: string | null;
+  category?: string | null;
+  aliases?: string[];
+  normalized_name?: string;
   crest_url: string | null;
   creator_id: string | null;
   created_at: string;
@@ -95,6 +100,11 @@ export interface School {
   shortName: string;
   region: string;
   schoolType: SchoolType;
+  code?: string | null;
+  motto?: string | null;
+  category?: string | null;
+  aliases?: string[];
+  normalizedName?: string;
   crestUrl: string | null;
   creatorId: string | null;
   createdAt: string;

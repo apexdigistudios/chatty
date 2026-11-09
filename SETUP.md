@@ -152,6 +152,25 @@ from the viewer's school newest-first, then asks the database to rank global
 posts using likes and comments with time decay. The migration function runs as
 the caller so existing row-level security continues to apply.
 
+### A14 · Ghana SHS master data and alias search
+
+Run `supabase/migrations/ghana_shs_master_data.sql` after the base schema.
+It adds CSSPS code, motto, category, aliases, normalized names, trigram/array
+indexes, and `search_schools_fuzzy`. The migration also adds the common
+`PRESEC`, `Odade3`, `Presby Boys`, and `presec legon` aliases to the existing
+Presbyterian Boys' SHS record when present. Add the authoritative CSSPS codes,
+categories, mottos, and any further school aliases from the verified Ghana
+Education Service/WAEC data source; those source records were not supplied here.
+
+Example verification query:
+
+```sql
+select search_term, name, similarity_score
+from unnest(array['PRESEC', 'Odade3', 'Presby Boys', 'presec legon']) as terms(search_term)
+cross join lateral public.search_schools_fuzzy(search_term)
+order by search_term, similarity_score desc;
+```
+
 ### B · Fresh project
 
 1. Create a project at [supabase.com](https://supabase.com).

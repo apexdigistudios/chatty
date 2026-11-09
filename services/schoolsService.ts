@@ -14,7 +14,8 @@ export const GHANA_REGIONS = [
  * `profiles!school_id` disambiguates the two profiles↔schools relationships
  * (profiles.school_id vs schools.creator_id) by column rather than constraint name.
  */
-const SCHOOL_SELECT = `id, name, region, school_type, crest_url:logo_url, creator_id, created_at,
+const SCHOOL_SELECT = `id, name, region, school_type, code, motto, category, aliases, normalized_name,
+  crest_url:logo_url, creator_id, created_at,
   members:profiles!school_id(count), posts(count)`;
 
 interface RawSchool extends SchoolRow {
@@ -29,6 +30,11 @@ export function mapSchool(row: RawSchool): School {
     shortName: shortNameOf(row.name),
     region: row.region,
     schoolType: (row.school_type?.toLowerCase() as SchoolType) ?? "public",
+    code: row.code ?? null,
+    motto: row.motto ?? null,
+    category: row.category ?? null,
+    aliases: row.aliases ?? [],
+    normalizedName: row.normalized_name ?? undefined,
     crestUrl: row.crest_url,
     creatorId: row.creator_id,
     createdAt: row.created_at,
