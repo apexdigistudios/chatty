@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, MotionConfig } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { NavigationFeedback } from "@/components/layout/NavigationFeedback";
 import { AuthGateModal } from "@/components/auth/AuthGateModal";
 import { OfflineSyncListener } from "@/components/common/OfflineSyncListener";
 import { PWAInstallPrompt } from "@/components/common/PWAInstallPrompt";
@@ -68,6 +69,7 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
 
   return (
     <MotionConfig reducedMotion="user">
+      <NavigationFeedback />
       <PWAInstallPrompt />
       <SEOHead />
       {!loading && (

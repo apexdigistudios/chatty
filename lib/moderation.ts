@@ -8,6 +8,8 @@ const MODERATION_URL = "https://api.openai.com/v1/moderations";
 const MODERATION_MODEL = "omni-moderation-latest";
 const SAFE_UPLOAD_MESSAGE =
   "Oops! That image or video goes against our community safety rules. Please upload a friendly, safe-for-school file.";
+const SAFE_VIDEO_MESSAGE =
+  "Oops! That video goes against our community safety rules. Please upload a safe-for-school file.";
 const SAFE_CAPTION_MESSAGE =
   "Please change your caption so it follows our community safety rules.";
 
@@ -82,6 +84,7 @@ async function writeAudit(input: {
   fileName?: string;
   mediaType?: "image" | "video";
   categories: Categories;
+  provider?: string;
 }): Promise<void> {
   try {
     const { error } = await moderationClient().from("automated_moderation_audit").insert({
@@ -91,7 +94,7 @@ async function writeAudit(input: {
       media_type: input.mediaType ?? null,
       decision: "rejected",
       flagged_categories: input.categories,
-      provider: `openai-${MODERATION_MODEL}`,
+      provider: input.provider ?? `openai-${MODERATION_MODEL}`,
     });
     if (error) throw new Error(error.message);
   } catch (error) {
@@ -156,6 +159,90 @@ export async function moderatePostCaption(text: string, userId: string): Promise
     await writeAudit({ userId, source: "post_caption", categories: result.categories });
     throw new CommunitySafetyViolationError(SAFE_CAPTION_MESSAGE);
   }
+}
+
+function readExternalVideoDecision(value: unknown): ModerationResult | null {
+  if (!isRecord(value)) return null;
+
+  const flagged = typeof value.flagged === "boolean"
+    ? value.flagged
+    : typeof value.safe === "boolean"
+      ? !value.safe
+      : value.decision === "flagged" || value.decision === "rejected"
+        ? true
+        : value.decision === "safe" || value.decision === "approved"
+          ? false
+          : null;
+  if (flagged === null) return null;
+
+  const categories: Categories = {};
+  if (value.categories !== undefined) {
+    if (!isRecord(value.categories)) return null;
+    for (const [name, categoryFlagged] of Object.entries(value.categories)) {
+      if (typeof categoryFlagged !== "boolean") return null;
+      categories[name] = categoryFlagged;
+    }
+  }
+  return { flagged, categories };
+}
+
+async function moderateVideoWithExternalService(file: File): Promise<ModerationResult | null> {
+  const endpoint = process.env.VIDEO_MODERATION_ENDPOINT;
+  const token = process.env.VIDEO_MODERATION_TOKEN;
+  if (!endpoint && !token) return null;
+  if (!endpoint || !token) {
+    throw new ModerationUnavailableError(
+      "Video safety checks are not fully configured. Please try again later."
+    );
+  }
+
+  let url: URL;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    throw new ModerationUnavailableError("The video safety service is not configured correctly.");
+  }
+  if ((url.protocol !== "https:" && url.protocol !== "http:") || url.username || url.password) {
+    throw new ModerationUnavailableError("The video safety service is not configured correctly.");
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": file.type || "application/octet-stream",
+        "X-File-Name": file.name,
+      },
+      body: await file.arrayBuffer(),
+      signal: AbortSignal.timeout(90_000),
+    });
+  } catch (error) {
+    console.error("External video moderation request failed.", error);
+    throw new ModerationUnavailableError(
+      "We couldn't check this video safely. Please try again later."
+    );
+  }
+
+  if (!response.ok) {
+    console.error("External video moderation returned an unsuccessful response.", response.status);
+    throw new ModerationUnavailableError(
+      "We couldn't check this video safely. Please try again later."
+    );
+  }
+
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new ModerationUnavailableError("The video safety service returned an invalid response.");
+  }
+  const result = readExternalVideoDecision(body);
+  if (!result) {
+    throw new ModerationUnavailableError("The video safety service returned an invalid response.");
+  }
+  return result;
 }
 
 function runCommand(command: string, args: string[], timeoutMs: number): Promise<string> {
@@ -258,6 +345,24 @@ export async function moderateUploadedMedia(
   caption = ""
 ): Promise<void> {
   const isVideo = file.type.startsWith("video/");
+  if (isVideo) {
+    const externalResult = await moderateVideoWithExternalService(file);
+    if (externalResult) {
+      if (externalResult.flagged) {
+        await writeAudit({
+          userId,
+          source: "post_media",
+          fileName: file.name,
+          mediaType: "video",
+          categories: externalResult.categories,
+          provider: "external-video-moderation",
+        });
+        throw new CommunitySafetyViolationError(SAFE_VIDEO_MESSAGE);
+      }
+      return;
+    }
+  }
+
   let framesDirectory: string | null = null;
   try {
     const images = isVideo
