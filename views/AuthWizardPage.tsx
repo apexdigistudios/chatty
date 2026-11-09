@@ -30,6 +30,7 @@ import {
   signUpWithEmail,
   updateMyProfile,
 } from "@/services/profilesService";
+import { createSchoolCommunity } from "@/services/schoolsService";
 import { useGistStore } from "@/store/gistStore";
 import { trackEvent } from "@/lib/mixpanel";
 import { springs } from "@/theme/tokens";
@@ -138,6 +139,7 @@ function AuthWizardContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
   const [selectedSchoolId, setSelectedSchoolId] = useState(prefillSchoolId);
+  const [customSchoolName, setCustomSchoolName] = useState("");
   const [schoolQuery, setSchoolQuery] = useState("");
   const [schoolSearchState, setSchoolSearchState] = useState<"idle" | "searching" | "error">("idle");
   const [schoolSearchError, setSchoolSearchError] = useState<string | null>(null);
@@ -166,12 +168,20 @@ function AuthWizardContent() {
       })
       .slice(0, 8);
   }, [schools, schoolQuery, selectedSchoolId]);
+  const normalizedSchoolQuery = normalizeSchoolName(schoolQuery);
+  const exactSchoolExists =
+    schools.some((school) => normalizeSchoolName(school.normalizedName ?? school.name) === normalizedSchoolQuery) ||
+    liveSchoolResults.some((result) => normalizeSchoolName(result.name) === normalizedSchoolQuery);
+  const canAddCustomSchool =
+    normalizedSchoolQuery.length >= 3 &&
+    schoolQuery.trim().length <= 80 &&
+    !exactSchoolExists;
   const stepCount = mode === "signup" ? 3 : 1;
   const progress = mode === "signup" ? (step / stepCount) * 100 : 100;
   const stepOneValid = ageConfirmed && email.trim().includes("@") && password.length >= 6;
+  const hasSelectedSchool = Boolean(selectedSchoolId || customSchoolName);
   const stepTwoHasInvalidFields =
-    !selectedSchool ||
-    !selectedSchoolId ||
+    !hasSelectedSchool ||
     !isValidUsername(username) ||
     nicknameStatus === "taken" ||
     nicknameStatus === "invalid";
@@ -368,6 +378,44 @@ function AuthWizardContent() {
     toast(message, "danger");
   };
 
+  const addCustomSchool = async () => {
+    const name = schoolQuery.trim();
+    if (name.length < 3 || name.length > 80 || busy) return;
+    if (!oauthOnboarding || !user) {
+      setCustomSchoolName(name);
+      setSelectedSchoolId("");
+      setLiveSchoolResults([]);
+      setSchoolSearchError(null);
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const school = await createSchoolCommunity({
+        name,
+        region: "Not specified",
+        schoolType: "public",
+      });
+      const updatedProfile = await updateMyProfile({ schoolId: school.id });
+      upsertSchool(school);
+      setProfile(updatedProfile);
+      setSelectedSchoolId(school.id);
+      setSchoolQuery(school.name);
+      setCustomSchoolName("");
+      setLiveSchoolResults([]);
+      setSchoolSearchState("idle");
+      setSchoolSearchError(null);
+      trackEvent("Custom School Added", {
+        school_id: school.id,
+        school_name: school.name,
+      });
+    } catch (error) {
+      showError(error, "Could not add that school. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const startGoogleAuth = async () => {
     if (mode === "signup" && !ageConfirmed) return;
     setBusy(true);
@@ -408,7 +456,7 @@ function AuthWizardContent() {
   };
 
   const handleJoin = async () => {
-    if (!selectedSchool || !selectedSchoolId) {
+    if (!hasSelectedSchool) {
       setErrorMessage("Choose your school before joining.");
       return;
     }
@@ -422,13 +470,25 @@ function AuthWizardContent() {
       if (oauthOnboarding) {
         if (!user) throw new Error("Please sign in with Google again to finish joining.");
         await ensureProfile();
+        let schoolId = selectedSchoolId;
+        if (customSchoolName && !schoolId) {
+          const createdSchool = await createSchoolCommunity({
+            name: customSchoolName,
+            region: "Not specified",
+            schoolType: "public",
+          });
+          upsertSchool(createdSchool);
+          schoolId = createdSchool.id;
+          setSelectedSchoolId(schoolId);
+          setCustomSchoolName("");
+        }
         const updatedProfile = await updateMyProfile({
           username,
-          schoolId: selectedSchoolId,
+          schoolId,
         });
         setProfile(updatedProfile);
         await refreshProfile();
-        trackEvent("Onboarding Completed", { school_id: selectedSchoolId });
+        trackEvent("Onboarding Completed", { school_id: schoolId });
         toast("Welcome to Gist me!", "success");
         setOauthOnboarding(false);
         navigate(returnTo, { replace: true });
@@ -439,10 +499,20 @@ function AuthWizardContent() {
         email,
         password,
         username,
-        schoolId: selectedSchoolId,
+        schoolId: selectedSchoolId || null,
+        schoolName: customSchoolName || null,
       });
       if (result.profile) setProfile(result.profile);
-      trackEvent("Onboarding Completed", { school_id: selectedSchoolId });
+      if (customSchoolName) {
+        trackEvent("Custom School Added", {
+          school_id: result.profile?.schoolId ?? null,
+          school_name: customSchoolName,
+        });
+      }
+      trackEvent("Onboarding Completed", {
+        school_id: (result.profile?.schoolId ?? selectedSchoolId) || null,
+        school_name: customSchoolName || selectedSchool?.name || null,
+      });
       if (result.hasSession) {
         await refreshProfile();
         toast("Welcome to Gist me!", "success");
@@ -477,7 +547,7 @@ function AuthWizardContent() {
 
   const continueFromStepTwo = () => {
     setHasAttemptedSubmit(true);
-    if (!selectedSchool || !selectedSchoolId) {
+    if (!hasSelectedSchool) {
       setErrorMessage("Choose your school badge before continuing.");
       return;
     }
@@ -746,19 +816,26 @@ function AuthWizardContent() {
                   <label htmlFor="signup-school-search" className="mb-1.5 block text-sm font-extrabold">
                     Your school badge <span className="text-danger" aria-hidden>*</span>
                   </label>
-                  {selectedSchool && (
+                  {(selectedSchool || customSchoolName) && (
                     <div className="mb-2 flex min-h-12 items-center gap-3 rounded-xl border border-line bg-page p-2.5">
-                      <SchoolBadge
-                        schoolId={selectedSchool.id}
-                        crestUrl={selectedSchool.crestUrl}
-                        name={selectedSchool.name}
-                        size="sm"
-                      />
-                      <span className="text-sm font-bold">{selectedSchool.shortName}</span>
+                      {selectedSchool ? (
+                        <>
+                          <SchoolBadge
+                            schoolId={selectedSchool.id}
+                            crestUrl={selectedSchool.crestUrl}
+                            name={selectedSchool.name}
+                            size="sm"
+                          />
+                          <span className="text-sm font-bold">{selectedSchool.shortName}</span>
+                        </>
+                      ) : (
+                        <span className="min-w-0 flex-1 truncate text-sm font-bold">{customSchoolName}</span>
+                      )}
                       <button
                         type="button"
                         onClick={() => {
                           setSelectedSchoolId("");
+                          setCustomSchoolName("");
                           setSchoolQuery("");
                         }}
                         className="ml-auto min-h-9 rounded-lg px-2 text-xs font-extrabold text-brand-deep hover:bg-brand-wash"
@@ -767,7 +844,7 @@ function AuthWizardContent() {
                       </button>
                     </div>
                   )}
-                  {!selectedSchool && (
+                  {!selectedSchool && !customSchoolName && (
                     <>
                       <span className="flex min-h-12 items-center gap-2 rounded-2xl border-2 border-line bg-page px-3 focus-within:border-brand-deep focus-within:ring-4 focus-within:ring-brand-soft">
                         {schoolSearchState === "searching"
@@ -779,6 +856,7 @@ function AuthWizardContent() {
                           value={schoolQuery}
                           onChange={(event) => {
                             setSchoolQuery(event.target.value);
+                            setCustomSchoolName("");
                             setSelectedSchoolId("");
                             setLiveSchoolResults([]);
                             setErrorMessage(null);
@@ -802,6 +880,7 @@ function AuthWizardContent() {
                                 onClick={() => {
                                   setSelectedSchoolId(school.id);
                                   setSchoolQuery(school.name);
+                                  setCustomSchoolName("");
                                   setSchoolSearchState("idle");
                                 }}
                                 className="flex min-h-12 w-full items-center gap-2.5 px-3 py-2 text-left text-sm font-semibold text-ink hover:bg-page focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-deep"
@@ -825,10 +904,7 @@ function AuthWizardContent() {
                                 onClick={() => {
                                   setSelectedSchoolId(result.school.id);
                                   setSchoolQuery(result.school.name);
-                                  trackEvent("Custom School Added", {
-                                    school_id: result.school.id,
-                                    school_name: result.school.name,
-                                  });
+                                  setCustomSchoolName("");
                                   setLiveSchoolResults([]);
                                   setSchoolSearchState("idle");
                                   setSchoolSearchError(null);
@@ -844,6 +920,16 @@ function AuthWizardContent() {
                             </li>
                           ))}
                         </ul>
+                      )}
+                      {canAddCustomSchool && (
+                        <button
+                          type="button"
+                          onClick={() => void addCustomSchool()}
+                          disabled={busy}
+                          className="mt-2 flex min-h-12 w-full items-center rounded-xl border border-dashed border-brand-deep px-3 text-left text-sm font-bold text-brand-deep hover:bg-brand-wash disabled:opacity-60"
+                        >
+                          + Add &quot;{schoolQuery.trim()}&quot; as a custom school
+                        </button>
                       )}
                     </>
                   )}
@@ -917,9 +1003,9 @@ function AuthWizardContent() {
                   </li>
                 ))}
               </ul>
-              {selectedSchool && (
+              {(selectedSchool || customSchoolName) && (
                 <p className="mt-3 text-center text-sm font-semibold text-ink-muted">
-                  Joining {selectedSchool.shortName} as <strong className="text-ink">{username}</strong>
+                  Joining {selectedSchool?.shortName ?? customSchoolName} as <strong className="text-ink">{username}</strong>
                 </p>
               )}
               {errorMessage && <ErrorMessage className="mt-3">{errorMessage}</ErrorMessage>}

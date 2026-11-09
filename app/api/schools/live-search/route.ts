@@ -153,31 +153,74 @@ async function searchSchools(request: NextRequest, submittedQuery?: string | nul
         return jsonError("Enter a school name to search.", 400);
       }
     }
-    if (typeof query !== "string") {
-      return jsonError("Enter a school name to search.", 400);
-    }
-
+    if (typeof query !== "string") return emptySchoolsResponse();
     query = query.trim();
+    if (!query) return emptySchoolsResponse();
     const normalizedQuery = normalizeSchoolName(query);
-    if (normalizedQuery.length < 3 || query.length > 120) {
-      return jsonError("Enter at least 3 characters for the school name.", 400);
-    }
+    if (normalizedQuery.length < 3 || query.length > 120) return emptySchoolsResponse();
 
     const googleKey = process.env.GOOGLE_CSE_API_KEY;
     const googleCx = process.env.GOOGLE_CSE_ID;
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     console.info("Google Custom Search configuration:", {
       apiKeyConfigured: Boolean(googleKey),
       searchEngineConfigured: Boolean(googleCx),
     });
-    if (!googleKey || !googleCx) {
-      console.warn("Live school search is not configured; returning no external results.");
+    const supabaseKey = serviceRoleKey ?? anonKey;
+    if (!supabaseUrl || !supabaseKey) {
+      console.warn("School search is unavailable because Supabase is not configured.");
       return emptySchoolsResponse();
     }
-    if (!supabaseUrl || !serviceRoleKey) {
-      console.error("Live school search cannot save results without server-side Supabase credentials.");
-      return emptySchoolsResponse(503);
+
+    const client = createClient(supabaseUrl, supabaseKey, {
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+    });
+    const escapedQuery = query.replace(/[\\%_]/g, "\\$&");
+    const localSearch = await client
+      .from("schools")
+      .select(SCHOOL_ROW_SELECT)
+      .ilike("name", `%${escapedQuery}%`)
+      .order("name", { ascending: true })
+      .limit(8)
+      .returns<SchoolRow[]>();
+    let localRows = localSearch.data;
+    let localError = localSearch.error;
+    if (localError && ["42703", "PGRST204"].includes(localError.code ?? "")) {
+      const fallbackSearch = await client
+        .from("schools")
+        .select("id, name, region, school_type, logo_url, creator_id, created_at")
+        .ilike("name", `%${escapedQuery}%`)
+        .order("name", { ascending: true })
+        .limit(8)
+        .returns<SchoolRow[]>();
+      localRows = fallbackSearch.data;
+      localError = fallbackSearch.error;
+    }
+    if (localError) {
+      console.warn("Local school search failed.", localError.message);
+    } else if (localRows?.length) {
+      const schools: LiveSchoolResult[] = localRows.map((row) => {
+        const school = mapSchool(row);
+        return {
+          id: school.id,
+          name: school.name,
+          snippet: school.region,
+          link: "",
+          school,
+        };
+      });
+      return NextResponse.json({ schools });
+    }
+
+    if (!googleKey || !googleCx) {
+      console.info("External school search is disabled; returning local matches only.");
+      return emptySchoolsResponse();
+    }
+    if (!serviceRoleKey) {
+      console.warn("External school results cannot be saved without server-side Supabase credentials.");
+      return emptySchoolsResponse();
     }
 
     const searchUrl = new URL("https://www.googleapis.com/customsearch/v1");
@@ -220,9 +263,6 @@ async function searchSchools(request: NextRequest, submittedQuery?: string | nul
       return emptySchoolsResponse();
     }
 
-    const client = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
-    });
     const normalizedNames = candidates.map(({ name }) => normalizeSchoolName(name));
     const { error: insertError } = await client
       .from("schools")
