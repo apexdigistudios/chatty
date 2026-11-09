@@ -47,7 +47,7 @@ export function Avatar({
   size = "md",
   online = false,
   ring = false,
-  viewable = true,
+  viewable = false,
   className,
 }: AvatarProps) {
   const primary = src || defaultAvatarUrl(name);

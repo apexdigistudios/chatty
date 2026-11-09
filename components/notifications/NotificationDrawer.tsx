@@ -129,7 +129,7 @@ export function NotificationDrawer() {
   }, [open, user?.id]);
 
   const handleAction = (item: AppNotification) => {
-    markRead(item.id);
+    if (profile) void markRead(item.id, profile.id);
     closeDrawer();
 
     if (item.kind === "shoutout") {
@@ -246,8 +246,8 @@ export function NotificationDrawer() {
                       type="button"
                       whileTap={{ scale: 0.92 }}
                       transition={springs.snappy}
-                      onClick={markAllRead}
-                      disabled={totalUnread === 0}
+                      onClick={() => profile && void markAllRead(profile.id)}
+                      disabled={totalUnread === 0 || !profile}
                       aria-label="Mark all notifications as read"
                       className="flex size-11 items-center justify-center rounded-xl border-2 border-line bg-card text-ink-muted transition-colors hover:border-brand hover:text-brand-deep disabled:opacity-40"
                     >

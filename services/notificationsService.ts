@@ -1,7 +1,6 @@
 import { shortNameOf } from "@/lib/media";
 import {
   isNotificationRead,
-  readSeenAt,
 } from "@/lib/notificationReads";
 import { countOf, supabase } from "@/lib/supabase";
 import type { Profile } from "@/types/models";
@@ -41,6 +40,7 @@ export interface AppNotification {
 
 const PER_SOURCE_LIMIT = 40;
 const TOTAL_LIMIT = 80;
+const NOTIFICATION_READS_TABLE = "notification_reads";
 
 /* ───────────────────────── Verified PostgREST selects ───────────────────── */
 
@@ -342,16 +342,49 @@ export async function fetchNotifications(profile: Profile | null): Promise<AppNo
     fetchSafetyNotifications(profile),
   ]);
 
-  const seenAt = readSeenAt();
   const merged = [...shoutouts, ...comments, ...likes, ...campus, ...safety]
     .filter((item, index, all) => all.findIndex((other) => other.id === item.id) === index)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, TOTAL_LIMIT);
+  const locallyReadIds = merged
+    .filter((item) => isNotificationRead(item.id))
+    .map((item) => item.id);
+  if (locallyReadIds.length > 0) {
+    await persistNotificationReads(profile.id, locallyReadIds);
+  }
+  const persistedReadIds = merged.length > 0
+    ? await fetchPersistedReadNotificationIds(profile.id, merged.map((item) => item.id))
+    : new Set<string>();
 
   return merged.map((item) => ({
     ...item,
-    read: isNotificationRead(item.id) || new Date(item.createdAt).getTime() <= seenAt,
+    read: isNotificationRead(item.id) || persistedReadIds.has(item.id),
   }));
+}
+
+export async function fetchPersistedReadNotificationIds(
+  userId: string,
+  notificationIds: string[]
+): Promise<Set<string>> {
+  if (notificationIds.length === 0) return new Set();
+  const { data, error } = await supabase
+    .from(NOTIFICATION_READS_TABLE)
+    .select("notification_id")
+    .eq("user_id", userId)
+    .in("notification_id", [...new Set(notificationIds)])
+    .returns<Array<{ notification_id: string }>>();
+  if (error) throw new Error(`Could not load notification read states: ${error.message}`);
+  return new Set((data ?? []).map((row) => row.notification_id));
+}
+
+export async function persistNotificationReads(userId: string, notificationIds: string[]): Promise<void> {
+  const uniqueIds = [...new Set(notificationIds)];
+  if (uniqueIds.length === 0) return;
+  const { error } = await supabase.from(NOTIFICATION_READS_TABLE).upsert(
+    uniqueIds.map((notificationId) => ({ user_id: userId, notification_id: notificationId })),
+    { onConflict: "user_id,notification_id" }
+  );
+  if (error) throw new Error(`Could not save notification read states: ${error.message}`);
 }
 
 /* ───────────────────────── Realtime ───────────────────────── */

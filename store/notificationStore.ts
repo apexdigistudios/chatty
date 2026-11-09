@@ -1,9 +1,10 @@
 import { create } from "zustand";
 import { describeError } from "@/lib/supabase";
-import { markNotificationRead, markNotificationsRead, writeSeenAt } from "@/lib/notificationReads";
+import { markNotificationRead, markNotificationsRead } from "@/lib/notificationReads";
 import {
   categoryCounts,
   fetchNotifications,
+  persistNotificationReads,
   subscribeToNotificationEvents,
   unreadCount,
   type AppNotification,
@@ -31,8 +32,8 @@ interface NotificationState {
   closeDrawer: () => void;
   setFilter: (filter: NotificationFilter) => void;
   load: (profile: Profile | null, options?: { silent?: boolean }) => Promise<void>;
-  markRead: (id: string) => void;
-  markAllRead: () => void;
+  markRead: (id: string, userId: string) => Promise<void>;
+  markAllRead: (userId: string) => Promise<void>;
   /** Clears everything on sign-out. */
   reset: () => void;
   /** Opens the realtime channel. Returns its cleanup function. */
@@ -84,19 +85,32 @@ export const useNotificationStore = create<NotificationState>()((set, get) => ({
     }
   },
 
-  markRead: (id) => {
+  markRead: async (id, userId) => {
     markNotificationRead(id);
     set((state) => ({
+      error: null,
       items: state.items.map((item) => (item.id === id ? { ...item, read: true } : item)),
     }));
+    try {
+      await persistNotificationReads(userId, [id]);
+    } catch (error) {
+      set({ error: describeError(error, "Could not save this notification as read.") });
+    }
   },
 
-  markAllRead: () => {
+  markAllRead: async (userId) => {
     const { items } = get();
-    const now = Date.now();
-    markNotificationsRead(items.map((item) => item.id));
-    writeSeenAt(now);
-    set((state) => ({ items: state.items.map((item) => ({ ...item, read: true })) }));
+    const ids = items.map((item) => item.id);
+    markNotificationsRead(ids);
+    set((state) => ({
+      error: null,
+      items: state.items.map((item) => ({ ...item, read: true })),
+    }));
+    try {
+      await persistNotificationReads(userId, ids);
+    } catch (error) {
+      set({ error: describeError(error, "Could not save notifications as read.") });
+    }
   },
 
   reset: () =>

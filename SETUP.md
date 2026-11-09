@@ -74,10 +74,11 @@ Run `migration-step12.sql` after Step 10. It adds `likes` to the `supabase_realt
 publication (posts, comments and shoutouts are already published) so the notification
 centre can listen for live INSERTs.
 
-No new tables are required: the notification feed is a projection over `likes`,
-`comments`, `shoutouts` and `posts`, scoped by the RLS policies you already have.
-Read/unread receipts are stored on the device in `localStorage`, so a future
-`notification_reads` table can replace them without changing any caller.
+The notification feed is a projection over `likes`, `comments`, `shoutouts`,
+`posts` and safety notices, scoped by the RLS policies you already have. Run
+`supabase/migrations/notification_reads.sql` to persist read receipts per user
+across devices and browser sessions. Local storage remains a quick client-side
+fallback, while Supabase is the durable source of read state.
 
 ### A6 · Applying Step 13 (Profile Cover Photos)
 

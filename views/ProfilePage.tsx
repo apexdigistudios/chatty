@@ -22,7 +22,7 @@ import {
 import { describeError } from "@/lib/supabase";
 import { isUserGlobalAdmin } from "@/lib/adminAccess";
 import { checkUsernameAvailable, isValidUsername, updateMyProfile, uploadMyAvatar } from "@/services/profilesService";
-import { fetchFeed, fetchLikedPosts, fetchPostCount } from "@/services/postsService";
+import { fetchFeed, fetchLikedPosts } from "@/services/postsService";
 import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
 import type { Post } from "@/types/models";
@@ -32,7 +32,6 @@ import { SafeImage } from "@/components/common/SafeImage";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { FollowListModal } from "@/components/profile/FollowListModal";
 import { fetchFollowSummary, type FollowSummary } from "@/services/followsService";
-import { fetchSentShoutoutCount } from "@/services/shoutoutsService";
 import { fetchPostsByIds } from "@/services/postsService";
 import { readSavedPostIds, subscribeToSavedPosts } from "@/lib/savedPosts";
 import { hasActiveVerification, isGlobalAdminProfile } from "@/lib/verification";
@@ -67,11 +66,9 @@ export function ProfilePage() {
 
   const [tab, setTab] = useState<ProfileTab>("Gists");
   const [myPosts, setMyPosts] = useState<Post[]>([]);
-  const [postCount, setPostCount] = useState(0);
   const [liked, setLiked] = useState<Post[]>([]);
   const [saved, setSaved] = useState<Post[]>([]);
   const [followSummary, setFollowSummary] = useState<FollowSummary>({ followerCount: 0, followingCount: 0, isFollowing: false });
-  const [shoutoutCount, setShoutoutCount] = useState(0);
   const [followList, setFollowList] = useState<"followers" | "following" | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [loadingPosts, setLoadingPosts] = useState(true);
@@ -116,18 +113,14 @@ export function ProfilePage() {
     if (!user) return;
     setLoadingPosts(true);
     try {
-      const [posts, likes, follows, shoutouts, postsCount] = await Promise.all([
+      const [posts, likes, follows] = await Promise.all([
         fetchFeed({ authorId: user.id, includeModerated: true, limit: 30 }),
         fetchLikedPosts(),
         fetchFollowSummary(user.id, user.id),
-        fetchSentShoutoutCount(user.id),
-        fetchPostCount(user.id),
       ]);
       setMyPosts(posts);
-      setPostCount(postsCount);
       setLiked(likes);
       setFollowSummary(follows);
-      setShoutoutCount(shoutouts);
     } catch (error) {
       toast(describeError(error), "danger");
     } finally {
@@ -411,7 +404,6 @@ export function ProfilePage() {
               name={profile.username}
               src={editing ? draftAvatar : profile.avatarUrl}
               size="3xl"
-              online
               viewable={!editing}
             />
             {editing && (
@@ -466,49 +458,37 @@ export function ProfilePage() {
               onShoutouts={() => navigate("/shoutouts")}
             />
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Badge className="border border-line bg-page px-2.5 py-0.5 text-[10px] text-ink">Online</Badge>
               {profile.classForm && (
                 <Badge className="border border-brand/40 bg-brand-wash px-2.5 py-0.5 text-[10px] text-brand-deep">
                   {profile.classForm}
                 </Badge>
               )}
             </div>
+            <div className="mt-4 grid grid-cols-3 gap-x-1 border-t border-line pt-2 sm:flex sm:items-center sm:gap-4">
+              <button
+                type="button"
+                onClick={() => setFollowList("following")}
+                aria-label={`${formatCompactNumber(followSummary.followingCount)} following`}
+                className="flex min-h-12 flex-col items-center justify-center rounded-xl px-1 text-center transition-colors hover:bg-page focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:min-w-20"
+              >
+                <strong className="text-base font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followingCount)}</strong>
+                <span className="text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">Following</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFollowList("followers")}
+                aria-label={`${formatCompactNumber(followSummary.followerCount)} followers`}
+                className="flex min-h-12 flex-col items-center justify-center rounded-xl px-1 text-center transition-colors hover:bg-page focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:min-w-20"
+              >
+                <strong className="text-base font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followerCount)}</strong>
+                <span className="text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">Followers</span>
+              </button>
+              <div className="flex min-h-12 flex-col items-center justify-center rounded-xl px-1 text-center sm:min-w-20">
+                <strong className="text-base font-black tabular-nums text-ink">{formatCompactNumber(likesReceived)}</strong>
+                <span className="text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">Likes</span>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-line pt-3">
-          <span className="inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-ink-muted">
-            <strong className="font-black tabular-nums text-ink">{formatCompactNumber(postCount)}</strong>
-            Posts
-          </span>
-          <span className="inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-ink-muted">
-            <strong className="font-black tabular-nums text-ink">{formatCompactNumber(likesReceived)}</strong>
-            Likes
-          </span>
-          <Link
-            to="/shoutouts"
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg text-sm font-semibold text-ink-muted transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
-          >
-            <strong className="font-black tabular-nums text-ink">{formatCompactNumber(shoutoutCount)}</strong>
-            Shoutouts
-          </Link>
-          <button
-            type="button"
-            onClick={() => setFollowList("followers")}
-            aria-label={`${formatCompactNumber(followSummary.followerCount)} followers`}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg text-sm font-semibold text-ink-muted transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
-          >
-            <strong className="font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followerCount)}</strong>
-            Followers
-          </button>
-          <button
-            type="button"
-            onClick={() => setFollowList("following")}
-            aria-label={`${formatCompactNumber(followSummary.followingCount)} following`}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg text-sm font-semibold text-ink-muted transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
-          >
-            <strong className="font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followingCount)}</strong>
-            Following
-          </button>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {activeVerification ? (

@@ -10,6 +10,7 @@ if (typeof window !== "undefined") {
 type PublicPostRow = {
   id: string;
   user_id: string;
+  seed_profile_id?: string | null;
   school_id: string | null;
   content: string;
   media_url: string | null;
@@ -24,6 +25,13 @@ type PublicPostRow = {
     is_verified?: boolean | null;
     verified_title?: string | null;
     verified_expires_at?: string | null;
+  } | null;
+  seed_author?: {
+    id: string;
+    username: string;
+    full_name: string;
+    avatar_url: string | null;
+    school_id: string;
   } | null;
   school: { id: string; name: string; crest_url: string | null } | null;
   likes: Array<{ count: number }>;
@@ -71,6 +79,28 @@ function relationCount(rows: Array<{ count: number }> | null | undefined): numbe
   return rows?.reduce((total, row) => total + (row.count ?? 0), 0) ?? 0;
 }
 
+let publicSeedAuthorsPromise: Promise<boolean> | null = null;
+function supportsPublicSeedAuthors(): Promise<boolean> {
+  if (!publicSeedAuthorsPromise) {
+    publicSeedAuthorsPromise = (async () => {
+      const client = publicSupabase();
+      const [postColumn, seedTable] = await Promise.all([
+        client.from("posts").select("seed_profile_id").limit(1),
+        client.from("admin_seed_profiles").select("id").limit(1),
+      ]);
+      const missingCodes = new Set(["42P01", "42703", "PGRST204", "PGRST205"]);
+      if (postColumn.error && !missingCodes.has(postColumn.error.code ?? "")) {
+        throw new Error(postColumn.error.message);
+      }
+      if (seedTable.error && !missingCodes.has(seedTable.error.code ?? "")) {
+        throw new Error(seedTable.error.message);
+      }
+      return !postColumn.error && !seedTable.error;
+    })();
+  }
+  return publicSeedAuthorsPromise;
+}
+
 function mapPost(row: PublicPostRow, media?: Array<{ media_url: string; media_type?: "image" | "video" | null }>): Post {
   const mediaItems = media?.length
     ? media
@@ -82,17 +112,19 @@ function mapPost(row: PublicPostRow, media?: Array<{ media_url: string; media_ty
     item.media_type === "video" || isVideoUrl(item.media_url) ? "video" as const : "image" as const
   );
   const schoolName = row.school?.name ?? (row.school_id ? "School" : "Gist me");
+  const seedAuthor = row.seed_author ?? null;
 
   return {
     id: row.id,
-    authorId: row.author?.id ?? row.user_id,
-    authorName: row.author?.username ?? "student",
-    authorFullName: row.author?.full_name ?? null,
+    authorId: seedAuthor?.id ?? row.author?.id ?? row.user_id,
+    isSeed: Boolean(seedAuthor),
+    authorName: seedAuthor?.username ?? row.author?.username ?? "student",
+    authorFullName: seedAuthor?.full_name ?? row.author?.full_name ?? null,
     authorIsVerified: row.author?.is_verified ?? false,
     authorVerifiedTitle: row.author?.verified_title ?? null,
     authorVerifiedExpiresAt: row.author?.verified_expires_at ?? null,
-    authorAvatar: row.author?.avatar_url ?? null,
-    authorSchoolId: row.author?.school_id ?? row.school_id,
+    authorAvatar: seedAuthor?.avatar_url ?? row.author?.avatar_url ?? null,
+    authorSchoolId: seedAuthor?.school_id ?? row.author?.school_id ?? row.school_id,
     schoolId: row.school_id,
     schoolName,
     schoolShort: row.school ? shortNameOf(schoolName) : row.school_id ? "SHS" : "Community",
@@ -205,8 +237,9 @@ async function fetchPublicPostRows(options: {
   limit: number;
 }): Promise<PublicPostRow[]> {
   const client = publicSupabase();
+  const withSeedAuthors = await supportsPublicSeedAuthors();
   const select = (withMediaType: boolean, withProfileDetails: boolean) =>
-    `id, user_id, school_id, content, media_url, ${withMediaType ? "media_type, " : ""}created_at, author:profiles(id, username, ${withProfileDetails ? "full_name, is_verified, verified_title, verified_expires_at, " : ""}avatar_url, school_id), school:schools(id, name, crest_url:logo_url), likes(count), comments(count)`;
+    `id, user_id, ${withSeedAuthors ? `seed_profile_id, seed_author:admin_seed_profiles!posts_seed_profile_id_fkey(id, username, full_name, avatar_url, school_id), ` : ""}school_id, content, media_url, ${withMediaType ? "media_type, " : ""}created_at, author:profiles(id, username, ${withProfileDetails ? "full_name, is_verified, verified_title, verified_expires_at, " : ""}avatar_url, school_id), school:schools(id, name, crest_url:logo_url), likes(count), comments(count)`;
   const request = (withMediaType: boolean, withProfileDetails: boolean) => {
     let query = client
     .from("posts")
