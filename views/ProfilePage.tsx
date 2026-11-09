@@ -35,7 +35,6 @@ import { fetchFollowSummary, type FollowSummary } from "@/services/followsServic
 import { fetchPostsByIds } from "@/services/postsService";
 import { readSavedPostIds, subscribeToSavedPosts } from "@/lib/savedPosts";
 import { hasActiveVerification, isGlobalAdminProfile } from "@/lib/verification";
-import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { formatCompactNumber } from "@/lib/utils";
 import { isVideoUrl } from "@/lib/video";
 
@@ -99,12 +98,6 @@ export function ProfilePage() {
   });
   const websiteHref = profile?.website ? safeExternalUrl(profile.website) : null;
   const likesReceived = myPosts.reduce((total, post) => total + post.likeCount, 0);
-  const verifiedLabel = activeVerification
-    ? profile?.verifiedTitle || (isGlobalAdminProfile({
-      isAdmin: profile?.isAdmin || isGlobalAdmin,
-      role: profile?.role,
-    }) ? "Global Admin" : null)
-    : null;
   const profileTabs = activeVerification ? TABS : TABS.filter(({ id }) => id !== "Brand Deals");
 
   // Guests are never forcefully redirected; we render an inviting Student Pass gate below.
@@ -428,7 +421,32 @@ export function ProfilePage() {
               role={profile.role}
               websiteHref={websiteHref}
               website={profile.website}
-              verifiedLabel={verifiedLabel}
+              stats={
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <button
+                    type="button"
+                    onClick={() => setFollowList("following")}
+                    aria-label={`${formatCompactNumber(followSummary.followingCount)} following`}
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-lg text-xs font-semibold text-ink-muted transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+                  >
+                    <strong className="font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followingCount)}</strong>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wide">Following</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFollowList("followers")}
+                    aria-label={`${formatCompactNumber(followSummary.followerCount)} followers`}
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-lg text-xs font-semibold text-ink-muted transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+                  >
+                    <strong className="font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followerCount)}</strong>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wide">Followers</span>
+                  </button>
+                  <span className="inline-flex min-h-9 items-center gap-1.5 text-xs font-semibold text-ink-muted">
+                    <strong className="font-black tabular-nums text-ink">{formatCompactNumber(likesReceived)}</strong>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wide">Likes</span>
+                  </span>
+                </div>
+              }
               schoolBadge={
                 mySchool ? (
                   <button
@@ -463,30 +481,6 @@ export function ProfilePage() {
                   {profile.classForm}
                 </Badge>
               )}
-            </div>
-            <div className="mt-4 grid grid-cols-3 gap-x-1 border-t border-line pt-2 sm:flex sm:items-center sm:gap-4">
-              <button
-                type="button"
-                onClick={() => setFollowList("following")}
-                aria-label={`${formatCompactNumber(followSummary.followingCount)} following`}
-                className="flex min-h-12 flex-col items-center justify-center rounded-xl px-1 text-center transition-colors hover:bg-page focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:min-w-20"
-              >
-                <strong className="text-base font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followingCount)}</strong>
-                <span className="text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">Following</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setFollowList("followers")}
-                aria-label={`${formatCompactNumber(followSummary.followerCount)} followers`}
-                className="flex min-h-12 flex-col items-center justify-center rounded-xl px-1 text-center transition-colors hover:bg-page focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:min-w-20"
-              >
-                <strong className="text-base font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followerCount)}</strong>
-                <span className="text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">Followers</span>
-              </button>
-              <div className="flex min-h-12 flex-col items-center justify-center rounded-xl px-1 text-center sm:min-w-20">
-                <strong className="text-base font-black tabular-nums text-ink">{formatCompactNumber(likesReceived)}</strong>
-                <span className="text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">Likes</span>
-              </div>
             </div>
           </div>
         </div>

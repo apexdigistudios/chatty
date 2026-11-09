@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { Pencil, Settings } from "lucide-react";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
-import { Badge } from "@/components/ui/Badge";
 
 interface ProfileHeaderProps {
   username: string;
@@ -15,7 +14,7 @@ interface ProfileHeaderProps {
   role?: string | null;
   websiteHref?: string | null;
   website?: string | null;
-  verifiedLabel?: string | null;
+  stats: ReactNode;
   schoolBadge: ReactNode;
   bio: string;
   onEdit: () => void;
@@ -33,7 +32,7 @@ export function ProfileHeader({
   role,
   websiteHref,
   website,
-  verifiedLabel,
+  stats,
   schoolBadge,
   bio,
   onEdit,
@@ -52,15 +51,8 @@ export function ProfileHeader({
           isAdmin={isAdmin}
           role={role}
         />
-        {verifiedLabel && (
-          <Badge tone="warning" className="rounded-full px-2.5 py-1 text-[10px]">
-            {verifiedLabel}
-          </Badge>
-        )}
       </p>
-      <p className="mt-3 max-w-xl whitespace-pre-wrap text-sm font-semibold leading-relaxed text-ink-soft sm:text-[15px]">
-        {bio || "No bio yet — tell your campus who you are."}
-      </p>
+      <div className="mt-2">{stats}</div>
       {websiteHref && website && (
         <a
           href={websiteHref}
@@ -77,7 +69,7 @@ export function ProfileHeader({
         <button
           type="button"
           onClick={onEdit}
-          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#FACC15] bg-[#FACC15] px-4 text-xs font-extrabold text-[#171717] transition-colors hover:bg-yellow-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border-2 border-[#171717] bg-[#FACC15] px-4 text-xs font-extrabold text-[#171717] shadow-[0_3px_0_#171717] transition-[transform,background-color,box-shadow] hover:-translate-y-0.5 hover:bg-yellow-300 hover:shadow-[0_4px_0_#171717] active:translate-y-0.5 active:shadow-[0_1px_0_#171717] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
         >
           <Pencil size={14} strokeWidth={2.6} aria-hidden />
           Edit Profile
@@ -85,7 +77,7 @@ export function ProfileHeader({
         <button
           type="button"
           onClick={onShoutouts}
-          className="inline-flex min-h-10 items-center justify-center rounded-full border border-line bg-page px-4 text-xs font-extrabold text-ink transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl border-2 border-line bg-card px-4 text-xs font-extrabold text-ink shadow-[0_3px_0_var(--border-color)] transition-[transform,border-color,box-shadow,color] hover:-translate-y-0.5 hover:border-brand hover:text-brand-deep hover:shadow-[0_4px_0_var(--brand-edge)] active:translate-y-0.5 active:shadow-[0_1px_0_var(--brand-edge)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
         >
           Shoutouts
         </button>
@@ -94,12 +86,14 @@ export function ProfileHeader({
           onClick={onSettings}
           aria-label="Open profile settings"
           title="Profile settings"
-          className="inline-flex size-10 items-center justify-center rounded-full border border-line bg-page text-ink-muted transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          className="inline-flex size-11 items-center justify-center rounded-xl border-2 border-line bg-card text-ink-muted shadow-[0_3px_0_var(--border-color)] transition-[transform,border-color,box-shadow,color] hover:-translate-y-0.5 hover:border-brand hover:text-brand-deep hover:shadow-[0_4px_0_var(--brand-edge)] active:translate-y-0.5 active:shadow-[0_1px_0_var(--brand-edge)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
         >
           <Settings size={17} strokeWidth={2.5} aria-hidden />
         </button>
       </div>
-
+      <p className="mt-3 max-w-xl whitespace-pre-wrap text-sm font-semibold leading-relaxed text-ink-soft sm:text-[15px]">
+        {bio || "No bio yet — tell your campus who you are."}
+      </p>
     </div>
   );
 }
