@@ -192,7 +192,7 @@ export function PublicProfilePage({
       </button>
 
       <section aria-label={`${profile.username}'s profile`} className="relative mt-3 min-w-0 border-b border-line pb-5 sm:pb-6">
-        <div className="flex min-w-0 items-start gap-4 sm:gap-6">
+        <div className="flex min-w-0 flex-col items-center gap-2 text-center sm:flex-row sm:items-start sm:gap-6 sm:text-left">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -202,8 +202,8 @@ export function PublicProfilePage({
             <Avatar name={profile.username} src={profile.avatarUrl} size="3xl" className="size-20 sm:size-28" />
           </motion.div>
 
-          <div className="min-w-0 flex-1">
-            <h1 className="flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 text-xl font-black tracking-tight text-ink sm:text-2xl">
+          <div className="w-full min-w-0 flex-1 sm:w-auto">
+            <h1 className="flex max-w-full flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-xl font-black tracking-tight text-ink sm:justify-start sm:text-2xl">
               <span className="truncate">@{profile.username}</span>
               <VerifiedBadge
                 isVerified={profile.isVerified}
@@ -213,16 +213,16 @@ export function PublicProfilePage({
                 role={profile.role}
               />
             </h1>
-            <div className="mt-2 flex flex-nowrap items-center gap-x-1.5 whitespace-nowrap">
-              <span className="inline-flex min-h-9 items-center gap-1 text-[10px] font-semibold text-ink-muted">
+            <div className="mt-1 flex flex-nowrap items-center justify-center gap-x-1.5 whitespace-nowrap sm:mt-2 sm:justify-start">
+              <span className="inline-flex min-h-7 items-center gap-1 text-[10px] font-semibold text-ink-muted sm:min-h-9">
                 <strong className="font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followingCount)}</strong>
                 <span className="text-[8px] font-extrabold uppercase tracking-tight">Following</span>
               </span>
-              <span className="inline-flex min-h-9 items-center gap-1 text-[10px] font-semibold text-ink-muted">
+              <span className="inline-flex min-h-7 items-center gap-1 text-[10px] font-semibold text-ink-muted sm:min-h-9">
                 <strong className="font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followerCount)}</strong>
                 <span className="text-[8px] font-extrabold uppercase tracking-tight">Followers</span>
               </span>
-              <span className="inline-flex min-h-9 items-center gap-1 text-[10px] font-semibold text-ink-muted">
+              <span className="inline-flex min-h-7 items-center gap-1 text-[10px] font-semibold text-ink-muted sm:min-h-9">
                 <strong className="font-black tabular-nums text-ink">{formatCompactNumber(likesReceived)}</strong>
                 <span className="text-[8px] font-extrabold uppercase tracking-tight">Likes</span>
               </span>
@@ -230,7 +230,7 @@ export function PublicProfilePage({
 
             {profile.fullName && <p className="mt-1 truncate text-xs font-bold text-ink-muted">{profile.fullName}</p>}
 
-            <div className="mt-3">
+            <div className="mt-1 flex justify-center sm:mt-3 sm:justify-start">
               {profile.schoolName ? (
                 <Link
                   to={profile.schoolId ? `/schools/${profile.schoolId}` : "/schools"}
@@ -250,7 +250,7 @@ export function PublicProfilePage({
               )}
             </div>
 
-            <div className="mt-4 flex w-full flex-wrap items-center gap-2">
+            <div className="mt-2 flex w-full flex-wrap items-center justify-center gap-2 sm:mt-4 sm:justify-start">
               {!profile.isSeed && profile.id !== user?.id && (
                 <FollowButton
                   following={followSummary.isFollowing}
@@ -281,7 +281,7 @@ export function PublicProfilePage({
               </Button>
             </div>
 
-            <p className="mt-3 max-w-xl whitespace-pre-wrap text-sm font-semibold leading-relaxed text-ink-soft">
+            <p className="mt-2 max-w-xl whitespace-pre-wrap text-sm font-semibold leading-relaxed text-ink-soft sm:mt-3">
               {profile.bio || "This student hasn't added a bio yet."}
             </p>
             {websiteHref && (

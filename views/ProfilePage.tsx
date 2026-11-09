@@ -261,7 +261,7 @@ export function ProfilePage() {
   return (
     <div className="mx-auto w-full max-w-[740px] min-w-0 px-4 pb-10 pt-5 sm:px-6 sm:pt-7 lg:px-5 xl:px-7">
       <section aria-label="Your profile" className="relative min-w-0 border-b border-line pb-5 sm:pb-6">
-        <div className="flex min-w-0 items-start gap-4 sm:gap-6">
+        <div className="flex min-w-0 flex-col items-center gap-2 text-center sm:flex-row sm:items-start sm:gap-6 sm:text-left">
           <Avatar
             name={profile.username}
             src={profile.avatarUrl}
@@ -269,7 +269,7 @@ export function ProfilePage() {
             className="size-20 sm:size-28"
             viewable
           />
-          <div className="min-w-0 flex-1">
+          <div className="w-full min-w-0 flex-1 sm:w-auto">
             <ProfileHeader
               username={profile.username}
               fullName={profile.fullName ?? null}
@@ -281,12 +281,12 @@ export function ProfilePage() {
               websiteHref={websiteHref}
               website={profile.website}
               stats={
-                <div className="flex flex-nowrap items-center gap-x-2 whitespace-nowrap">
+                <div className="flex flex-nowrap items-center justify-center gap-x-2 whitespace-nowrap sm:justify-start">
                   <button
                     type="button"
                     onClick={() => setFollowList("following")}
                     aria-label={`${formatCompactNumber(followSummary.followingCount)} following`}
-                    className="inline-flex min-h-9 items-center gap-1 rounded-lg text-[10px] font-semibold text-ink-muted transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+                    className="inline-flex min-h-7 items-center gap-1 rounded-lg text-[10px] font-semibold text-ink-muted transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:min-h-9"
                   >
                     <strong className="font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followingCount)}</strong>
                     <span className="text-[8px] font-extrabold uppercase tracking-tight">Following</span>
@@ -295,12 +295,12 @@ export function ProfilePage() {
                     type="button"
                     onClick={() => setFollowList("followers")}
                     aria-label={`${formatCompactNumber(followSummary.followerCount)} followers`}
-                    className="inline-flex min-h-9 items-center gap-1 rounded-lg text-[10px] font-semibold text-ink-muted transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+                    className="inline-flex min-h-7 items-center gap-1 rounded-lg text-[10px] font-semibold text-ink-muted transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:min-h-9"
                   >
                     <strong className="font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followerCount)}</strong>
                     <span className="text-[8px] font-extrabold uppercase tracking-tight">Followers</span>
                   </button>
-                  <span className="inline-flex min-h-9 items-center gap-1 text-[10px] font-semibold text-ink-muted">
+                  <span className="inline-flex min-h-7 items-center gap-1 text-[10px] font-semibold text-ink-muted sm:min-h-9">
                     <strong className="font-black tabular-nums text-ink">{formatCompactNumber(likesReceived)}</strong>
                     <span className="text-[8px] font-extrabold uppercase tracking-tight">Likes</span>
                   </span>
@@ -334,7 +334,7 @@ export function ProfilePage() {
               onSettings={() => setSettingsOpen(true)}
               onShoutouts={() => navigate("/shoutouts")}
             />
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:mt-3 sm:justify-start">
               {profile.classForm && (
                 <Badge className="border border-brand/40 bg-brand-wash px-2.5 py-0.5 text-[10px] text-brand-deep">
                   {profile.classForm}
