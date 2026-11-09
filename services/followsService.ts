@@ -7,6 +7,23 @@ export interface FollowProfile {
   username: string;
   avatarUrl: string | null;
   schoolName: string | null;
+  isVerified?: boolean;
+  verifiedTitle?: string | null;
+  verifiedExpiresAt?: string | null;
+  isAdmin?: boolean;
+  role?: string | null;
+}
+
+interface FollowProfileRow {
+  id: string;
+  username: string;
+  avatar_url: string | null;
+  is_verified?: boolean | null;
+  verified_title?: string | null;
+  verified_expires_at?: string | null;
+  is_admin?: boolean | null;
+  role?: string | null;
+  school: { name: string } | null;
 }
 
 let followsTableUnavailable = false;
@@ -37,11 +54,20 @@ export async function fetchFollowProfiles(
   const ids = (relations ?? []).map((item) => item[idColumn]);
   if (ids.length === 0) return [];
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("profiles")
-    .select("id, username, avatar_url, school:schools!school_id(name)")
+    .select("id, username, avatar_url, is_verified, verified_title, verified_expires_at, is_admin, role, school:schools!school_id(name)")
     .in("id", ids)
-    .returns<Array<{ id: string; username: string; avatar_url: string | null; school: { name: string } | null }>>();
+    .returns<FollowProfileRow[]>();
+  if (error && (error.code === "42703" || error.code === "PGRST204")) {
+    const fallback = await supabase
+      .from("profiles")
+      .select("id, username, avatar_url, school:schools!school_id(name)")
+      .in("id", ids)
+      .returns<FollowProfileRow[]>();
+    data = fallback.data;
+    error = fallback.error;
+  }
   if (error) throw new Error(error.message);
   const profilesById = new Map((data ?? []).map((profile) => [profile.id, profile]));
   return ids.flatMap((id) => {
@@ -52,6 +78,11 @@ export async function fetchFollowProfiles(
           username: profile.username,
           avatarUrl: profile.avatar_url,
           schoolName: profile.school ? shortNameOf(profile.school.name) : null,
+          isVerified: profile.is_verified ?? false,
+          verifiedTitle: profile.verified_title ?? null,
+          verifiedExpiresAt: profile.verified_expires_at ?? null,
+          isAdmin: profile.is_admin ?? false,
+          role: profile.role ?? null,
         }]
       : [];
   });

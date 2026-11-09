@@ -14,6 +14,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useToast } from "@/components/ui/Toast";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 
 interface SidebarItem {
   label: string;
@@ -157,7 +158,16 @@ export function SidebarNav() {
             >
               <Avatar name={profile.username} src={profile.avatarUrl} size="md" ring online />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-black text-ink">@{profile.username}</span>
+                <span className="flex min-w-0 items-center gap-1">
+                  <span className="truncate text-xs font-black text-ink">@{profile.username}</span>
+                  <VerifiedBadge
+                    isVerified={profile.isVerified}
+                    verifiedExpiresAt={profile.verifiedExpiresAt}
+                    verifiedTitle={profile.verifiedTitle}
+                    isAdmin={profile.isAdmin || isGlobalAdmin}
+                    role={profile.role}
+                  />
+                </span>
                 <span className="block truncate text-[10px] font-semibold text-ink-muted">
                   {mySchool?.shortName ?? "No SHS yet"}
                 </span>

@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { Pencil, Settings } from "lucide-react";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
+import { Button } from "@/components/ui/Button";
 
 interface ProfileHeaderProps {
   username: string;
@@ -66,14 +67,16 @@ export function ProfileHeader({
       <div className="mt-3 max-w-full">{schoolBadge}</div>
 
       <div className="mt-4 flex w-full flex-wrap items-center gap-2">
-        <button
+        <Button
           type="button"
           onClick={onEdit}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border-2 border-[#171717] bg-[#FACC15] px-4 text-xs font-extrabold text-[#171717] shadow-[0_3px_0_#171717] transition-[transform,background-color,box-shadow] hover:-translate-y-0.5 hover:bg-yellow-300 hover:shadow-[0_4px_0_#171717] active:translate-y-0.5 active:shadow-[0_1px_0_#171717] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          size="sm"
+          variant="primary"
+          className="bg-[#FFCC00] text-[#171717] hover:brightness-105"
+          leftIcon={<Pencil size={14} strokeWidth={2.6} aria-hidden />}
         >
-          <Pencil size={14} strokeWidth={2.6} aria-hidden />
           Edit Profile
-        </button>
+        </Button>
         <button
           type="button"
           onClick={onShoutouts}

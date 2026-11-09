@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link, useNavigate } from "@/lib/router";
-import { ArrowUpRight, BookOpen, Bookmark, BriefcaseBusiness, Camera, Check, ChevronDown, EyeOff, Heart, LayoutGrid, Loader2, Lock, LogIn, LogOut, Mailbox, MessageCircle, Monitor, Moon, Plus, ShieldCheck, Sparkles, Sun, Video, X } from "lucide-react";
+import { ArrowUpRight, BookOpen, Bookmark, BriefcaseBusiness, Check, ChevronDown, EyeOff, Heart, LayoutGrid, Loader2, Lock, LogIn, LogOut, Mailbox, MessageCircle, Monitor, Moon, Plus, ShieldCheck, Sparkles, Sun, Video, X } from "lucide-react";
 import { MascotCharacter } from "@/components/auth/MascotCharacter";
 import { GistCard } from "@/components/feed/GistCard";
 import { Avatar } from "@/components/ui/Avatar";
@@ -14,14 +14,8 @@ import { SchoolBadge } from "@/components/ui/SchoolBadge";
 import { useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme, type ThemeMode } from "@/context/ThemeContext";
-import {
-  COMPRESSION_PRESETS,
-  compressImageWithStats,
-  formatBytes,
-} from "@/lib/imageCompression";
 import { describeError } from "@/lib/supabase";
 import { isUserGlobalAdmin } from "@/lib/adminAccess";
-import { checkUsernameAvailable, isValidUsername, updateMyProfile, uploadMyAvatar } from "@/services/profilesService";
 import { fetchFeed, fetchLikedPosts } from "@/services/postsService";
 import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
@@ -39,7 +33,6 @@ import { formatCompactNumber } from "@/lib/utils";
 import { isVideoUrl } from "@/lib/video";
 
 type ProfileTab = "Gists" | "Videos" | "Liked" | "Saved" | "Brand Deals";
-type UsernameAvailability = "idle" | "checking" | "available" | "taken" | "invalid" | "error";
 const TABS: Array<{ id: ProfileTab; label: string; icon: typeof MessageCircle }> = [
   { id: "Gists", label: "Gists", icon: LayoutGrid },
   { id: "Videos", label: "Videos", icon: Video },
@@ -71,23 +64,7 @@ export function ProfilePage() {
   const [followList, setFollowList] = useState<"followers" | "following" | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [loadingPosts, setLoadingPosts] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [draftUsername, setDraftUsername] = useState("");
-  const [usernameAvailability, setUsernameAvailability] = useState<UsernameAvailability>("idle");
-  const [draftBio, setDraftBio] = useState("");
-  const [draftWebsite, setDraftWebsite] = useState("");
-  const [draftFullName, setDraftFullName] = useState("");
-  const [draftClassForm, setDraftClassForm] = useState("");
-  const [draftAvatar, setDraftAvatar] = useState<string | null>(null);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [saving, setSaving] = useState(false);
   const [openGuideline, setOpenGuideline] = useState<string | null>(null);
-  const avatarRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!draftAvatar?.startsWith("blob:")) return;
-    return () => URL.revokeObjectURL(draftAvatar);
-  }, [draftAvatar]);
 
   const mySchool = useMemo(() => schools.find((school) => school.id === profile?.schoolId) ?? null, [schools, profile?.schoolId]);
   const activeVerification = hasActiveVerification({
@@ -151,112 +128,6 @@ export function ProfilePage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [settingsOpen]);
-
-  useEffect(() => {
-    if (!editing || !profile) {
-      setUsernameAvailability("idle");
-      return;
-    }
-
-    const username = draftUsername;
-    if (username === profile.username) {
-      setUsernameAvailability("idle");
-      return;
-    }
-    if (!isValidUsername(username)) {
-      setUsernameAvailability("invalid");
-      return;
-    }
-
-    let active = true;
-    setUsernameAvailability("checking");
-    const timeoutId = window.setTimeout(() => {
-      void checkUsernameAvailable(username, user?.id)
-        .then((available) => {
-          if (active) setUsernameAvailability(available ? "available" : "taken");
-        })
-        .catch((error: unknown) => {
-          console.warn("Could not check username availability.", error);
-          if (active) setUsernameAvailability("error");
-        });
-    }, 350);
-
-    return () => {
-      active = false;
-      window.clearTimeout(timeoutId);
-    };
-  }, [draftUsername, editing, profile, user?.id]);
-
-  const openEditor = () => {
-    if (!profile) return;
-    setDraftUsername(profile.username);
-    setDraftBio(profile.bio);
-    setDraftWebsite(profile.website ?? "");
-    setDraftFullName(profile.fullName ?? "");
-    setDraftClassForm(profile.classForm ?? "");
-    setDraftAvatar(profile.avatarUrl);
-    setAvatarFile(null);
-    setEditing(true);
-  };
-
-  const pickAvatar = async (event: ChangeEvent<HTMLInputElement>) => {
-    const rawFile = event.target.files?.[0];
-    event.target.value = "";
-    if (!rawFile) return;
-
-    try {
-      const result = await compressImageWithStats(rawFile, COMPRESSION_PRESETS.avatars);
-      setAvatarFile(result.file);
-      setDraftAvatar(URL.createObjectURL(result.file));
-      toast(
-        `Photo compressed to ${formatBytes(result.compressedBytes)} — click Save profile!`,
-        "info"
-      );
-    } catch (error) {
-      toast(describeError(error, "Upload failed. Please check your file size and format."), "danger");
-    }
-  };
-
-  const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!isValidUsername(draftUsername)) {
-      toast("Usernames must be between 3 and 24 characters. Any characters are allowed.", "danger");
-      return;
-    }
-    setSaving(true);
-    try {
-      if (draftUsername !== profile?.username) {
-        const available = await checkUsernameAvailable(draftUsername, user?.id);
-        if (!available) {
-          toast("That nickname is already taken.", "danger");
-          setUsernameAvailability("taken");
-          return;
-        }
-      }
-      const avatarUrl = avatarFile ? await uploadMyAvatar(avatarFile) : undefined;
-      const updated = await updateMyProfile({
-        username: draftUsername,
-        bio: draftBio,
-        website: draftWebsite,
-        fullName: draftFullName,
-        classForm: draftClassForm,
-        ...(avatarUrl ? { avatarUrl } : {}),
-      });
-      setProfile(updated);
-      setDraftAvatar(updated.avatarUrl);
-      setEditing(false);
-      toast("Profile updated!", "success");
-      void loadActivity();
-    } catch (error) {
-      toast(describeError(error), "danger");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-
-
-
 
   if (authLoading || (user && !profile)) {
     return (
@@ -390,25 +261,14 @@ export function ProfilePage() {
   return (
     <div className="mx-auto w-full max-w-[740px] min-w-0 px-4 pb-10 pt-5 sm:px-6 sm:pt-7 lg:px-5 xl:px-7">
       <section aria-label="Your profile" className="relative min-w-0 border-b border-line pb-5 sm:pb-6">
-        <input ref={avatarRef} type="file" accept="image/*" onChange={pickAvatar} className="sr-only" aria-label="Upload avatar" />
         <div className="flex min-w-0 items-start gap-4 sm:gap-6">
           <div className="relative shrink-0 rounded-full border-4 border-card bg-card shadow-md">
             <Avatar
               name={profile.username}
-              src={editing ? draftAvatar : profile.avatarUrl}
+              src={profile.avatarUrl}
               size="3xl"
-              viewable={!editing}
+              viewable
             />
-            {editing && (
-              <button
-                type="button"
-                onClick={() => avatarRef.current?.click()}
-                aria-label="Upload new avatar"
-                className="absolute inset-0 flex items-center justify-center rounded-full bg-black/55 text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
-              >
-                <Camera size={22} strokeWidth={2.5} aria-hidden />
-              </button>
-            )}
           </div>
           <div className="min-w-0 flex-1">
             <ProfileHeader
@@ -470,8 +330,8 @@ export function ProfilePage() {
                   </button>
                 )
               }
-              bio={editing ? draftBio : profile.bio}
-              onEdit={openEditor}
+              bio={profile.bio}
+              onEdit={() => navigate("/profile/edit")}
               onSettings={() => setSettingsOpen(true)}
               onShoutouts={() => navigate("/shoutouts")}
             />
@@ -497,84 +357,18 @@ export function ProfilePage() {
               )}
             </>
           ) : (
-            <Link to="/get-verified" className="inline-flex items-center gap-1 text-[11px] font-extrabold text-brand-deep hover:underline">
-              <ShieldCheck size={14} aria-hidden /> Get verified
-            </Link>
+            <Button
+              type="button"
+              size="sm"
+              variant="primary"
+              className="bg-[#FFCC00] text-[#171717] hover:brightness-105"
+              leftIcon={<ShieldCheck size={14} strokeWidth={2.6} aria-hidden />}
+              onClick={() => navigate("/get-verified")}
+            >
+              Get Verified
+            </Button>
           )}
         </div>
-
-        <AnimatePresence initial={false}>
-          {editing && (
-            <motion.form onSubmit={saveProfile} initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={springs.gentle} className="overflow-hidden">
-              <div className="mt-4 space-y-3 rounded-2xl border-2 border-line bg-page p-3.5 sm:p-4">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-brand-deep">Edit student profile</p>
-                  <label className="block">
-                    <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Nickname</span>
-                    <input value={draftUsername} onChange={(event) => setDraftUsername(event.target.value)} className="h-10 w-full rounded-xl border-2 border-line bg-card px-3 text-xs font-extrabold text-ink outline-none focus:border-brand" />
-                    {usernameAvailability !== "idle" && (
-                      <span
-                        role="status"
-                        className={cn(
-                          "mt-1 block text-[11px] font-bold",
-                          usernameAvailability === "available" && "text-success",
-                          (usernameAvailability === "checking" || usernameAvailability === "error" || usernameAvailability === "invalid") && "text-ink-muted",
-                          usernameAvailability === "taken" && "text-danger"
-                        )}
-                      >
-                        {usernameAvailability === "checking" && "Checking username…"}
-                        {usernameAvailability === "available" && "Username is available."}
-                        {usernameAvailability === "taken" && "That nickname is already taken."}
-                        {usernameAvailability === "invalid" && "Use 3–24 characters. Any characters are allowed."}
-                        {usernameAvailability === "error" && "Couldn’t check username availability."}
-                      </span>
-                    )}
-                  </label>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <label className="block">
-                      <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Full official name (optional)</span>
-                      <input
-                        value={draftFullName}
-                        onChange={(event) => setDraftFullName(event.target.value.slice(0, 80))}
-                        maxLength={80}
-                        placeholder="e.g. Kwame Mensah"
-                        className="h-10 w-full rounded-xl border-2 border-line bg-card px-3 text-xs font-bold text-ink outline-none focus:border-brand"
-                      />
-                      <span className="mt-1 block text-[10px] font-semibold text-ink-muted">
-                        Full names are only used when sending shoutouts.
-                      </span>
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Class / Form (optional)</span>
-                      <input
-                        value={draftClassForm}
-                        onChange={(event) => setDraftClassForm(event.target.value.slice(0, 48))}
-                        maxLength={48}
-                        placeholder="e.g. Form 2 Science 1"
-                        className="h-10 w-full rounded-xl border-2 border-line bg-card px-3 text-xs font-bold text-ink outline-none focus:border-brand"
-                      />
-                    </label>
-                  </div>
-                  <p className="text-[10px] font-semibold leading-relaxed text-ink-muted">
-                    Used only for open inter-school Shoutout addressing. These fields are never requested during onboarding.
-                  </p>
-
-                  <label className="block">
-                    <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Campus bio</span>
-                    <textarea value={draftBio} onChange={(event) => setDraftBio(event.target.value.slice(0, 160))} maxLength={160} rows={2} className="w-full resize-none rounded-xl border-2 border-line bg-card p-2.5 text-xs font-semibold text-ink outline-none focus:border-brand" />
-                  </label>
-                  <label className="block">
-                    <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Website (optional)</span>
-                    <input type="text" inputMode="url" value={draftWebsite} onChange={(event) => setDraftWebsite(event.target.value.slice(0, 200))} maxLength={200} placeholder="https://example.com" className="h-10 w-full rounded-xl border-2 border-line bg-card px-3 text-xs font-semibold text-ink outline-none focus:border-brand" />
-                  </label>
-                  <div className="flex items-center gap-2 pt-1">
-                    <Button type="submit" size="sm" disabled={saving} leftIcon={saving ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Check size={14} strokeWidth={3} aria-hidden />}>Save profile</Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
-                    <button type="button" onClick={() => avatarRef.current?.click()} className="ml-auto text-xs font-extrabold text-brand-deep hover:underline">Upload photo</button>
-                  </div>
-                </div>
-              </motion.form>
-            )}
-        </AnimatePresence>
 
       </section>
 

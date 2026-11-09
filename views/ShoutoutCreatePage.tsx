@@ -36,6 +36,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { SchoolBadge } from "@/components/ui/SchoolBadge";
 import { useToast } from "@/components/ui/Toast";
+import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { useAuth } from "@/context/AuthContext";
 import { describeError } from "@/lib/supabase";
 import {
@@ -434,7 +435,16 @@ export function ShoutoutCreatePage() {
                             <Avatar name={student.username} src={student.avatarUrl} size="sm" />
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-xs font-extrabold text-ink">{student.fullName || student.username}</span>
-                              <span className="block truncate text-[10px] font-semibold text-ink-muted">@{student.username}{student.classForm ? ` · ${student.classForm}` : ""}</span>
+                              <span className="flex min-w-0 items-center gap-1 text-[10px] font-semibold text-ink-muted">
+                                <span className="truncate">@{student.username}{student.classForm ? ` · ${student.classForm}` : ""}</span>
+                                <VerifiedBadge
+                                  isVerified={student.isVerified}
+                                  verifiedExpiresAt={student.verifiedExpiresAt}
+                                  verifiedTitle={student.verifiedTitle}
+                                  isAdmin={student.isAdmin}
+                                  role={student.role}
+                                />
+                              </span>
                             </span>
                             <Check size={15} className="text-brand-deep" aria-hidden />
                           </button>

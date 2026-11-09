@@ -7,6 +7,7 @@ import { describeError } from "@/lib/supabase";
 import { fetchFollowProfiles, type FollowProfile } from "@/services/followsService";
 import { Avatar } from "@/components/ui/Avatar";
 import { useToast } from "@/components/ui/Toast";
+import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 
 interface FollowListModalProps {
   profileId: string;
@@ -85,7 +86,16 @@ export function FollowListModal({ profileId, relation, onClose }: FollowListModa
                 >
                   <Avatar name={profile.username} src={profile.avatarUrl} size="md" />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-extrabold text-ink">@{profile.username}</span>
+                    <span className="flex min-w-0 items-center gap-1">
+                      <span className="truncate text-sm font-extrabold text-ink">@{profile.username}</span>
+                      <VerifiedBadge
+                        isVerified={profile.isVerified}
+                        verifiedExpiresAt={profile.verifiedExpiresAt}
+                        verifiedTitle={profile.verifiedTitle}
+                        isAdmin={profile.isAdmin}
+                        role={profile.role}
+                      />
+                    </span>
                     <span className="block truncate text-xs font-semibold text-ink-muted">{profile.schoolName ?? "Student"}</span>
                   </span>
                 </Link>

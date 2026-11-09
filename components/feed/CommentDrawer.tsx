@@ -292,6 +292,13 @@ export function CommentDrawer() {
                       <Link to={`/profile/${activePost.authorId}`} onClick={closeComments} className="truncate text-xs font-extrabold text-ink hover:text-brand-deep hover:underline">
                         @{activePost.authorName}
                       </Link>
+                      <VerifiedBadge
+                        isVerified={activePost.authorIsVerified}
+                        verifiedExpiresAt={activePost.authorVerifiedExpiresAt}
+                        verifiedTitle={activePost.authorVerifiedTitle}
+                        isAdmin={activePost.authorIsAdmin}
+                        role={activePost.authorRole}
+                      />
                       <SchoolTag schoolId={activePost.schoolId} crestUrl={activePost.schoolCrest} name={activePost.schoolShort} size="xs" nameClassName="text-[10px] font-bold text-ink-muted" />
                     </div>
                     <p className="truncate text-[11px] font-semibold text-ink-muted">{activePost.content}</p>
