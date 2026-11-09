@@ -43,6 +43,12 @@ export function describeError(error: unknown, fallback = "Couldn't complete that
   if (!message) return fallback;
 
   const normalized = message.toLowerCase();
+  if (
+    (typeof navigator !== "undefined" && navigator.onLine === false) ||
+    /internet disconnected|failed to fetch|networkerror|fetch failed|network request failed|load failed|err_(?:network|connection|internet)|connection (?:was )?(?:lost|reset|refused|aborted)/.test(normalized)
+  ) {
+    return "Internet disconnected. You are offline.";
+  }
   if (/invalid login credentials|invalid email or password/.test(normalized)) {
     return "That email or password doesn't look right. Please try again.";
   }

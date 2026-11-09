@@ -37,6 +37,7 @@ interface ToastContextValue {
 
 interface ToastState extends ToastContextValue {
   current: ToastItem | null;
+  offline: boolean;
 }
 
 const ToastContext = createContext<ToastState | null>(null);
@@ -52,6 +53,7 @@ const toneConfig: Record<ToastTone, { icon: LucideIcon; className: string }> = {
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [current, setCurrent] = useState<ToastItem | null>(null);
+  const [offline, setOffline] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const counter = useRef(0);
 
@@ -69,7 +71,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const value = useMemo(() => ({ toast, current }), [toast, current]);
+  useEffect(() => {
+    const updateConnection = () => setOffline(!navigator.onLine);
+    updateConnection();
+    window.addEventListener("offline", updateConnection);
+    window.addEventListener("online", updateConnection);
+    return () => {
+      window.removeEventListener("offline", updateConnection);
+      window.removeEventListener("online", updateConnection);
+    };
+  }, []);
+
+  const value = useMemo(() => ({ toast, current, offline }), [toast, current, offline]);
 
   return <ToastContext.Provider value={value}>{children}</ToastContext.Provider>;
 }
@@ -87,16 +100,24 @@ export function useToast(): ToastContextValue {
 export function ToastViewport() {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error("ToastViewport must be used inside <ToastProvider>.");
-  const { current } = ctx;
+  const { current, offline } = ctx;
 
   if (typeof document === "undefined") return null;
 
   return createPortal(
     <div
-      className="pointer-events-none fixed inset-x-4 bottom-24 z-[70] flex justify-center md:bottom-6"
-      role="status"
-      aria-live="polite"
+      className="pointer-events-none fixed inset-x-4 top-[max(0.75rem,env(safe-area-inset-top))] z-[70] flex flex-col items-center gap-2 md:top-4"
     >
+      {offline && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex max-w-full items-center gap-2.5 rounded-2xl bg-danger-wash px-4 py-3 text-danger-deep shadow-lg dark:bg-danger/20 dark:text-danger"
+        >
+          <ShieldAlert size={18} strokeWidth={2.5} aria-hidden />
+          <span className="text-sm font-bold">Internet disconnected. You are offline.</span>
+        </div>
+      )}
       <AnimatePresence mode="wait">
         {current && (
           <motion.div
@@ -105,8 +126,10 @@ export function ToastViewport() {
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 14, opacity: 0, scale: 0.95 }}
             transition={springs.bouncy}
-            className="flex max-w-full items-center gap-2.5 rounded-2xl px-4 py-3"
+            className="fixed inset-x-4 bottom-24 mx-auto flex max-w-fit items-center gap-2.5 rounded-2xl px-4 py-3 md:bottom-6"
             style={{ boxShadow: shadows.toast, backgroundColor: "var(--toast-bg)", color: "var(--toast-fg)" }}
+            role="status"
+            aria-live="polite"
           >
             {(() => {
               const { icon: Icon, className } = toneConfig[current.tone];

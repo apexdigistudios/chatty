@@ -19,13 +19,13 @@ export default async function PublicProfileRoute({ params }: RouteProps) {
   ]);
   if (profileResult.status === "rejected") console.error("Could not preload public profile data.", profileResult.reason);
   if (postsResult.status === "rejected") console.error("Could not preload public profile gists.", postsResult.reason);
-  const initialProfile: PublicProfile | null = profileResult.status === "fulfilled" ? profileResult.value : null;
+  const initialProfile: PublicProfile | null | undefined =
+    profileResult.status === "fulfilled" ? profileResult.value : undefined;
   const initialPosts: Post[] | null = postsResult.status === "fulfilled" ? postsResult.value : null;
-  const initialError = profileResult.status === "rejected"
-    ? "This public profile could not be loaded right now."
-    : !initialProfile
+  const initialError =
+    profileResult.status === "fulfilled" && !initialProfile
       ? "This student profile does not exist."
-      : postsResult.status === "rejected"
+      : profileResult.status === "fulfilled" && postsResult.status === "rejected"
         ? "Public gists could not be loaded right now."
         : null;
 

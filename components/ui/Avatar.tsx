@@ -23,12 +23,12 @@ export interface AvatarProps {
 }
 
 const sizeClasses: Record<AvatarSize, string> = {
-  sm: "size-8",
-  md: "size-10",
-  lg: "size-12",
-  xl: "size-16",
-  "2xl": "size-24",
-  "3xl": "size-28",
+  sm: "w-8 h-8",
+  md: "w-10 h-10",
+  lg: "w-12 h-12",
+  xl: "w-16 h-16",
+  "2xl": "w-24 h-24",
+  "3xl": "w-28 h-28",
 };
 
 const dotClasses: Record<AvatarSize, string> = {
@@ -75,7 +75,7 @@ export function Avatar({
   };
 
   return (
-    <span className={cn("relative inline-flex shrink-0", className)}>
+    <span className="relative inline-flex aspect-square shrink-0">
       <span
         role={viewable ? "button" : undefined}
         tabIndex={viewable ? 0 : undefined}
@@ -88,8 +88,8 @@ export function Avatar({
         }}
         onKeyDown={handleKeyDown}
         className={cn(
-          "relative flex items-center justify-center overflow-hidden rounded-full",
-          sizeClasses[size],
+          "relative flex aspect-square shrink-0 items-center justify-center overflow-hidden rounded-full",
+          className ?? sizeClasses[size],
           ring && "ring-2 ring-brand",
           viewable && "cursor-zoom-in focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
         )}
@@ -100,7 +100,7 @@ export function Avatar({
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
-          className="relative aspect-square size-full rounded-full object-cover"
+          className="relative aspect-square h-full w-full shrink-0 rounded-full object-cover"
         />
       </span>
 
