@@ -13,6 +13,7 @@ import { fetchBlockedUserIds } from "@/services/blocksService";
 import { isVideoFile, uploadPostMedia } from "@/services/storageService";
 import { hasActiveVerification } from "@/lib/verification";
 import { isVideoUrl } from "@/lib/video";
+import { trackEvent } from "@/lib/mixpanel";
 
 const AUTHOR_SELECT = "author:profiles(id, username, avatar_url, school_id)";
 const AUTHOR_IDENTITY_SELECT = "author:profiles(id, username, full_name, avatar_url, school_id)";
@@ -902,6 +903,11 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
   if (!result || typeof result !== "object" || !("id" in result) || typeof result.id !== "string") {
     throw new Error("The post service returned an invalid response.");
   }
+  trackEvent("Post Created", {
+    post_type: "public",
+    has_media: files.length > 0,
+    school_id: input.schoolId,
+  });
   const post = await fetchPost(result.id);
   if (!post) throw new Error("The gist was created, but its details could not be loaded.");
   if (media.length === 0) return post;
@@ -937,6 +943,7 @@ export async function toggleLike(postId: string): Promise<boolean> {
   }
   const { error } = await supabase.from("likes").insert({ post_id: postId, user_id: userId });
   if (error && error.code !== "23505") throw new Error(error.message);
+  trackEvent("Post Liked", { post_id: postId });
   return true;
 }
 

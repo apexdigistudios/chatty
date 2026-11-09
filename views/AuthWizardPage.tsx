@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link, useLocation, useNavigate, useSearchParams } from "@/lib/router";
 import {
@@ -31,6 +31,7 @@ import {
   updateMyProfile,
 } from "@/services/profilesService";
 import { useGistStore } from "@/store/gistStore";
+import { trackEvent } from "@/lib/mixpanel";
 import { springs } from "@/theme/tokens";
 import { cn } from "@/utils/cn";
 import { findOrCreateSchool, normalizeSchoolName } from "@/lib/services/school-resolver";
@@ -148,6 +149,7 @@ function AuthWizardContent() {
   const [emailConfirmPending, setEmailConfirmPending] = useState(false);
   const [oauthOnboarding, setOauthOnboarding] = useState(initialStep === 2);
   const [reaction, setReaction] = useState<MascotReaction>("idle");
+  const onboardingStarted = useRef(false);
 
   const selectedSchool = useMemo(
     () => schools.find((school) => school.id === selectedSchoolId) ?? null,
@@ -190,6 +192,12 @@ function AuthWizardContent() {
   useEffect(() => {
     if (schools.length === 0) void loadSchools();
   }, [schools.length, loadSchools]);
+
+  useEffect(() => {
+    if (mode !== "signup" || onboardingStarted.current) return;
+    trackEvent("Onboarding Started", { step });
+    onboardingStarted.current = true;
+  }, [mode, step]);
 
   useEffect(() => {
     const paramMode = searchParams.get("mode");
@@ -420,6 +428,7 @@ function AuthWizardContent() {
         });
         setProfile(updatedProfile);
         await refreshProfile();
+        trackEvent("Onboarding Completed", { school_id: selectedSchoolId });
         toast("Welcome to Gist me!", "success");
         setOauthOnboarding(false);
         navigate(returnTo, { replace: true });
@@ -433,6 +442,7 @@ function AuthWizardContent() {
         schoolId: selectedSchoolId,
       });
       if (result.profile) setProfile(result.profile);
+      trackEvent("Onboarding Completed", { school_id: selectedSchoolId });
       if (result.hasSession) {
         await refreshProfile();
         toast("Welcome to Gist me!", "success");
@@ -461,6 +471,7 @@ function AuthWizardContent() {
     }
     setErrorMessage(null);
     setHasAttemptedSubmit(false);
+    trackEvent("Onboarding Step Completed", { step: 1 });
     setStep(2);
   };
 
@@ -479,6 +490,7 @@ function AuthWizardContent() {
     }
     setErrorMessage(null);
     setHasAttemptedSubmit(false);
+    trackEvent("Onboarding Step Completed", { step: 2 });
     setStep(3);
     setReaction("valid");
   };
@@ -813,6 +825,10 @@ function AuthWizardContent() {
                                 onClick={() => {
                                   setSelectedSchoolId(result.school.id);
                                   setSchoolQuery(result.school.name);
+                                  trackEvent("Custom School Added", {
+                                    school_id: result.school.id,
+                                    school_name: result.school.name,
+                                  });
                                   setLiveSchoolResults([]);
                                   setSchoolSearchState("idle");
                                   setSchoolSearchError(null);

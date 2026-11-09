@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
@@ -19,6 +19,7 @@ import { ToastProvider, ToastViewport } from "@/components/ui/Toast";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { identifyUser, resetUser } from "@/lib/mixpanel";
 import { useGistStore } from "@/store/gistStore";
 import { SPOTLIGHT_SCROLL_DIRECTION_EVENT, useScrollDirection } from "@/hooks/useScrollDirection";
 
@@ -42,9 +43,37 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
   const loadSchools = useGistStore((state) => state.loadSchools);
   const feedHasLoaded = useGistStore((state) => state.feedHasLoaded);
   const schoolsHasLoaded = useGistStore((state) => state.schoolsHasLoaded);
+  const schools = useGistStore((state) => state.schools);
+  const analyticsUserId = useRef<string | null>(null);
+  const analyticsIdentity = useRef<string | null>(null);
   const needsOnboarding = Boolean(
     user && !loading && (!profile?.username?.trim() || !profile.schoolId)
   );
+
+  useEffect(() => {
+    if (!user) {
+      if (analyticsUserId.current) {
+        resetUser();
+        analyticsUserId.current = null;
+        analyticsIdentity.current = null;
+      }
+      return;
+    }
+    if (!profile) return;
+    const schoolName = schools.find((school) => school.id === profile.schoolId)?.name ?? null;
+    const traits = {
+      $name: profile.fullName?.trim() || profile.username,
+      school_name: schoolName,
+      is_verified: profile.isVerified ?? false,
+    };
+    const identity = JSON.stringify([user.id, traits]);
+    if (analyticsIdentity.current === identity) return;
+    identifyUser(user.id, {
+      ...traits,
+    });
+    analyticsUserId.current = user.id;
+    analyticsIdentity.current = identity;
+  }, [profile, schools, user]);
 
   useEffect(() => {
     if (!isSupabaseConfigured || schoolsHasLoaded) return;

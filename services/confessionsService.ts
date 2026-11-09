@@ -7,6 +7,7 @@ import {
   type ModerationStatus,
   type ReactionKind,
 } from "@/types/models";
+import { trackEvent } from "@/lib/mixpanel";
 
 interface RawPublicConfession {
   id: string;
@@ -222,6 +223,10 @@ export async function submitConfession(input: SubmitConfessionInput): Promise<Co
     .single<RawPublicConfession>();
   if (error) throw new Error(error.message);
   const [confession] = await attachReactions([data]);
+  trackEvent("Confession Submitted", {
+    category: input.category,
+    school_id: schoolId,
+  });
   return confession!;
 }
 
@@ -240,6 +245,11 @@ export async function toggleReaction(
       .eq("confession_id", confessionId)
       .eq("user_id", userId);
     if (error) throw new Error(error.message);
+    trackEvent("Confession Reacted", {
+      confession_id: confessionId,
+      reaction: kind,
+      action: "removed",
+    });
     return null;
   }
   const { error } = await supabase
@@ -255,5 +265,10 @@ export async function toggleReaction(
     }
     throw new Error(error.message);
   }
+  trackEvent("Confession Reacted", {
+    confession_id: confessionId,
+    reaction: kind,
+    action: "added",
+  });
   return kind;
 }
