@@ -195,6 +195,18 @@ export async function fetchOutbox(): Promise<Shoutout[]> {
   return mapShoutouts(data ?? []);
 }
 
+export async function fetchSentShoutoutCount(userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("shoutouts")
+    .select("id", { count: "exact", head: true })
+    .eq("sender_id", userId);
+  if (error) {
+    if (error.code === "PGRST205" || error.code === "42P01") return 0;
+    throw new Error(error.message);
+  }
+  return count ?? 0;
+}
+
 /** Moves a letter forward one delivery stage and persists timestamps in Supabase. */
 export async function advanceShoutoutDelivery(id: string, current: ShoutoutStatus): Promise<ShoutoutStatus> {
   const next: ShoutoutStatus = current === "in_transit" ? "arrived" : "delivered";

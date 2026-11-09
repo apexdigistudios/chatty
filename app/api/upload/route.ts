@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { deleteFromR2, uploadToR2 } from "@/lib/r2";
+import { moderateUploadedMedia } from "@/lib/moderation";
 import type { R2UploadFolder } from "@/lib/r2Upload";
 
 export const runtime = "nodejs";
@@ -88,9 +89,20 @@ export async function POST(request: Request): Promise<Response> {
 
     const name = file.name.split(/[\\/]/).pop()?.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-100);
     if (!name) return errorResponse("The file name is invalid.", 400);
+    const moderationText = formData.get("moderationText");
+    if (moderationText !== null && typeof moderationText !== "string") {
+      return errorResponse("The caption is invalid.", 400);
+    }
+    await moderateUploadedMedia(file, auth.user.id, moderationText ?? "");
     const url = await uploadToR2(file, `${auth.user.id}/${folder}/${name}`, contentType, folder);
     return Response.json({ url });
   } catch (error) {
+    if (error instanceof Error && error.name === "CommunitySafetyViolationError") {
+      return errorResponse(error.message, 422);
+    }
+    if (error instanceof Error && error.name === "ModerationUnavailableError") {
+      return errorResponse(error.message, 503);
+    }
     console.error("R2 upload failed.", error);
     return errorResponse("Upload failed. Please try again.", 500);
   }

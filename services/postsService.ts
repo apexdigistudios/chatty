@@ -798,6 +798,16 @@ export interface CreatePostInput {
   videoDurations?: Array<number | null>;
 }
 
+export async function fetchPostCount(userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("posts")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("post_type", "public");
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
 export async function createPost(input: CreatePostInput): Promise<Post> {
   const userId = await requireUserId();
   if (!input.schoolId) {
@@ -838,64 +848,40 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
     throw new Error("Multiple attachments need the profile_explore_and_post_media.sql migration.");
   }
   const media = await Promise.all(files.map((file) => uploadPostMedia(file)));
-  const firstMedia = media[0] ?? null;
-  const [supportsGroups, supportsVideo, supportsVideoDuration] = await Promise.all([
-    supportsSchoolGroups(),
-    supportsColumn("posts", "media_type"),
-    supportsColumn("posts", "video_duration_seconds"),
-  ]);
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw new Error(sessionError.message);
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) throw new Error("Please sign in to continue.");
 
-  const payload: Record<string, unknown> = {
-    user_id: userId,
-    school_id: input.schoolId,
-    content,
-    media_url: firstMedia?.url ?? null,
-    post_type: "public",
-    status: "active",
-    ...(supportsGroups && input.groupId ? { group_id: input.groupId } : {}),
-  };
-  if (firstMedia && supportsVideo) {
-    payload.media_type = firstMedia.mediaType;
-    if (firstMedia.mediaType === "video" && supportsVideoDuration) {
-      const duration = input.videoDurations?.[0];
-      payload.video_duration_seconds = duration != null && Number.isFinite(duration)
-        ? Math.max(0, Math.round(duration))
-        : null;
-    }
+  const response = await fetch("/api/posts", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      content,
+      schoolId: input.schoolId,
+      groupId: input.groupId ?? null,
+      media: media.map((item, index) => ({
+        url: item.url,
+        mediaType: item.mediaType,
+        duration: input.videoDurations?.[index] ?? null,
+      })),
+    }),
+  });
+  const result: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const message = result && typeof result === "object" && "error" in result &&
+      typeof result.error === "string"
+      ? result.error
+      : "We couldn't publish your gist. Please try again.";
+    throw new Error(message);
   }
-
-  const select = await selectForGroups();
-  const { data, error } = await supabase.from("posts").insert(payload).select(select).single<RawPost>();
-  if (error) throw new Error(error.message);
-  if (media.length > 0 && (await supportsPostMedia())) {
-    const [postMediaType, postMediaDuration] = await Promise.all([
-      supportsColumn("post_media", "media_type"),
-      supportsColumn("post_media", "video_duration_seconds"),
-    ]);
-    const { error: mediaError } = await supabase.from("post_media").insert(
-      media.map((item, index) => ({
-        post_id: data.id,
-        media_url: item.url,
-        ...(postMediaType ? { media_type: item.mediaType } : {}),
-        ...(postMediaDuration
-          ? {
-              video_duration_seconds: item.mediaType === "video"
-                ? (input.videoDurations?.[index] != null && Number.isFinite(input.videoDurations[index])
-                  ? Math.max(0, Math.round(input.videoDurations[index]!))
-                  : null)
-                : null,
-            }
-          : {}),
-        sort_order: index,
-      }))
-    );
-    if (mediaError) {
-      const { error: rollbackError } = await supabase.from("posts").delete().eq("id", data.id);
-      if (rollbackError) console.error("Could not remove a partially-created gist.", rollbackError);
-      throw new Error(mediaError.message);
-    }
+  if (!result || typeof result !== "object" || !("id" in result) || typeof result.id !== "string") {
+    throw new Error("The post service returned an invalid response.");
   }
-  const [post] = await hydrateLikes([data]);
+  const post = await fetchPost(result.id);
   if (!post) throw new Error("The gist was created, but its details could not be loaded.");
   if (media.length === 0) return post;
   return {

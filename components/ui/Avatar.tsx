@@ -1,6 +1,9 @@
 'use client';
 
-import { motion } from "framer-motion";
+import { useEffect, useState, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { X } from "lucide-react";
 import { defaultAvatarUrl } from "@/lib/media";
 import { cn } from "@/utils/cn";
 import { SafeImage } from "@/components/common/SafeImage";
@@ -15,6 +18,7 @@ export interface AvatarProps {
   size?: AvatarSize;
   online?: boolean;
   ring?: boolean;
+  viewable?: boolean;
   className?: string;
 }
 
@@ -37,16 +41,57 @@ const dotClasses: Record<AvatarSize, string> = {
 };
 
 /** Circular student avatar: uploaded photo, else the DiceBear illustration stored at signup. */
-export function Avatar({ name, src, size = "md", online = false, ring = false, className }: AvatarProps) {
+export function Avatar({
+  name,
+  src,
+  size = "md",
+  online = false,
+  ring = false,
+  viewable = true,
+  className,
+}: AvatarProps) {
   const primary = src || defaultAvatarUrl(name);
+  const [viewerOpen, setViewerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!viewerOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setViewerOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [viewerOpen]);
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLSpanElement>) => {
+    if (!viewable || (event.key !== "Enter" && event.key !== " ")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setViewerOpen(true);
+  };
 
   return (
     <span className={cn("relative inline-flex shrink-0", className)}>
       <span
+        role={viewable ? "button" : undefined}
+        tabIndex={viewable ? 0 : undefined}
+        aria-label={viewable ? `View ${name}'s profile photo` : undefined}
+        onClick={(event) => {
+          if (!viewable) return;
+          event.preventDefault();
+          event.stopPropagation();
+          setViewerOpen(true);
+        }}
+        onKeyDown={handleKeyDown}
         className={cn(
           "relative flex items-center justify-center overflow-hidden rounded-full",
           sizeClasses[size],
-          ring && "ring-2 ring-brand"
+          ring && "ring-2 ring-brand",
+          viewable && "cursor-zoom-in focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
         )}
       >
         <SafeImage
@@ -71,6 +116,48 @@ export function Avatar({ name, src, size = "md", online = false, ring = false, c
             aria-hidden
           />
         </span>
+      )}
+      {viewable && typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {viewerOpen && (
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${name}'s profile photo`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4"
+              onClick={() => setViewerOpen(false)}
+            >
+              <button
+                type="button"
+                aria-label="Close photo"
+                onClick={() => setViewerOpen(false)}
+                className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] flex size-12 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/60"
+              >
+                <X size={24} aria-hidden />
+              </button>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.94 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.18 }}
+                className="flex max-h-[88dvh] max-w-[94vw] items-center justify-center"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <SafeImage
+                  src={primary}
+                  alt={name}
+                  decoding="async"
+                  className="max-h-[88dvh] max-w-[94vw] rounded-lg object-contain"
+                  style={{ visibility: "visible" }}
+                />
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
       )}
     </span>
   );

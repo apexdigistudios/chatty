@@ -6,7 +6,8 @@ export async function uploadFileToR2(
   file: File,
   folder: R2UploadFolder,
   contentType = file.type,
-  resourceId?: string
+  resourceId?: string,
+  moderationText?: string
 ): Promise<string> {
   const { data, error } = await supabase.auth.getSession();
   if (error) throw new Error(error.message);
@@ -18,6 +19,7 @@ export async function uploadFileToR2(
   formData.set("folder", folder);
   formData.set("contentType", contentType);
   if (resourceId) formData.set("resourceId", resourceId);
+  if (moderationText) formData.set("moderationText", moderationText);
 
   const response = await fetch("/api/upload", {
     method: "POST",

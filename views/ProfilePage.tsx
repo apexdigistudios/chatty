@@ -22,7 +22,7 @@ import {
 import { describeError } from "@/lib/supabase";
 import { isUserGlobalAdmin } from "@/lib/adminAccess";
 import { checkUsernameAvailable, isValidUsername, updateMyProfile, uploadMyAvatar } from "@/services/profilesService";
-import { fetchFeed, fetchLikedPosts } from "@/services/postsService";
+import { fetchFeed, fetchLikedPosts, fetchPostCount } from "@/services/postsService";
 import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
 import type { Post } from "@/types/models";
@@ -32,6 +32,7 @@ import { SafeImage } from "@/components/common/SafeImage";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { FollowListModal } from "@/components/profile/FollowListModal";
 import { fetchFollowSummary, type FollowSummary } from "@/services/followsService";
+import { fetchSentShoutoutCount } from "@/services/shoutoutsService";
 import { fetchPostsByIds } from "@/services/postsService";
 import { readSavedPostIds, subscribeToSavedPosts } from "@/lib/savedPosts";
 import { hasActiveVerification, isGlobalAdminProfile } from "@/lib/verification";
@@ -48,6 +49,15 @@ const TABS: Array<{ id: ProfileTab; label: string; icon: typeof MessageCircle }>
   { id: "Saved", label: "Saved gists", icon: Bookmark },
   { id: "Brand Deals", label: "Brand deals", icon: BriefcaseBusiness },
 ];
+
+function ProfileStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[#171717] bg-card p-3 text-center text-[#171717]">
+      <span className="block text-lg font-black tabular-nums">{value}</span>
+      <span className="text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">{label}</span>
+    </div>
+  );
+}
 
 const GUIDELINES = [
   { id: "community", title: "SHS Community Guidelines", subtitle: "Healthy inter-school banter, zero bullying", icon: BookOpen, points: ["Friendly NSMQ, inter-co and dining hall banter is welcome — personal attacks are removed by your school's moderators.", "Never post private phone numbers, dormitory details or exam leaks.", "Respect students from every region, school and form."] },
@@ -66,9 +76,11 @@ export function ProfilePage() {
 
   const [tab, setTab] = useState<ProfileTab>("Gists");
   const [myPosts, setMyPosts] = useState<Post[]>([]);
+  const [postCount, setPostCount] = useState(0);
   const [liked, setLiked] = useState<Post[]>([]);
   const [saved, setSaved] = useState<Post[]>([]);
   const [followSummary, setFollowSummary] = useState<FollowSummary>({ followerCount: 0, followingCount: 0, isFollowing: false });
+  const [shoutoutCount, setShoutoutCount] = useState(0);
   const [followList, setFollowList] = useState<"followers" | "following" | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [loadingPosts, setLoadingPosts] = useState(true);
@@ -82,7 +94,7 @@ export function ProfilePage() {
   const [draftAvatar, setDraftAvatar] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
-  const [openGuideline, setOpenGuideline] = useState<string | null>("community");
+  const [openGuideline, setOpenGuideline] = useState<string | null>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -112,14 +124,18 @@ export function ProfilePage() {
     if (!user) return;
     setLoadingPosts(true);
     try {
-      const [posts, likes, follows] = await Promise.all([
+      const [posts, likes, follows, shoutouts, postsCount] = await Promise.all([
         fetchFeed({ authorId: user.id, includeModerated: true, limit: 30 }),
         fetchLikedPosts(),
         fetchFollowSummary(user.id, user.id),
+        fetchSentShoutoutCount(user.id),
+        fetchPostCount(user.id),
       ]);
       setMyPosts(posts);
+      setPostCount(postsCount);
       setLiked(likes);
       setFollowSummary(follows);
+      setShoutoutCount(shoutouts);
     } catch (error) {
       toast(describeError(error), "danger");
     } finally {
@@ -395,47 +411,30 @@ export function ProfilePage() {
 
   return (
     <div className="mx-auto w-full max-w-[740px] min-w-0 px-4 pb-10 pt-5 sm:px-6 sm:pt-7 lg:px-5 xl:px-7">
-      <Card className="relative overflow-hidden rounded-3xl">
+      <Card className="relative overflow-hidden rounded-3xl border-2 border-[#171717] shadow-[0_4px_0_#171717]">
         <CardBody className="px-4 pb-6 pt-5 sm:px-6 sm:pt-6">
           <input ref={avatarRef} type="file" accept="image/*" onChange={pickAvatar} className="sr-only" aria-label="Upload avatar" />
           <div className="flex min-w-0 items-center gap-4 sm:gap-8">
-            <button
-              type="button"
-              onClick={() => editing && avatarRef.current?.click()}
-              aria-label={editing ? "Upload new avatar" : "Profile avatar"}
-              className="relative shrink-0 rounded-full border-4 border-white shadow-md focus-visible:outline-4 focus-visible:outline-violet-300"
-            >
-              <Avatar name={profile.username} src={editing ? draftAvatar : profile.avatarUrl} size="3xl" online />
+            <div className="relative shrink-0 rounded-full border-4 border-white shadow-md">
+              <Avatar
+                name={profile.username}
+                src={editing ? draftAvatar : profile.avatarUrl}
+                size="3xl"
+                online
+                viewable={!editing}
+              />
               {editing && (
-                <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/55 text-white">
+                <button
+                  type="button"
+                  onClick={() => avatarRef.current?.click()}
+                  aria-label="Upload new avatar"
+                  className="absolute inset-0 flex items-center justify-center rounded-full bg-black/55 text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+                >
                   <Camera size={22} strokeWidth={2.5} aria-hidden />
-                </span>
+                </button>
               )}
-            </button>
-            <div className="grid min-w-0 flex-1 grid-cols-3 divide-x divide-line text-center">
-              <div className="px-1 sm:px-3">
-                <p className="text-lg font-black tabular-nums text-ink sm:text-xl">{myPosts.length}</p>
-                <p className="text-[9px] font-extrabold uppercase tracking-wide text-ink-muted sm:text-[10px]">Posts</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFollowList("followers")}
-                aria-label={`${formatCompactNumber(followSummary.followerCount)} followers`}
-                className="rounded-lg px-1 text-ink transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:px-3"
-              >
-                <p className="text-lg font-black tabular-nums text-ink sm:text-xl">{formatCompactNumber(followSummary.followerCount)}</p>
-                <p className="text-[9px] font-extrabold uppercase tracking-wide text-ink-muted sm:text-[10px]">Followers</p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setFollowList("following")}
-                aria-label={`${formatCompactNumber(followSummary.followingCount)} following`}
-                className="rounded-lg px-1 text-ink transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:px-3"
-              >
-                <p className="text-lg font-black tabular-nums text-ink sm:text-xl">{formatCompactNumber(followSummary.followingCount)}</p>
-                <p className="text-[9px] font-extrabold uppercase tracking-wide text-ink-muted sm:text-[10px]">Following</p>
-              </button>
             </div>
+            <p className="text-sm font-bold text-ink-muted">Your profile</p>
           </div>
           <div className="mt-4">
             <ProfileHeader
@@ -479,8 +478,36 @@ export function ProfilePage() {
             />
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Badge tone="success" className="px-2.5 py-0.5 text-[10px]">Online</Badge>
-            {profile.classForm && <Badge tone="brand" className="px-2.5 py-0.5 text-[10px]">{profile.classForm}</Badge>}
+            <Badge className="border border-[#171717] bg-[#171717] px-2.5 py-0.5 text-[10px] text-white">Online</Badge>
+            {profile.classForm && <Badge className="border border-[#171717] bg-[#FACC15] px-2.5 py-0.5 text-[10px] text-[#171717]">{profile.classForm}</Badge>}
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <ProfileStat label="Posts" value={formatCompactNumber(postCount)} />
+            <Link
+              to="/shoutouts"
+              className="rounded-2xl border border-[#171717] bg-[#FACC15] p-3 text-center text-[#171717] transition-colors hover:bg-yellow-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+            >
+              <span className="block text-lg font-black tabular-nums">{formatCompactNumber(shoutoutCount)}</span>
+              <span className="text-[10px] font-extrabold uppercase tracking-wide">Shoutouts</span>
+            </Link>
+            <button
+              type="button"
+              onClick={() => setFollowList("followers")}
+              aria-label={`${formatCompactNumber(followSummary.followerCount)} followers`}
+              className="rounded-2xl border border-line bg-page p-3 text-center text-ink transition-colors hover:border-[#171717] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+            >
+              <span className="block text-lg font-black tabular-nums">{formatCompactNumber(followSummary.followerCount)}</span>
+              <span className="text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">Followers</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFollowList("following")}
+              aria-label={`${formatCompactNumber(followSummary.followingCount)} following`}
+              className="rounded-2xl border border-line bg-page p-3 text-center text-ink transition-colors hover:border-[#171717] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+            >
+              <span className="block text-lg font-black tabular-nums">{formatCompactNumber(followSummary.followingCount)}</span>
+              <span className="text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">Following</span>
+            </button>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {activeVerification ? (
@@ -775,7 +802,7 @@ export function ProfilePage() {
                       School identity locked
                     </h2>
                     <p className="text-xs font-semibold text-ink-muted">
-                      Your SHS is permanent so campus moderation stays trustworthy.
+                      Your SHS badge helps keep campus moderation fair.
                     </p>
                   </div>
                   <Badge tone="brand" className="px-2 py-0.5 text-[9px]">Permanent</Badge>
@@ -799,7 +826,7 @@ export function ProfilePage() {
                 )}
 
                 <p className="mt-3 text-[11px] font-semibold leading-relaxed text-ink-muted">
-                  Need a correction? Ask a global admin to update it. Clubs and squads keep their own memberships, so changing schools is no longer possible.
+                  Need a fix? Contact a global admin.
                 </p>
               </CardBody>
             </Card>
@@ -807,7 +834,7 @@ export function ProfilePage() {
             <Card>
               <CardBody className="p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <div><h2 className="text-sm font-extrabold text-ink sm:text-base">Safety &amp; community guidelines</h2><p className="text-xs font-semibold text-ink-muted">How moderation works on Let&apos;s Gist.</p></div>
+                  <div><h2 className="text-sm font-extrabold text-ink sm:text-base">Safety &amp; community guidelines</h2><p className="text-xs font-semibold text-ink-muted">Tap a rule to learn more.</p></div>
                   <Badge tone="success">Protected</Badge>
                 </div>
                 <div className="mt-3 divide-y-2 divide-line overflow-hidden rounded-2xl border-2 border-line">

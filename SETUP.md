@@ -125,6 +125,19 @@ Twitter metadata. Configure `NEXT_PUBLIC_SUPABASE_URL` and
 `NEXT_PUBLIC_SUPABASE_ANON_KEY` in the deployment environment. The share dialog
 can also export a customizable PNG card in the browser.
 
+### A12 · Automated media moderation
+
+Run `supabase/migrations/automated_media_moderation.sql` after all migrations that
+create or update `posts` and `post_media` policies. It routes post creation
+through the authenticated server API and disables direct client inserts so the
+moderation check cannot be skipped.
+Set the server-only `OPENAI_API_KEY` and `SUPABASE_SERVICE_ROLE_KEY` values.
+Install FFmpeg and FFprobe on the Node.js server for video uploads, or set
+`FFMPEG_PATH` and `FFPROBE_PATH` to their executable paths. Uploaded videos are
+sampled at 25%, 50%, and 75%; if FFmpeg or moderation is unavailable, the upload
+is blocked rather than skipped. Flagged media is rejected before it reaches R2.
+Global admins can review flagged entries in `automated_moderation_audit`.
+
 ### B · Fresh project
 
 1. Create a project at [supabase.com](https://supabase.com).

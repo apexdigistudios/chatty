@@ -3,26 +3,34 @@ import { uploadFileToR2, type R2UploadFolder } from "@/lib/r2Upload";
 
 export type MediaFolder = R2UploadFolder;
 
-async function uploadPreparedImage(file: File, folder: MediaFolder): Promise<string> {
+async function uploadPreparedImage(
+  file: File,
+  folder: MediaFolder,
+  moderationText?: string
+): Promise<string> {
   if (!file.type.startsWith("image/")) {
     throw new Error("Only image files can be uploaded.");
   }
 
-  return uploadFileToR2(file, folder, file.type);
+  return uploadFileToR2(file, folder, file.type, undefined, moderationText);
 }
 
 /**
  * Automatically compresses the image client-side (max 1200px, quality 0.75,
  * WebP/JPEG <= 200KB) and uploads it to Cloudflare R2 under the user's folder.
  */
-export async function uploadImage(file: File, folder: MediaFolder): Promise<string> {
+export async function uploadImage(
+  file: File,
+  folder: MediaFolder,
+  moderationText?: string
+): Promise<string> {
   if (!file.type.startsWith("image/")) {
     throw new Error("Only image files can be uploaded.");
   }
 
   const preset = folder === "seed-posts" ? COMPRESSION_PRESETS.posts : COMPRESSION_PRESETS[folder];
   const optimized = await compressImageFile(file, preset);
-  return uploadPreparedImage(optimized, folder);
+  return uploadPreparedImage(optimized, folder, moderationText);
 }
 
 /** Uploads an image that has already been compressed by a preview workflow. */
@@ -61,12 +69,16 @@ export function isVideoFile(file: File): boolean {
 }
 
 /** Uploads a TikTok/WhatsApp-status style video without transcoding it. */
-export async function uploadVideo(file: File, folder: MediaFolder = "posts"): Promise<string> {
+export async function uploadVideo(
+  file: File,
+  folder: MediaFolder = "posts",
+  moderationText?: string
+): Promise<string> {
   const format = getVideoFormat(file);
   if (!format) throw new Error("Choose an MP4, WebM, MOV, or Ogg video.");
   if (file.size > MAX_VIDEO_BYTES) throw new Error("Videos must be 80MB or smaller.");
 
-  return uploadFileToR2(file, folder, format.contentType);
+  return uploadFileToR2(file, folder, format.contentType, undefined, moderationText);
 }
 
 export interface UploadedMedia {
@@ -75,9 +87,13 @@ export interface UploadedMedia {
 }
 
 /** Single entry point for post media: images are compressed, videos are streamed as-is. */
-export async function uploadPostMedia(file: File, folder: "posts" | "seed-posts" = "posts"): Promise<UploadedMedia> {
+export async function uploadPostMedia(
+  file: File,
+  folder: "posts" | "seed-posts" = "posts",
+  moderationText?: string
+): Promise<UploadedMedia> {
   if (isVideoFile(file)) {
-    return { url: await uploadVideo(file, folder), mediaType: "video" };
+    return { url: await uploadVideo(file, folder, moderationText), mediaType: "video" };
   }
-  return { url: await uploadImage(file, folder), mediaType: "image" };
+  return { url: await uploadImage(file, folder, moderationText), mediaType: "image" };
 }
