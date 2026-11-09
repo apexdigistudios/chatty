@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, MotionConfig } from "framer-motion";
 import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { NavigationFeedback } from "@/components/layout/NavigationFeedback";
 import { AuthGateModal } from "@/components/auth/AuthGateModal";
@@ -25,6 +26,7 @@ const FULLSCREEN_PATHS = new Set([
   "/create",
   "/confessions/create",
   "/auth",
+  "/onboarding",
   "/login",
   "/register",
   "/shoutouts/create",
@@ -32,11 +34,15 @@ const FULLSCREEN_PATHS = new Set([
 
 function RoutedApp({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { loading } = useAuth();
+  const router = useRouter();
+  const { loading, user, profile } = useAuth();
   const navigationHidden = useScrollDirection(pathname);
   const [spotlightNavigationHidden, setSpotlightNavigationHidden] = useState(false);
   const loadFeed = useGistStore((state) => state.loadFeed);
   const loadSchools = useGistStore((state) => state.loadSchools);
+  const needsOnboarding = Boolean(
+    user && !loading && (!profile?.username?.trim() || !profile.schoolId)
+  );
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -44,9 +50,29 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
   }, [loadSchools]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || loading) return;
+    if (!isSupabaseConfigured || loading || needsOnboarding) return;
     void loadFeed();
-  }, [loading, loadFeed]);
+  }, [loading, loadFeed, needsOnboarding]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (needsOnboarding && pathname !== "/onboarding") {
+      router.replace("/onboarding");
+      return;
+    }
+    if (pathname === "/onboarding" && !user) {
+      router.replace("/auth?mode=signup&returnTo=%2F");
+      return;
+    }
+    if (
+      pathname === "/onboarding" &&
+      user &&
+      profile?.username?.trim() &&
+      profile.schoolId
+    ) {
+      router.replace("/");
+    }
+  }, [loading, needsOnboarding, pathname, profile, router, user]);
 
   useEffect(() => {
     const handleSpotlightScroll = (event: Event) => {
@@ -62,8 +88,19 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
 
   if (!isSupabaseConfigured) return <SetupGate />;
 
+  if (needsOnboarding && pathname !== "/onboarding") {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-page px-5 text-center">
+        <p role="status" className="text-sm font-extrabold text-ink">
+          Finish choosing your username and school to continue…
+        </p>
+      </div>
+    );
+  }
+
   const fullscreen = FULLSCREEN_PATHS.has(pathname);
   const standaloneAuth = pathname === "/auth" || pathname === "/login" || pathname === "/register";
+  const standaloneOnboarding = pathname === "/onboarding";
   const isHome = pathname === "/";
   const isSpotlight = pathname === "/spotlight";
 
@@ -82,7 +119,7 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
           <ToastViewport />
         </>
       )}
-      {standaloneAuth ? (
+      {standaloneAuth || standaloneOnboarding ? (
         children
       ) : (
         <AppLayout

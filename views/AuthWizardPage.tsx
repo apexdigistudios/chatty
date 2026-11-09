@@ -12,6 +12,7 @@ import {
   KeyRound,
   Loader2,
   Mail,
+  Search,
   ShieldCheck,
 } from "lucide-react";
 import { MascotCharacter, type MascotReaction } from "@/components/auth/MascotCharacter";
@@ -32,6 +33,8 @@ import {
 import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
 import { cn } from "@/utils/cn";
+import { findOrCreateSchool, normalizeSchoolName } from "@/lib/services/school-resolver";
+import type { School } from "@/types/models";
 
 type AuthMode = "signup" | "signin";
 type WizardStep = 1 | 2 | 3;
@@ -68,6 +71,20 @@ function GoogleIcon() {
   );
 }
 
+function isSchoolRecord(value: unknown): value is School {
+  if (!value || typeof value !== "object") return false;
+  const school = value as Record<string, unknown>;
+  return typeof school.id === "string" &&
+    typeof school.name === "string" &&
+    typeof school.shortName === "string" &&
+    typeof school.region === "string" &&
+    typeof school.schoolType === "string" &&
+    (school.crestUrl === null || typeof school.crestUrl === "string") &&
+    Array.isArray(school.aliases) &&
+    typeof school.memberCount === "number" &&
+    typeof school.postCount === "number";
+}
+
 export function AuthWizardPage() {
   return (
     <Suspense fallback={<div className="min-h-dvh bg-page" aria-label="Loading sign-in" />}>
@@ -85,12 +102,13 @@ function AuthWizardContent() {
   const schools = useGistStore((state) => state.schools);
   const schoolsLoading = useGistStore((state) => state.schoolsLoading);
   const loadSchools = useGistStore((state) => state.loadSchools);
+  const upsertSchool = useGistStore((state) => state.upsertSchool);
 
   const returnTo = searchParams.get("returnTo") || "/";
   const prefillSchoolId = searchParams.get("schoolId") || "";
   const initialMode: AuthMode =
     pathname === "/login" || searchParams.get("mode") === "signin" ? "signin" : "signup";
-  const initialStep: WizardStep = searchParams.get("step") === "2" ? 2 : 1;
+  const initialStep: WizardStep = pathname === "/onboarding" || searchParams.get("step") === "2" ? 2 : 1;
 
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [step, setStep] = useState<WizardStep>(initialStep);
@@ -101,6 +119,9 @@ function AuthWizardContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
   const [selectedSchoolId, setSelectedSchoolId] = useState(prefillSchoolId);
+  const [schoolQuery, setSchoolQuery] = useState("");
+  const [schoolSearchState, setSchoolSearchState] = useState<"idle" | "searching" | "error">("idle");
+  const [schoolSearchError, setSchoolSearchError] = useState<string | null>(null);
   const [nicknameStatus, setNicknameStatus] = useState<NicknameStatus>("idle");
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -112,6 +133,17 @@ function AuthWizardContent() {
     () => schools.find((school) => school.id === selectedSchoolId) ?? null,
     [schools, selectedSchoolId]
   );
+  const schoolMatches = useMemo(() => {
+    const query = normalizeSchoolName(schoolQuery);
+    if (!query || selectedSchoolId) return [];
+    return schools
+      .filter((school) => {
+        const name = normalizeSchoolName(school.normalizedName ?? school.name);
+        const aliases = (school.aliases ?? []).map(normalizeSchoolName);
+        return name.includes(query) || query.includes(name) || aliases.some((alias) => alias.includes(query) || query.includes(alias));
+      })
+      .slice(0, 8);
+  }, [schools, schoolQuery, selectedSchoolId]);
   const stepCount = mode === "signup" ? 3 : 1;
   const progress = mode === "signup" ? (step / stepCount) * 100 : 100;
 
@@ -144,8 +176,86 @@ function AuthWizardContent() {
 
   useEffect(() => {
     if (!user || !profile || username) return;
-    setUsername(profile.username);
+    setUsername(profile.username ?? "");
   }, [user, profile, username]);
+
+  useEffect(() => {
+    if (!user || !profile?.schoolId || selectedSchoolId) return;
+    setSelectedSchoolId(profile.schoolId);
+  }, [user, profile, selectedSchoolId]);
+
+  useEffect(() => {
+    if (mode !== "signup" || step !== 2 || !schoolQuery.trim() || selectedSchoolId || schoolMatches.length > 0) {
+      setSchoolSearchState("idle");
+      setSchoolSearchError(null);
+      return;
+    }
+
+    const query = schoolQuery.trim();
+    if (normalizeSchoolName(query).length < 3) {
+      setSchoolSearchState("idle");
+      return;
+    }
+
+    let active = true;
+    const controller = new AbortController();
+    setSchoolSearchState("searching");
+    setSchoolSearchError(null);
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          let school: School | null = null;
+          try {
+            school = await findOrCreateSchool(query);
+          } catch (error) {
+            console.warn("Local school resolver was unavailable; trying live search.", error);
+          }
+
+          if (!school) {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const response = await fetch("/api/schools/live-search", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(sessionData.session?.access_token
+                  ? { Authorization: `Bearer ${sessionData.session.access_token}` }
+                  : {}),
+              },
+              body: JSON.stringify({ query }),
+              signal: controller.signal,
+            });
+            const result: unknown = await response.json();
+            if (!response.ok) {
+              const message = result && typeof result === "object" && "error" in result && typeof result.error === "string"
+                ? result.error
+                : "Could not search for that school.";
+              throw new Error(message);
+            }
+            if (!result || typeof result !== "object" || !("school" in result) || !isSchoolRecord(result.school)) {
+              throw new Error("The school search returned an invalid result.");
+            }
+            school = result.school;
+          }
+
+          if (!active || !school) return;
+          upsertSchool(school);
+          setSelectedSchoolId(school.id);
+          setSchoolQuery(school.name);
+          setSchoolSearchState("idle");
+        } catch (error) {
+          if (!active || controller.signal.aborted) return;
+          setSchoolSearchState("error");
+          setSchoolSearchError(error instanceof Error ? error.message : "Could not find that school. Try again.");
+        }
+      })();
+    }, 500);
+
+    return () => {
+      active = false;
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [mode, step, schoolQuery, selectedSchoolId, schoolMatches.length, upsertSchool]);
 
   useEffect(() => {
     if (mode !== "signup" || step !== 2 || !username) {
@@ -233,6 +343,14 @@ function AuthWizardContent() {
   };
 
   const handleJoin = async () => {
+    if (!selectedSchool || !selectedSchoolId) {
+      setErrorMessage("Choose your school before joining.");
+      return;
+    }
+    if (!isValidUsername(username) || nicknameStatus !== "available") {
+      setErrorMessage("Choose an available username with 3 to 24 characters.");
+      return;
+    }
     setBusy(true);
     setErrorMessage(null);
     try {
@@ -241,7 +359,7 @@ function AuthWizardContent() {
         await ensureProfile();
         const updatedProfile = await updateMyProfile({
           username,
-          schoolId: selectedSchoolId || null,
+          schoolId: selectedSchoolId,
         });
         setProfile(updatedProfile);
         await refreshProfile();
@@ -255,7 +373,7 @@ function AuthWizardContent() {
         email,
         password,
         username,
-        schoolId: selectedSchoolId || null,
+        schoolId: selectedSchoolId,
       });
       if (result.profile) setProfile(result.profile);
       if (result.hasSession) {
@@ -279,6 +397,10 @@ function AuthWizardContent() {
   };
 
   const continueFromStepTwo = () => {
+    if (!selectedSchool || !selectedSchoolId) {
+      setErrorMessage("Choose your school badge before continuing.");
+      return;
+    }
     if (
       !isValidUsername(username) ||
       nicknameStatus !== "available"
@@ -535,8 +657,8 @@ function AuthWizardContent() {
                 </p>
 
                 <div>
-                  <label htmlFor="signup-school" className="mb-1.5 block text-sm font-extrabold">
-                    Your school badge <span className="font-semibold text-ink-muted">(optional)</span>
+                  <label htmlFor="signup-school-search" className="mb-1.5 block text-sm font-extrabold">
+                    Your school badge <span className="text-danger" aria-hidden>*</span>
                   </label>
                   {selectedSchool && (
                     <div className="mb-2 flex min-h-12 items-center gap-3 rounded-xl border border-line bg-page p-2.5">
@@ -547,23 +669,78 @@ function AuthWizardContent() {
                         size="sm"
                       />
                       <span className="text-sm font-bold">{selectedSchool.shortName}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedSchoolId("");
+                          setSchoolQuery("");
+                        }}
+                        className="ml-auto min-h-9 rounded-lg px-2 text-xs font-extrabold text-brand-deep hover:bg-brand-wash"
+                      >
+                        Change
+                      </button>
                     </div>
                   )}
-                  <select
-                    id="signup-school"
-                    value={selectedSchoolId}
-                    onChange={(event) => setSelectedSchoolId(event.target.value)}
-                    className="min-h-12 w-full rounded-2xl border-2 border-line bg-page px-3 text-sm font-semibold text-ink outline-none focus:border-brand-deep focus:ring-4 focus:ring-brand-soft"
-                  >
-                    <option value="">Choose your SHS (optional)</option>
-                    {schools.map((school) => (
-                      <option key={school.id} value={school.id}>
-                        {school.shortName} · {school.region}
-                      </option>
-                    ))}
-                  </select>
+                  {!selectedSchool && (
+                    <>
+                      <span className="flex min-h-12 items-center gap-2 rounded-2xl border-2 border-line bg-page px-3 focus-within:border-brand-deep focus-within:ring-4 focus-within:ring-brand-soft">
+                        {schoolSearchState === "searching"
+                          ? <Loader2 size={17} className="shrink-0 animate-spin text-brand-deep" aria-hidden />
+                          : <Search size={17} className="shrink-0 text-ink-muted" aria-hidden />}
+                        <input
+                          id="signup-school-search"
+                          type="search"
+                          value={schoolQuery}
+                          onChange={(event) => {
+                            setSchoolQuery(event.target.value);
+                            setSelectedSchoolId("");
+                            setErrorMessage(null);
+                          }}
+                          autoComplete="off"
+                          placeholder="Search for your Senior High School"
+                          className="min-w-0 flex-1 bg-transparent py-2 text-sm font-semibold text-ink outline-none placeholder:text-ink-muted"
+                          aria-required="true"
+                          aria-describedby="school-search-help"
+                        />
+                      </span>
+                      <p id="school-search-help" className="mt-1 text-xs text-ink-muted">
+                        Choose a result. If your school is missing, we’ll search for it.
+                      </p>
+                      {schoolMatches.length > 0 && (
+                        <ul className="mt-2 max-h-52 overflow-y-auto rounded-xl border border-line bg-card">
+                          {schoolMatches.map((school) => (
+                            <li key={school.id}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedSchoolId(school.id);
+                                  setSchoolQuery(school.name);
+                                  setSchoolSearchState("idle");
+                                }}
+                                className="flex min-h-12 w-full items-center gap-2.5 px-3 py-2 text-left text-sm font-semibold text-ink hover:bg-page focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-deep"
+                              >
+                                <SchoolBadge schoolId={school.id} crestUrl={school.crestUrl} name={school.name} size="sm" />
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate">{school.name}</span>
+                                  <span className="block truncate text-xs font-medium text-ink-muted">{school.region}</span>
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
+                  )}
                   {schoolsLoading && schools.length === 0 && (
                     <p className="mt-1 text-xs text-ink-muted">Loading school badges…</p>
+                  )}
+                  {schoolSearchState === "searching" && (
+                    <p role="status" className="mt-2 text-xs font-semibold text-ink-muted">
+                      No local match. Searching Ghana school directories…
+                    </p>
+                  )}
+                  {schoolSearchState === "error" && schoolSearchError && (
+                    <p role="alert" className="mt-2 text-xs font-semibold text-danger">{schoolSearchError}</p>
                   )}
                 </div>
 
@@ -594,7 +771,8 @@ function AuthWizardContent() {
                 className="mt-4"
                 disabled={
                   !isValidUsername(username) ||
-                  nicknameStatus !== "available"
+                  nicknameStatus !== "available" ||
+                  !selectedSchool
                 }
                 rightIcon={<ArrowRight size={18} aria-hidden />}
                 onClick={continueFromStepTwo}

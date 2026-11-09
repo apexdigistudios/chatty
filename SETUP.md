@@ -183,6 +183,22 @@ cross join lateral public.search_schools_fuzzy(search_term)
 order by search_term, similarity_score desc;
 ```
 
+### A15 · Required school onboarding and live school search
+
+Signed-in users without a username or school are routed to `/onboarding`; the
+feed is not loaded until both profile fields are complete. School selection is
+required during signup and onboarding. If local school matching and the fuzzy
+database resolver find no school, the onboarding form uses Google Programmable
+Search (Custom Search JSON API) to look for Ghana SHSs and registers a matching
+result in `public.schools`.
+
+Configure the server-only `GOOGLE_CSE_API_KEY` and `GOOGLE_CSE_ID` values in
+`.env.local`. Create a Programmable Search Engine and enable the Custom Search
+JSON API for its Google Cloud project. The live search route also needs
+`NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`; keep the service
+role key private. If live search is not configured, users can still select any
+school already present in the local database.
+
 ### B · Fresh project
 
 1. Create a project at [supabase.com](https://supabase.com).
