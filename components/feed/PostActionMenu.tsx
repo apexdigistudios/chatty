@@ -20,6 +20,7 @@ import { useAuth } from "@/context/AuthContext";
 import { isPostSaved, toggleSavedPost } from "@/lib/savedPosts";
 import { describeError } from "@/lib/supabase";
 import { copyShareLink, sharePreviewUrl } from "@/lib/shareLinks";
+import { trackGistShare } from "@/lib/mixpanel";
 import { recordPostShare } from "@/services/followsService";
 import { permanentlyDeletePost, seedPostEngagement } from "@/services/postsService";
 import { springs } from "@/theme/tokens";
@@ -99,11 +100,13 @@ export function PostActionMenu({ post, open, onClose, canDelete, onDeleted, onSh
   const copyLink = async () => {
     try {
       await copyShareLink(sharePreviewUrl("post", post.id));
+      trackGistShare(post.id, "link_copy", "shared");
       toast("Link copied to clipboard.", "info");
       void recordPostShare(post.id).catch((error: unknown) => {
         console.error("Could not record this gist share.", error);
       });
     } catch {
+      trackGistShare(post.id, "link_copy", "failed");
       toast("Could not copy the link.", "danger");
     }
     onClose();

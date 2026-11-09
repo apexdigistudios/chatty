@@ -17,6 +17,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { rotateBySeed } from "@/lib/feedRotation";
 import { shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLinks";
+import { trackEvent, trackGistShare } from "@/lib/mixpanel";
 import { reportSpotlightScrollDirection } from "@/hooks/useScrollDirection";
 import { downloadSpotlightVideo } from "@/lib/download";
 import { formatCompactNumber } from "@/lib/utils";
@@ -26,6 +27,10 @@ import { cloudflareMediaUrl } from "@/lib/mediaUrl";
 type SpotlightItem =
   | { kind: "post"; key: string; videoUrl: string; post: Post }
   | { kind: "confession"; key: string; videoUrl: string; confession: Confession };
+
+type SpotlightShareTarget =
+  | { kind: "post"; post: Post }
+  | { kind: "confession"; confession: Confession };
 
 function collectSpotlightItems(feed: Post[], confessions: Confession[]): SpotlightItem[] {
   const videoPosts = feed
@@ -54,6 +59,25 @@ function collectSpotlightItems(feed: Post[], confessions: Confession[]): Spotlig
     const leftCreatedAt = left.kind === "post" ? left.post.createdAt : left.confession.publishedAt ?? left.confession.createdAt;
     const rightCreatedAt = right.kind === "post" ? right.post.createdAt : right.confession.publishedAt ?? right.confession.createdAt;
     return Date.parse(rightCreatedAt) - Date.parse(leftCreatedAt);
+  });
+}
+
+function trackSpotlightShare(
+  item: SpotlightShareTarget,
+  shareChannel: string,
+  shareResult: string
+): void {
+  if (item.kind === "post") {
+    trackGistShare(item.post.id, shareChannel, shareResult);
+    return;
+  }
+  trackEvent("confession_shoutout_interaction", {
+    interaction_type: "confession_shared",
+    target_gist_id: null,
+    confession_id: item.confession.id,
+    interaction_result: shareResult,
+    share_channel: shareChannel,
+    timestamp_source: new Date().toISOString(),
   });
 }
 
@@ -148,10 +172,19 @@ export function SpotlightPage({
         text: post.content.slice(0, 120),
         url,
       });
-      if (result === "cancelled") return;
+      if (result === "cancelled") {
+        trackSpotlightShare({ kind: "post", post }, "native_share", "cancelled");
+        return;
+      }
+      trackSpotlightShare(
+        { kind: "post", post },
+        result === "copied" ? "link_copy" : "native_share",
+        "shared"
+      );
       if (result === "copied") toast("Gist link copied.", "success");
       void recordPostShare(post.id).catch((cause: unknown) => console.error("Could not record this gist share.", cause));
     } catch (cause) {
+      trackSpotlightShare({ kind: "post", post }, "share_link", "failed");
       toast("Could not copy the gist link.", "danger");
       console.error("Could not copy gist link.", cause);
     }
@@ -165,9 +198,18 @@ export function SpotlightPage({
         text: "Click to read and reply anonymously.",
         url,
       });
-      if (result === "cancelled") return;
+      if (result === "cancelled") {
+        trackSpotlightShare({ kind: "confession", confession }, "native_share", "cancelled");
+        return;
+      }
+      trackSpotlightShare(
+        { kind: "confession", confession },
+        result === "copied" ? "link_copy" : "native_share",
+        "shared"
+      );
       if (result === "copied") toast("Confession link copied.", "success");
     } catch (cause) {
+      trackSpotlightShare({ kind: "confession", confession }, "share_link", "failed");
       toast("Could not copy the confession link.", "danger");
       console.error("Could not copy confession link.", cause);
     }
@@ -389,8 +431,15 @@ export function SpotlightPage({
           downloading={downloadingVideo}
           onClose={() => setSharePopover(null)}
           onDownload={() => void downloadVideo()}
-          onCopied={() => toast("Spotlight link copied.", "success")}
-          onCopyError={() => toast("Could not copy the Spotlight link.", "danger")}
+          onCopied={() => {
+            trackSpotlightShare(sharePopover.item, "link_copy", "shared");
+            toast("Spotlight link copied.", "success");
+          }}
+          onCopyError={() => {
+            trackSpotlightShare(sharePopover.item, "link_copy", "failed");
+            toast("Could not copy the Spotlight link.", "danger");
+          }}
+          onShared={(channel) => trackSpotlightShare(sharePopover.item, channel, "shared")}
         />
       )}
     </div>
@@ -405,6 +454,7 @@ function SpotlightSharePopover({
   onDownload,
   onCopied,
   onCopyError,
+  onShared,
 }: {
   item: SpotlightItem;
   anchor: { top: number; right: number };
@@ -413,6 +463,7 @@ function SpotlightSharePopover({
   onDownload: () => void;
   onCopied: () => void;
   onCopyError: () => void;
+  onShared: (channel: string) => void;
 }) {
   const popoverRef = useRef<HTMLElement>(null);
   const id = item.kind === "post" ? item.post.id : item.confession.id;
@@ -471,15 +522,15 @@ function SpotlightSharePopover({
         </button>
       </div>
       <div className="grid grid-cols-4 gap-1 text-center">
-        <a role="menuitem" href={`https://wa.me/?text=${encodedText}%20${encodedUrl}`} target="_blank" rel="noopener noreferrer" className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-bold hover:bg-white/10">
+        <a role="menuitem" href={`https://wa.me/?text=${encodedText}%20${encodedUrl}`} onClick={() => onShared("whatsapp")} target="_blank" rel="noopener noreferrer" className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-bold hover:bg-white/10">
           <WhatsAppLogo />
           WhatsApp
         </a>
-        <a role="menuitem" href={`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`} target="_blank" rel="noopener noreferrer" className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-bold hover:bg-white/10">
+        <a role="menuitem" href={`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`} onClick={() => onShared("x")} target="_blank" rel="noopener noreferrer" className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-bold hover:bg-white/10">
           <XLogo />
           X
         </a>
-        <a role="menuitem" href={`https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`} target="_blank" rel="noopener noreferrer" className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-bold hover:bg-white/10">
+        <a role="menuitem" href={`https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`} onClick={() => onShared("telegram")} target="_blank" rel="noopener noreferrer" className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-bold hover:bg-white/10">
           <TelegramLogo />
           Telegram
         </a>

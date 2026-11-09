@@ -33,6 +33,7 @@ import {
 import { createSchoolCommunity } from "@/services/schoolsService";
 import { useGistStore } from "@/store/gistStore";
 import {
+  deferOnboardingCompletion,
   rememberSignupCompleted,
   rememberSignupStarted,
   secondsSinceSignupCompleted,
@@ -565,7 +566,6 @@ function AuthWizardContent() {
         });
         setProfile(updatedProfile);
         await refreshProfile();
-        rememberSignupCompleted(sessionStorage.getItem("gistme:mixpanel:signup-completed-at") || new Date().toISOString());
         trackEvent("school_joined", {
           school_id: schoolId,
           join_result: "joined",
@@ -596,29 +596,30 @@ function AuthWizardContent() {
         account_id: result.accountId,
         signup_method: "email",
         is_new_user: true,
-        school_selection_status: result.profile?.schoolId ? "selected" : "not_started",
+        school_selection_status: result.profile?.schoolId || selectedSchoolId ? "selected" : "searching",
       });
       if (result.profile) setProfile(result.profile);
       const joinedSchoolId = result.profile?.schoolId ?? selectedSchoolId ?? null;
-      if (joinedSchoolId) {
+      if (result.hasSession && joinedSchoolId) {
         trackEvent("school_joined", {
           school_id: joinedSchoolId,
           join_result: "joined",
           join_context: "onboarding",
           timestamp_source: new Date().toISOString(),
         });
+        trackEvent("onboarding_completed", {
+          onboarding_step_count: 3,
+          time_to_complete_seconds: secondsSinceSignupCompleted(),
+          primary_profile_setup: "set_name_only",
+          has_notifications_enabled: hasNotificationsEnabled(),
+        });
       }
-      trackEvent("onboarding_completed", {
-        onboarding_step_count: 3,
-        time_to_complete_seconds: secondsSinceSignupCompleted(),
-        primary_profile_setup: "set_name_only",
-        has_notifications_enabled: hasNotificationsEnabled(),
-      });
       if (result.hasSession) {
         await refreshProfile();
         toast("Welcome to Gist me!", "success");
         navigate(returnTo, { replace: true });
       } else {
+        deferOnboardingCompletion(result.accountId);
         setEmailConfirmPending(true);
       }
     } catch (error) {

@@ -19,7 +19,14 @@ import { ToastProvider, ToastViewport } from "@/components/ui/Toast";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { identifyUser, initializeMixpanel, resetUser, trackEvent } from "@/lib/mixpanel";
+import {
+  consumeDeferredOnboardingCompletion,
+  identifyUser,
+  initializeMixpanel,
+  resetUser,
+  secondsSinceSignupCompleted,
+  trackEvent,
+} from "@/lib/mixpanel";
 import { useGistStore } from "@/store/gistStore";
 import { SPOTLIGHT_SCROLL_DIRECTION_EVENT, useScrollDirection } from "@/hooks/useScrollDirection";
 
@@ -108,6 +115,24 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
     analyticsUserId.current = user.id;
     analyticsIdentity.current = identity;
   }, [profile, schools, user]);
+
+  useEffect(() => {
+    if (!user || !profile?.schoolId || !consumeDeferredOnboardingCompletion(user.id)) return;
+    const timestamp = new Date().toISOString();
+    trackEvent("school_joined", {
+      school_id: profile.schoolId,
+      join_result: "joined",
+      join_context: "onboarding",
+      timestamp_source: timestamp,
+    });
+    trackEvent("onboarding_completed", {
+      onboarding_step_count: 3,
+      time_to_complete_seconds: secondsSinceSignupCompleted(),
+      primary_profile_setup: "set_name_only",
+      has_notifications_enabled:
+        typeof Notification !== "undefined" && Notification.permission === "granted",
+    });
+  }, [profile?.schoolId, user]);
 
   useEffect(() => {
     if (!isSupabaseConfigured || schoolsHasLoaded) return;

@@ -99,12 +99,40 @@ export function rememberSignupCompleted(timestamp: string): void {
   } catch {
     // Analytics state is optional and must not interrupt signup.
   }
+  try {
+    window.localStorage.setItem("gistme:mixpanel:signup-completed-at", timestamp);
+  } catch {
+    // Analytics state is optional and must not interrupt signup.
+  }
+}
+
+export function deferOnboardingCompletion(userId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem("gistme:mixpanel:pending-onboarding-user", userId);
+  } catch {
+    // Analytics state is optional and must not interrupt signup.
+  }
+}
+
+export function consumeDeferredOnboardingCompletion(userId: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const pendingUserId = window.localStorage.getItem("gistme:mixpanel:pending-onboarding-user");
+    if (pendingUserId !== userId) return false;
+    window.localStorage.removeItem("gistme:mixpanel:pending-onboarding-user");
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function secondsSinceSignupCompleted(): number | null {
   if (typeof window === "undefined") return null;
   try {
-    const timestamp = window.sessionStorage.getItem("gistme:mixpanel:signup-completed-at");
+    const timestamp =
+      window.sessionStorage.getItem("gistme:mixpanel:signup-completed-at") ??
+      window.localStorage.getItem("gistme:mixpanel:signup-completed-at");
     if (!timestamp) return null;
     const elapsed = Math.floor((Date.now() - Date.parse(timestamp)) / 1000);
     return Number.isFinite(elapsed) ? Math.max(0, elapsed) : null;
