@@ -144,6 +144,14 @@ videos are sampled at 25%, 50%, and 75%; if moderation is unavailable, the uploa
 is blocked rather than skipped. Flagged media is rejected before it reaches R2.
 Global admins can review flagged entries in `automated_moderation_audit`.
 
+### A13 · Hybrid smart feed
+
+Run `supabase/migrations/smart_feed_ranking.sql` after the base schema and
+`supabase/migrations/safety_reporting.sql`. The client feed loads unseen posts
+from the viewer's school newest-first, then asks the database to rank global
+posts using likes and comments with time decay. The migration function runs as
+the caller so existing row-level security continues to apply.
+
 ### B · Fresh project
 
 1. Create a project at [supabase.com](https://supabase.com).

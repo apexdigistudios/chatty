@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { describeError } from "@/lib/supabase";
+import { getSmartFeed } from "@/lib/feed";
 import * as confessionsService from "@/services/confessionsService";
 import { fetchRankedFeed } from "@/services/feedAlgo";
 import * as postsService from "@/services/postsService";
@@ -56,6 +57,7 @@ interface GistState {
 
   /* feed */
   posts: Post[];
+  seenPostIds: string[];
   followingPosts: Post[];
   feedHasLoaded: boolean;
   followingHasLoaded: boolean;
@@ -163,6 +165,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
 
   /* ───────────── feed ───────────── */
   posts: [],
+  seenPostIds: [],
   followingPosts: [],
   feedHasLoaded: false,
   followingHasLoaded: false,
@@ -185,6 +188,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
     set({
       feedSchoolId: schoolId,
       posts: [],
+      seenPostIds: [],
       followingPosts: [],
       feedHasLoaded: false,
       followingHasLoaded: false,
@@ -202,6 +206,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
       ...(initialPosts !== undefined && initialPosts !== null && !state.feedHasLoaded
         ? {
             posts: initialPosts,
+            seenPostIds: initialPosts.map((post) => post.id),
             feedHasLoaded: true,
             feedLoading: false,
             feedHasMore: initialPosts.length >= PAGE_SIZE,
@@ -229,23 +234,28 @@ export const useGistStore = create<GistState>()((set, get) => ({
     const schoolId = get().feedSchoolId;
     const existingPostIds = new Set(get().posts.map((post) => post.id));
     const requestId = ++feedLoadRequestId;
-    if (!silent) feedRotationSeed = Math.random();
-    const rotationSeed = feedRotationSeed;
     if (!silent) set({ feedLoading: true, feedError: null });
     try {
-      const posts = await fetchRankedFeed({ schoolId, limit: PAGE_SIZE, rotationSeed });
+      const result = await getSmartFeed({
+        userId: null,
+        userSchoolId: schoolId,
+        page: 1,
+        limit: PAGE_SIZE,
+      });
       // Ignore stale responses if the school filter changed mid-flight.
       if (get().feedSchoolId !== schoolId || requestId !== feedLoadRequestId) return;
       set((state) => {
-        const freshPostIds = new Set(posts.map((post) => post.id));
+        const freshPostIds = new Set(result.posts.map((post) => post.id));
         const postsCreatedDuringLoad = state.posts.filter(
           (post) => !existingPostIds.has(post.id) && !freshPostIds.has(post.id)
         );
+        const nextPosts = [...postsCreatedDuringLoad, ...result.posts];
         return {
-          posts: [...postsCreatedDuringLoad, ...posts],
+          posts: nextPosts,
+          seenPostIds: nextPosts.map((post) => post.id),
           feedHasLoaded: true,
           feedLoading: false,
-          feedHasMore: posts.length === PAGE_SIZE,
+          feedHasMore: result.hasMore,
           feedError: null,
         };
       });
@@ -276,22 +286,26 @@ export const useGistStore = create<GistState>()((set, get) => ({
   },
 
   loadMoreFeed: async () => {
-    const { feedLoadingMore, feedHasMore, posts, feedSchoolId } = get();
+    const { feedLoadingMore, feedHasMore, seenPostIds, feedSchoolId } = get();
     if (feedLoadingMore || !feedHasMore) return;
     set({ feedLoadingMore: true });
     try {
-      const more = await fetchRankedFeed({
-        schoolId: feedSchoolId,
+      const result = await getSmartFeed({
+        userId: null,
+        userSchoolId: feedSchoolId,
+        page: Math.floor(seenPostIds.length / PAGE_SIZE) + 1,
         limit: PAGE_SIZE,
-        offset: posts.length,
-        rotationSeed: feedRotationSeed,
+        seenPostIds,
       });
       if (get().feedSchoolId !== feedSchoolId) return;
       set((state) => {
         const seen = new Set(state.posts.map((post) => post.id));
+        const uniqueMore = result.posts.filter((post) => !seen.has(post.id));
+        const nextPosts = [...state.posts, ...uniqueMore];
         return {
-          posts: [...state.posts, ...more.filter((post) => !seen.has(post.id))],
-          feedHasMore: more.length === PAGE_SIZE,
+          posts: nextPosts,
+          seenPostIds: [...new Set([...state.seenPostIds, ...uniqueMore.map((post) => post.id)])],
+          feedHasMore: result.hasMore && uniqueMore.length > 0,
           feedLoadingMore: false,
         };
       });
@@ -345,7 +359,11 @@ export const useGistStore = create<GistState>()((set, get) => ({
     const { feedSchoolId } = get();
     if (!feedSchoolId || feedSchoolId === post.schoolId) {
       set((state) => {
-        return { posts: [post, ...state.posts.filter((item) => item.id !== post.id)] };
+        const posts = [post, ...state.posts.filter((item) => item.id !== post.id)];
+        return {
+          posts,
+          seenPostIds: [...new Set([post.id, ...state.seenPostIds])],
+        };
       });
     }
     if (post.schoolId) {
@@ -405,6 +423,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
   removePostLocally: (postId) =>
     set((state) => ({
       posts: state.posts.filter((post) => post.id !== postId),
+      seenPostIds: state.seenPostIds.filter((id) => id !== postId),
       trendingPosts: state.trendingPosts.filter((post) => post.id !== postId),
       trendingFallback: state.trendingFallback.filter((post) => post.id !== postId),
     })),

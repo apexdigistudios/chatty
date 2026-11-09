@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePathname } from "next/navigation";
-import { ArrowUpRight, Flame, Plus, RefreshCw, Sparkles, TrendingUp, WifiOff, X } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, Flame, Plus, RefreshCw, Sparkles, TrendingUp, WifiOff, X } from "lucide-react";
 import { Link, useNavigate } from "@/lib/router";
 import { ConfessionCard } from "@/components/feed/ConfessionCard";
 import { FeedSkeleton } from "@/components/feed/FeedSkeleton";
@@ -430,6 +430,8 @@ export function HomePage({
                   <GistCard post={post} />
                 </motion.div>
               ))
+            ) : feedHasLoaded && !feedHasMore && !showingFollowing && activeTab !== "My School" ? (
+              <CaughtUpFeed />
             ) : canShowEmptyState ? (
               <EmptyFeed
                 title={
@@ -484,7 +486,7 @@ export function HomePage({
         </div>
       )}
       {!showingConfessions && !loading && ((showingTrending && trendingPosts.length > 0) || (!visibleHasMore && visiblePosts.length > 0)) && (
-        <p className="pb-8 pt-6 text-center text-xs font-semibold text-ink-muted">You&apos;re all caught up.</p>
+        <p className="pb-8 pt-6 text-center text-xs font-semibold text-ink-muted">You&apos;re all caught up!</p>
       )}
     </div>
   );
@@ -496,6 +498,16 @@ function EmptyFeed({ title, detail, action, onAction }: { title: string; detail:
       <p className="text-sm font-extrabold text-ink">{title}</p>
       <p className="mx-auto mt-1 max-w-[32ch] text-xs font-semibold leading-relaxed text-ink-muted">{detail}</p>
       <Button size="sm" variant="outline" className="mt-4" onClick={onAction}>{action}</Button>
+    </div>
+  );
+}
+
+function CaughtUpFeed() {
+  return (
+    <div className="mx-4 flex flex-col items-center rounded-2xl border-2 border-dashed border-line bg-card px-5 py-10 text-center sm:mx-0">
+      <CheckCircle2 size={26} className="text-success-deep" aria-hidden />
+      <p className="mt-2 text-sm font-extrabold text-ink">You&apos;re all caught up!</p>
+      <p className="mt-1 text-xs font-semibold text-ink-muted">New gists will show up here.</p>
     </div>
   );
 }
