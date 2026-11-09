@@ -141,12 +141,14 @@ export const useGistStore = create<GistState>()((set, get) => ({
     }
   },
 
-  upsertSchool: (school) =>
+  upsertSchool: (school) => {
+    schoolsService.invalidateSchoolsCache();
     set((state) => ({
       schools: state.schools.some((item) => item.id === school.id)
         ? state.schools.map((item) => (item.id === school.id ? school : item))
         : [...state.schools, school].sort((a, b) => a.name.localeCompare(b.name)),
-    })),
+    }));
+  },
 
   createSchool: async (input) => {
     const school = await schoolsService.createSchoolCommunity(input);

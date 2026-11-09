@@ -10,6 +10,16 @@ export const GHANA_REGIONS = [
   "Bono East Region", "Ahafo Region", "Oti Region", "Savannah Region", "North East Region", "Western North Region",
 ] as const;
 
+let schoolsCache: School[] | null = null;
+let schoolsCacheUpdatedAt = 0;
+let schoolsRequest: Promise<School[]> | null = null;
+const SCHOOLS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+export function invalidateSchoolsCache(): void {
+  schoolsCache = null;
+  schoolsCacheUpdatedAt = 0;
+}
+
 /**
  * `profiles!school_id` disambiguates the two profiles↔schools relationships
  * (profiles.school_id vs schools.creator_id) by column rather than constraint name.
@@ -43,7 +53,7 @@ export function mapSchool(row: RawSchool): School {
   };
 }
 
-export async function fetchSchools(): Promise<School[]> {
+async function fetchSchoolsFromStorageOrNetwork(): Promise<School[]> {
   const cacheKey = "schools:all";
   if (isBrowserOffline()) return (await readOfflineValue<School[]>(cacheKey)) ?? [];
   try {
@@ -64,6 +74,25 @@ export async function fetchSchools(): Promise<School[]> {
     if (isBrowserOffline()) return (await readOfflineValue<School[]>(cacheKey)) ?? [];
     throw error;
   }
+}
+
+export function fetchSchools(): Promise<School[]> {
+  if (schoolsCache && Date.now() - schoolsCacheUpdatedAt < SCHOOLS_CACHE_TTL_MS) {
+    return Promise.resolve(schoolsCache);
+  }
+  if (schoolsRequest) return schoolsRequest;
+  schoolsRequest = fetchSchoolsFromStorageOrNetwork()
+    .then((schools) => {
+      if (!isBrowserOffline()) {
+        schoolsCache = schools;
+        schoolsCacheUpdatedAt = Date.now();
+      }
+      return schools;
+    })
+    .finally(() => {
+      schoolsRequest = null;
+    });
+  return schoolsRequest;
 }
 
 export async function fetchSchool(schoolId: string): Promise<School | null> {
@@ -115,6 +144,7 @@ export async function createSchoolCommunity(input: CreateSchoolInput): Promise<S
     if (error.code === "23505") throw new Error("A community with that name already exists.");
     throw new Error(error.message);
   }
+  invalidateSchoolsCache();
   const school = mapSchool(data);
   const logoFile = input.logoFile ?? input.crestFile;
   if (!logoFile) return school;
@@ -133,8 +163,11 @@ export async function claimSchool(schoolId: string): Promise<void> {
     if (error.code === "PGRST202") throw new Error("Claiming needs migration-step7.sql to be applied first.");
     throw new Error(error.message);
   }
+  invalidateSchoolsCache();
 }
 
 export async function updateSchoolCrest(schoolId: string, file: File): Promise<string> {
-  return uploadSchoolLogo(schoolId, file);
+  const url = await uploadSchoolLogo(schoolId, file);
+  invalidateSchoolsCache();
+  return url;
 }

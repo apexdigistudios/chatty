@@ -34,6 +34,12 @@ type PublicPostRow = {
     school_id: string;
   } | null;
   school: { id: string; name: string; crest_url: string | null } | null;
+  media?: Array<{
+    post_id: string;
+    media_url: string;
+    media_type?: "image" | "video" | null;
+    sort_order: number;
+  }>;
   likes: Array<{ count: number }>;
   comments: Array<{ count: number }>;
 };
@@ -45,6 +51,9 @@ type PublicConfessionRow = {
   content: string;
   created_at: string;
   published_at: string | null;
+  comment_count?: number;
+  school_name?: string | null;
+  school_crest_url?: string | null;
   media_urls?: string[] | null;
   media_types?: Array<"image" | "video"> | null;
 };
@@ -102,8 +111,13 @@ function supportsPublicSeedAuthors(): Promise<boolean> {
 }
 
 function mapPost(row: PublicPostRow, media?: Array<{ media_url: string; media_type?: "image" | "video" | null }>): Post {
+  const joinedMedia = row.media?.length
+    ? [...row.media].sort((left, right) => left.sort_order - right.sort_order)
+    : undefined;
   const mediaItems = media?.length
     ? media
+    : joinedMedia?.length
+      ? joinedMedia
     : row.media_url
       ? [{ media_url: row.media_url, media_type: row.media_type }]
       : [];
@@ -192,8 +206,10 @@ async function mapPublicConfessions(rows: PublicConfessionRow[]): Promise<Confes
   const client = publicSupabase();
   const ids = rows.map((row) => row.id);
   const [comments, reactions] = await Promise.all([
-    client.from("confession_comments").select("confession_id").in("confession_id", ids)
-      .returns<Array<{ confession_id: string }>>(),
+    rows.every((row) => row.comment_count !== undefined)
+      ? Promise.resolve({ data: [] as Array<{ confession_id: string }>, error: null })
+      : client.from("confession_comments").select("confession_id").in("confession_id", ids)
+          .returns<Array<{ confession_id: string }>>(),
     client.from("confession_reactions").select("confession_id, kind").in("confession_id", ids)
       .returns<Array<{ confession_id: string; kind: keyof ReturnType<typeof emptyReactions> }>>(),
   ]);
@@ -223,7 +239,9 @@ async function mapPublicConfessions(rows: PublicConfessionRow[]): Promise<Confes
     publishedAt: row.published_at,
     reactions: reactionCounts.get(row.id) ?? emptyReactions(),
     myReaction: null,
-    commentCount: commentCounts.get(row.id) ?? 0,
+    commentCount: row.comment_count ?? commentCounts.get(row.id) ?? 0,
+    schoolName: row.school_name ?? null,
+    schoolCrestUrl: row.school_crest_url ?? null,
     mediaUrls: row.media_urls ?? [],
     mediaTypes: row.media_types ?? [],
   }));
@@ -238,12 +256,12 @@ async function fetchPublicPostRows(options: {
 }): Promise<PublicPostRow[]> {
   const client = publicSupabase();
   const withSeedAuthors = await supportsPublicSeedAuthors();
-  const select = (withMediaType: boolean, withProfileDetails: boolean) =>
-    `id, user_id, ${withSeedAuthors ? `seed_profile_id, seed_author:admin_seed_profiles!posts_seed_profile_id_fkey(id, username, full_name, avatar_url, school_id), ` : ""}school_id, content, media_url, ${withMediaType ? "media_type, " : ""}created_at, author:profiles(id, username, ${withProfileDetails ? "full_name, is_verified, verified_title, verified_expires_at, " : ""}avatar_url, school_id), school:schools(id, name, crest_url:logo_url), likes(count), comments(count)`;
-  const request = (withMediaType: boolean, withProfileDetails: boolean) => {
+  const select = (withMediaType: boolean, withProfileDetails: boolean, withPostMedia: boolean) =>
+    `id, user_id, ${withSeedAuthors ? `seed_profile_id, seed_author:admin_seed_profiles!posts_seed_profile_id_fkey(id, username, full_name, avatar_url, school_id), ` : ""}school_id, content, media_url, ${withMediaType ? "media_type, " : ""}created_at, author:profiles(id, username, ${withProfileDetails ? "full_name, is_verified, verified_title, verified_expires_at, " : ""}avatar_url, school_id), school:schools(id, name, crest_url:logo_url), likes(count), comments(count)${withPostMedia ? `, media:post_media(post_id, media_url${withMediaType ? ", media_type" : ""}, sort_order)` : ""}`;
+  const request = (withMediaType: boolean, withProfileDetails: boolean, withPostMedia: boolean) => {
     let query = client
     .from("posts")
-    .select(select(withMediaType, withProfileDetails))
+    .select(select(withMediaType, withProfileDetails, withPostMedia))
     .eq("post_type", "public")
     .eq("status", "active")
     .eq("is_hidden", false)
@@ -259,15 +277,34 @@ async function fetchPublicPostRows(options: {
 
   let data: PublicPostRow[] | null = null;
   let error: { code?: string; message: string } | null = null;
-  for (const [withMediaType, withProfileDetails] of [[true, true], [false, true], [true, false], [false, false]]) {
-    const result = await request(withMediaType, withProfileDetails);
+  let includesPostMedia = true;
+  const variants = [
+    [true, true, true],
+    [false, true, true],
+    [true, false, true],
+    [false, false, true],
+    [true, true, false],
+    [false, true, false],
+    [true, false, false],
+    [false, false, false],
+  ] as const;
+  for (const [withMediaType, withProfileDetails, withPostMedia] of variants) {
+    const result = await request(withMediaType, withProfileDetails, withPostMedia);
     data = result.data;
     error = result.error;
-    if (!error) break;
-    if (error.code !== "42703" && error.code !== "PGRST204") break;
+    if (!error) {
+      includesPostMedia = withPostMedia;
+      break;
+    }
+    if (!["42703", "PGRST204", "PGRST200", "PGRST201"].includes(error.code ?? "")) break;
   }
   if (error) throw new Error(error.message);
-  return data ?? [];
+  const rows = data ?? [];
+  if (!includesPostMedia && rows.length > 0) {
+    const mediaByPost = await fetchPostMedia(rows.map((row) => row.id));
+    return rows.map((row) => ({ ...row, media: mediaByPost.get(row.id) ?? [] }));
+  }
+  return rows;
 }
 
 export async function fetchPublicPosts(options: {
@@ -278,8 +315,7 @@ export async function fetchPublicPosts(options: {
   limit?: number;
 } = {}): Promise<Post[]> {
   const rows = await fetchPublicPostRows({ ...options, limit: options.limit ?? 30 });
-  const mediaByPost = await fetchPostMedia(rows.map((row) => row.id));
-  return rows.map((row) => mapPost(row, mediaByPost.get(row.id)));
+  return rows.map((row) => mapPost(row));
 }
 
 export async function fetchPopularPublicPosts(limit = 8): Promise<Post[]> {
@@ -301,8 +337,7 @@ export async function fetchPopularPublicPosts(limit = 8): Promise<Post[]> {
   if (popular.length === 0) return [];
   const ids = popular.map((item) => item.post_id);
   const rows = await fetchPublicPostRows({ ids, limit: ids.length });
-  const mediaByPost = await fetchPostMedia(rows.map((row) => row.id));
-  const postsById = new Map(rows.map((row) => [row.id, mapPost(row, mediaByPost.get(row.id))]));
+  const postsById = new Map(rows.map((row) => [row.id, mapPost(row)]));
   return ids.flatMap((id) => {
     const post = postsById.get(id);
     return post ? [post] : [];
@@ -357,7 +392,7 @@ export async function fetchPublicPost(id: string): Promise<Post | null> {
 
 export async function fetchPublicConfessions(limit = 40): Promise<Confession[]> {
   const client = publicSupabase();
-  const select = "id, school_id, category, content, created_at, published_at, media_urls, media_types";
+  const select = "id, school_id, category, content, created_at, published_at, media_urls, media_types, comment_count, school_name, school_crest_url";
   let { data, error } = await client
     .from("public_confessions")
     .select(select)
@@ -384,7 +419,7 @@ export async function fetchPublicConfession(id: string): Promise<Confession | nu
   const client = publicSupabase();
   let { data, error } = await client
     .from("public_confessions")
-    .select("id, school_id, category, content, created_at, published_at, media_urls, media_types")
+    .select("id, school_id, category, content, created_at, published_at, media_urls, media_types, comment_count, school_name, school_crest_url")
     .eq("id", id)
     .maybeSingle<PublicConfessionRow>();
   if (error && (error.code === "42703" || error.code === "PGRST204")) {

@@ -54,7 +54,7 @@ function supportsPostAuthorIdentity(): Promise<boolean> {
   return postAuthorIdentitySupportPromise;
 }
 
-function supportsColumn(table: "posts" | "post_media" | "profiles", column: string): Promise<boolean> {
+function supportsColumn(table: "posts" | "profiles", column: string): Promise<boolean> {
   const key = `${table}.${column}`;
   const checks = columnSupportPromises;
   let check = checks.get(key);
@@ -138,17 +138,40 @@ function supportsPostShares(): Promise<boolean> {
   return postSharesSupportPromise;
 }
 
-let postMediaSupportPromise: Promise<boolean> | null = null;
-function supportsPostMedia(): Promise<boolean> {
-  if (!postMediaSupportPromise) {
-    postMediaSupportPromise = (async () => {
-      const { error } = await supabase.from("post_media").select("id").limit(1);
-      if (error && (error.code === "42P01" || error.code === "PGRST205")) return false;
-      if (error) throw new Error(error.message);
-      return true;
+interface PostMediaCapabilities {
+  available: boolean;
+  supportsMediaType: boolean;
+  supportsVideoDuration: boolean;
+}
+
+let postMediaCapabilitiesPromise: Promise<PostMediaCapabilities> | null = null;
+function postMediaCapabilities(): Promise<PostMediaCapabilities> {
+  if (!postMediaCapabilitiesPromise) {
+    postMediaCapabilitiesPromise = (async () => {
+      const { error } = await supabase
+        .from("post_media")
+        .select("id, media_url, media_type, video_duration_seconds, sort_order")
+        .limit(1);
+      if (!error) return { available: true, supportsMediaType: true, supportsVideoDuration: true };
+      if (error.code === "42P01" || error.code === "PGRST205") {
+        return { available: false, supportsMediaType: false, supportsVideoDuration: false };
+      }
+      if (error.code !== "42703" && error.code !== "PGRST204") throw new Error(error.message);
+
+      const fallback = await supabase
+        .from("post_media")
+        .select("id, media_url, sort_order")
+        .limit(1);
+      if (fallback.error) {
+        if (fallback.error.code === "42P01" || fallback.error.code === "PGRST205") {
+          return { available: false, supportsMediaType: false, supportsVideoDuration: false };
+        }
+        throw new Error(fallback.error.message);
+      }
+      return { available: true, supportsMediaType: false, supportsVideoDuration: false };
     })();
   }
-  return postMediaSupportPromise;
+  return postMediaCapabilitiesPromise;
 }
 
 let seedEngagementSupportPromise: Promise<boolean> | null = null;
@@ -168,7 +191,7 @@ function supportsSeedEngagement(): Promise<boolean> {
 }
 
 async function selectForGroups(): Promise<string> {
-  const [groups, video, videoDuration, hidden, shares, seededEngagement, authorIdentity, seededViews, authorVerification] = await Promise.all([
+  const [groups, video, videoDuration, hidden, shares, seededEngagement, authorIdentity, seededViews, authorVerification, mediaCapabilities] = await Promise.all([
     supportsSchoolGroups(),
     supportsColumn("posts", "media_type"),
     supportsColumn("posts", "video_duration_seconds"),
@@ -178,6 +201,7 @@ async function selectForGroups(): Promise<string> {
     supportsPostAuthorIdentity(),
     supportsColumn("posts", "seed_views_count"),
     supportsColumn("profiles", "is_verified"),
+    postMediaCapabilities(),
   ]);
   const seedProfiles = await supportsSeedProfiles();
   const baseSelect = groups ? GROUP_POST_SELECT : BASE_POST_SELECT;
@@ -185,7 +209,10 @@ async function selectForGroups(): Promise<string> {
     ? authorIdentity ? AUTHOR_IDENTITY_VERIFICATION_SELECT : AUTHOR_VERIFICATION_SELECT
     : authorIdentity ? AUTHOR_IDENTITY_SELECT : AUTHOR_SELECT;
   const select = baseSelect.replace(AUTHOR_SELECT, authorSelect);
-  return `${select}${seedProfiles ? SEED_AUTHOR_SELECT : ""}${video ? ", media_type" : ""}${videoDuration ? `, ${VIDEO_DURATION_SELECT}` : ""}${hidden ? ", is_hidden" : ""}${shares ? ", post_shares(count)" : ""}${seededEngagement ? ", seed_likes_count, seed_comments_count" : ""}${seededViews ? ", seed_views_count" : ""}`;
+  const mediaSelect = mediaCapabilities.available
+    ? `, media:post_media(post_id, media_url${mediaCapabilities.supportsMediaType ? ", media_type" : ""}${mediaCapabilities.supportsVideoDuration ? ", video_duration_seconds" : ""}, sort_order)`
+    : "";
+  return `${select}${seedProfiles ? SEED_AUTHOR_SELECT : ""}${video ? ", media_type" : ""}${videoDuration ? `, ${VIDEO_DURATION_SELECT}` : ""}${hidden ? ", is_hidden" : ""}${shares ? ", post_shares(count)" : ""}${seededEngagement ? ", seed_likes_count, seed_comments_count" : ""}${seededViews ? ", seed_views_count" : ""}${mediaSelect}`;
 }
 
 export interface RawPost {
@@ -220,6 +247,7 @@ export interface RawPost {
   likes: { count: number }[];
   comments: { count: number }[];
   post_shares?: { count: number }[];
+  media?: RawPostMedia[];
   seed_likes_count?: number;
   seed_comments_count?: number;
   seed_views_count?: number;
@@ -289,7 +317,7 @@ export function mapPost(row: RawPost, liked: boolean): Post {
   };
 }
 
-/** Second lightweight query: which of these posts has the viewer liked? */
+/** Adds viewer-specific like state to posts with embedded media and school data. */
 export async function hydrateLikes(rows: RawPost[]): Promise<Post[]> {
   if (rows.length === 0) return [];
   const userId = await currentUserId();
@@ -302,35 +330,11 @@ export async function hydrateLikes(rows: RawPost[]): Promise<Post[]> {
       .in("post_id", rows.map((row) => row.id));
     likedIds = new Set((data ?? []).map((like: { post_id: string }) => like.post_id));
   }
-  const posts = rows.map((row) => mapPost(row, likedIds.has(row.id)));
-  if (!(await supportsPostMedia())) return posts;
-
-  const [mediaTypeSupported, mediaDurationSupported] = await Promise.all([
-    supportsColumn("post_media", "media_type"),
-    supportsColumn("post_media", "video_duration_seconds"),
-  ]);
-  const mediaSelect = [
-    "post_id",
-    "media_url",
-    ...(mediaTypeSupported ? ["media_type"] : []),
-    ...(mediaDurationSupported ? ["video_duration_seconds"] : []),
-    "sort_order",
-  ].join(", ");
-  const { data: mediaRows, error: mediaError } = await supabase
-    .from("post_media")
-    .select(mediaSelect)
-    .in("post_id", rows.map((row) => row.id))
-    .order("sort_order", { ascending: true })
-    .returns<RawPostMedia[]>();
-  if (mediaError) throw new Error(mediaError.message);
-  const byPost = new Map<string, RawPostMedia[]>();
-  for (const media of mediaRows ?? []) {
-    const items = byPost.get(media.post_id) ?? [];
-    items.push(media);
-    byPost.set(media.post_id, items);
-  }
-  return posts.map((post) => {
-    const items = byPost.get(post.id);
+  return rows.map((row) => {
+    const post = mapPost(row, likedIds.has(row.id));
+    const items = row.media?.length
+      ? [...row.media].sort((left, right) => left.sort_order - right.sort_order)
+      : null;
     if (!items?.length) return post;
     return {
       ...post,
@@ -861,7 +865,7 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
   if (imageCount > 5 || videoCount > 3) {
     throw new Error("A gist can include up to 5 images and 3 videos.");
   }
-  if (files.length > 1 && !(await supportsPostMedia())) {
+  if (files.length > 1 && !(await postMediaCapabilities()).available) {
     throw new Error("Multiple attachments need the profile_explore_and_post_media.sql migration.");
   }
   const media = await Promise.all(files.map((file) => uploadPostMedia(file)));

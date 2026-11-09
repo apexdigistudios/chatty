@@ -23,6 +23,7 @@ import { copyShareLink, shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLink
 import { formatCompactNumber } from "@/lib/utils";
 import { isVideoUrl } from "@/lib/video";
 import { cloudflareMediaUrl } from "@/lib/mediaUrl";
+import { shortNameOf } from "@/lib/media";
 
 interface ReactionMeta {
   kind: ReactionKind;
@@ -69,6 +70,9 @@ export function ConfessionCard({ confession: initialConfession, pending = false 
   const school = useGistStore((state) =>
     confession.schoolId ? state.schools.find((item) => item.id === confession.schoolId) : undefined
   );
+  const schoolName = confession.schoolName ?? school?.name ?? null;
+  const schoolShortName = school?.shortName ?? (schoolName ? shortNameOf(schoolName) : null);
+  const schoolCrestUrl = confession.schoolCrestUrl ?? school?.crestUrl ?? null;
   const [menuOpen, setMenuOpen] = useState(false);
 
   const requireAuth = () => {
@@ -115,7 +119,7 @@ export function ConfessionCard({ confession: initialConfession, pending = false 
   return (
     <article
       role="article"
-      aria-label={`${confession.seedUsername ? `Confession by @${confession.seedUsername}` : "Anonymous confession"}${showSchool && school ? `, ${school.shortName}` : ""}`}
+      aria-label={`${confession.seedUsername ? `Confession by @${confession.seedUsername}` : "Anonymous confession"}${showSchool && schoolShortName ? `, ${schoolShortName}` : ""}`}
       className="relative overflow-visible border-b-4 border-line/60 px-4 py-4 dark:border-neutral-900/60"
     >
       <div>
@@ -150,10 +154,10 @@ export function ConfessionCard({ confession: initialConfession, pending = false 
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="text-[11px] font-semibold text-ink-muted">{timeAgo(confession.publishedAt ?? confession.createdAt)}</span>
-              {showSchool && school && (
+              {showSchool && schoolShortName && (
                 <>
                   <span className="size-1 rounded-full bg-ink-faint" aria-hidden />
-                  <SchoolTag schoolId={school.id} crestUrl={school.crestUrl} name={school.shortName} size="xs" nameClassName="text-[11px] font-semibold text-ink-muted" />
+                  <SchoolTag schoolId={confession.schoolId} crestUrl={schoolCrestUrl} name={schoolShortName} size="xs" nameClassName="text-[11px] font-semibold text-ink-muted" />
                 </>
               )}
               <Badge tone={categoryTone[confession.category]} className="px-2 py-0.5 text-[9px]">

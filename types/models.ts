@@ -265,6 +265,8 @@ export interface Confession {
   content: string;
   category: ConfessionCategory;
   schoolId: string | null;
+  schoolName?: string | null;
+  schoolCrestUrl?: string | null;
   moderationStatus: ModerationStatus;
   createdAt: string;
   publishedAt: string | null;

@@ -11,6 +11,8 @@ import {
 interface RawPublicConfession {
   id: string;
   school_id: string | null;
+  school_name?: string | null;
+  school_crest_url?: string | null;
   category: ConfessionCategory;
   content: string;
   created_at: string;
@@ -22,6 +24,7 @@ interface RawPublicConfession {
   is_seed?: boolean;
   media_urls?: string[];
   media_types?: Array<"image" | "video">;
+  comment_count?: number;
 }
 
 interface RawConfessionCommentCount {
@@ -51,7 +54,7 @@ async function attachReactions(rows: RawPublicConfession[]): Promise<Confession[
   const commentCounts = new Map<string, number>();
   const [userId, commentsResult] = await Promise.all([
     currentUserId(),
-    commentsTableAvailable
+    commentsTableAvailable && rows.some((row) => row.comment_count === undefined)
       ? supabase.from("confession_comments").select("confession_id").in("confession_id", ids).returns<RawConfessionCommentCount[]>()
       : Promise.resolve(null),
   ]);
@@ -92,12 +95,14 @@ async function attachReactions(rows: RawPublicConfession[]): Promise<Confession[
     content: row.content,
     category: row.category,
     schoolId: row.school_id,
+    schoolName: row.school_name ?? null,
+    schoolCrestUrl: row.school_crest_url ?? null,
     moderationStatus: row.moderation_status ?? "approved",
     createdAt: row.created_at,
     publishedAt: row.published_at,
     reactions: totals.get(row.id) ?? emptyReactions(),
     myReaction: mine.get(row.id) ?? null,
-    commentCount: commentCounts.get(row.id) ?? 0,
+    commentCount: row.comment_count ?? commentCounts.get(row.id) ?? 0,
     isSeed: row.is_seed ?? false,
     seedUsername: row.seed_username ?? null,
     seedFullName: row.seed_full_name ?? null,
@@ -109,22 +114,41 @@ async function attachReactions(rows: RawPublicConfession[]): Promise<Confession[
 
 /** Public, anonymous read path — the view never exposes author_id. */
 export async function fetchApprovedConfessions(limit = 40): Promise<Confession[]> {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("public_confessions")
-    .select("id, school_id, category, content, created_at, published_at, seed_username, seed_full_name, seed_avatar_url, is_seed, media_urls, media_types")
+    .select("id, school_id, category, content, created_at, published_at, seed_username, seed_full_name, seed_avatar_url, is_seed, media_urls, media_types, comment_count, school_name, school_crest_url")
     .order("published_at", { ascending: false, nullsFirst: false })
     .limit(limit)
     .returns<RawPublicConfession[]>();
+  if (error?.code === "42703" || error?.code === "PGRST204") {
+    const fallback = await supabase
+      .from("public_confessions")
+      .select("id, school_id, category, content, created_at, published_at, seed_username, seed_full_name, seed_avatar_url, is_seed, media_urls, media_types")
+      .order("published_at", { ascending: false, nullsFirst: false })
+      .limit(limit)
+      .returns<RawPublicConfession[]>();
+    data = fallback.data;
+    error = fallback.error;
+  }
   if (error) throw new Error(error.message);
   return attachReactions(data ?? []);
 }
 
 export async function fetchApprovedConfession(id: string): Promise<Confession | null> {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("public_confessions")
-    .select("id, school_id, category, content, created_at, published_at, seed_username, seed_full_name, seed_avatar_url, is_seed, media_urls, media_types")
+    .select("id, school_id, category, content, created_at, published_at, seed_username, seed_full_name, seed_avatar_url, is_seed, media_urls, media_types, comment_count, school_name, school_crest_url")
     .eq("id", id)
     .maybeSingle<RawPublicConfession>();
+  if (error?.code === "42703" || error?.code === "PGRST204") {
+    const fallback = await supabase
+      .from("public_confessions")
+      .select("id, school_id, category, content, created_at, published_at, seed_username, seed_full_name, seed_avatar_url, is_seed, media_urls, media_types")
+      .eq("id", id)
+      .maybeSingle<RawPublicConfession>();
+    data = fallback.data;
+    error = fallback.error;
+  }
   if (error) throw new Error(error.message);
   const [confession] = await attachReactions(data ? [data] : []);
   return confession ?? null;
