@@ -54,9 +54,9 @@ const variantDepths: Record<ButtonVariant, DepthShadow> = {
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: "h-11 gap-1.5 rounded-xl px-4 text-xs",
-  md: "h-12 gap-2 rounded-2xl px-5 text-sm",
-  lg: "h-[52px] gap-2 rounded-2xl px-6 text-[15px]",
+  sm: "h-9 gap-1.5 rounded-xl px-3 text-[10px] sm:h-11 sm:px-4 sm:text-xs",
+  md: "h-10 gap-2 rounded-xl px-4 text-xs sm:h-12 sm:rounded-2xl sm:px-5 sm:text-sm",
+  lg: "h-11 gap-2 rounded-2xl px-5 text-sm sm:h-[52px] sm:px-6 sm:text-[15px]",
 };
 
 const spinnerSize: Record<ButtonSize, number> = { sm: 14, md: 16, lg: 18 };

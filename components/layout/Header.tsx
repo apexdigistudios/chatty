@@ -1,10 +1,11 @@
 'use client';
 
-import { Search, Send, Sparkles } from "lucide-react";
+import { Search, Sparkles } from "lucide-react";
 import NextLink from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 /**
  * Sticky brand bar. Mobile keeps only the search trigger (per Step 9 polish);
@@ -24,9 +25,7 @@ export function Header({ hidden = false, spotlight = false }: { hidden?: boolean
           className="flex min-w-0 shrink-0 items-center gap-2 rounded-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:gap-2.5"
           aria-label="Gist me home"
         >
-          <span className={`flex size-9 shrink-0 items-center justify-center rounded-xl sm:size-10 ${spotlight ? "bg-white text-[#6D28D9]" : "bg-brand-deep text-brand-contrast"}`}>
-            <Send size={19} strokeWidth={2.8} aria-hidden />
-          </span>
+          <BrandLogo className="size-9 shrink-0 rounded-xl object-contain sm:size-10" />
           <span className={`truncate text-[18px] font-black leading-none tracking-tight sm:text-xl ${spotlight ? "text-white" : "text-ink"}`}>
             Gist me
           </span>

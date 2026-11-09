@@ -262,15 +262,13 @@ export function ProfilePage() {
     <div className="mx-auto w-full max-w-[740px] min-w-0 px-4 pb-10 pt-5 sm:px-6 sm:pt-7 lg:px-5 xl:px-7">
       <section aria-label="Your profile" className="relative min-w-0 border-b border-line pb-5 sm:pb-6">
         <div className="flex min-w-0 items-start gap-4 sm:gap-6">
-          <div className="relative shrink-0 rounded-full border-4 border-card bg-card shadow-md">
-            <Avatar
-              name={profile.username}
-              src={profile.avatarUrl}
-              size="3xl"
-              className="size-20 sm:size-28"
-              viewable
-            />
-          </div>
+          <Avatar
+            name={profile.username}
+            src={profile.avatarUrl}
+            size="3xl"
+            className="size-20 sm:size-28"
+            viewable
+          />
           <div className="min-w-0 flex-1">
             <ProfileHeader
               username={profile.username}
@@ -313,7 +311,7 @@ export function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => setSettingsOpen(true)}
-                    className="inline-flex max-w-full items-center gap-2 rounded-full border-2 border-line bg-page py-1 pl-1.5 pr-3.5 text-left hover:border-brand"
+                    className="inline-flex max-w-full items-center gap-2 text-left transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
                   >
                     <SchoolBadge schoolId={mySchool.id} crestUrl={mySchool.crestUrl} name={mySchool.name} size="sm" ring />
                     <span className="min-w-0">

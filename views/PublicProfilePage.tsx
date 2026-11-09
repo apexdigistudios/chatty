@@ -193,15 +193,14 @@ export function PublicProfilePage({
 
       <section aria-label={`${profile.username}'s profile`} className="relative mt-3 min-w-0 border-b border-line pb-5 sm:pb-6">
         <div className="flex min-w-0 items-start gap-4 sm:gap-6">
-          <div className="shrink-0 rounded-full border-4 border-card bg-card shadow-md">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={springs.bouncy}
-            >
-              <Avatar name={profile.username} src={profile.avatarUrl} size="3xl" className="size-20 sm:size-28" />
-            </motion.div>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={springs.bouncy}
+            className="shrink-0"
+          >
+            <Avatar name={profile.username} src={profile.avatarUrl} size="3xl" className="size-20 sm:size-28" />
+          </motion.div>
 
           <div className="min-w-0 flex-1">
             <h1 className="flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 text-xl font-black tracking-tight text-ink sm:text-2xl">
@@ -235,7 +234,7 @@ export function PublicProfilePage({
               {profile.schoolName ? (
                 <Link
                   to={profile.schoolId ? `/schools/${profile.schoolId}` : "/schools"}
-                  className="inline-flex max-w-full items-center gap-2 rounded-full border-2 border-line bg-page py-1 pl-1.5 pr-3.5 transition-colors hover:border-brand"
+                  className="inline-flex max-w-full items-center text-left transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
                 >
                   <SchoolTag
                     schoolId={profile.schoolId}

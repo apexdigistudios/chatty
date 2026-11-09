@@ -100,7 +100,7 @@ export function Avatar({
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
-          className="relative size-full object-cover"
+          className="relative aspect-square size-full rounded-full object-cover"
         />
       </span>
 
