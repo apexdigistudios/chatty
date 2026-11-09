@@ -232,7 +232,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
 
   loadFeed: async ({ silent } = {}) => {
     const schoolId = get().feedSchoolId;
-    const existingPostIds = new Set(get().posts.map((post) => post.id));
+    const seenPostIds = get().seenPostIds;
     const requestId = ++feedLoadRequestId;
     if (!silent) set({ feedLoading: true, feedError: null });
     try {
@@ -241,18 +241,20 @@ export const useGistStore = create<GistState>()((set, get) => ({
         userSchoolId: schoolId,
         page: 1,
         limit: PAGE_SIZE,
+        seenPostIds,
       });
       // Ignore stale responses if the school filter changed mid-flight.
       if (get().feedSchoolId !== schoolId || requestId !== feedLoadRequestId) return;
       set((state) => {
-        const freshPostIds = new Set(result.posts.map((post) => post.id));
-        const postsCreatedDuringLoad = state.posts.filter(
-          (post) => !existingPostIds.has(post.id) && !freshPostIds.has(post.id)
-        );
-        const nextPosts = [...postsCreatedDuringLoad, ...result.posts];
+        const alreadySeen = new Set(state.seenPostIds);
+        const freshPosts = result.posts.filter((post) => !alreadySeen.has(post.id));
+        const freshPostIds = new Set(freshPosts.map((post) => post.id));
+        const retainedPosts = state.posts.filter((post) => !freshPostIds.has(post.id));
+        const nextPosts = [...freshPosts, ...retainedPosts];
+        const nextSeenPostIds = [...new Set([...state.seenPostIds, ...nextPosts.map((post) => post.id)])];
         return {
           posts: nextPosts,
-          seenPostIds: nextPosts.map((post) => post.id),
+          seenPostIds: nextSeenPostIds,
           feedHasLoaded: true,
           feedLoading: false,
           feedHasMore: result.hasMore,

@@ -139,10 +139,11 @@ export async function getSmartFeed({
   const selectedGlobalPosts = postIds
     .map((id) => postsById.get(id))
     .filter((post): post is Post => post !== undefined);
+  const posts = [...selectedSchoolPosts, ...selectedGlobalPosts];
   const hasMore = ranks.length > remaining;
 
   return {
-    posts: [...selectedSchoolPosts, ...selectedGlobalPosts],
-    hasMore,
+    posts,
+    hasMore: posts.length > 0 && hasMore,
   };
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePathname } from "next/navigation";
-import { ArrowUpRight, CheckCircle2, Flame, Plus, RefreshCw, Sparkles, TrendingUp, WifiOff, X } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, Flame, Plus, RefreshCw, Sparkles, TrendingUp, Users, WifiOff, X } from "lucide-react";
 import { Link, useNavigate } from "@/lib/router";
 import { ConfessionCard } from "@/components/feed/ConfessionCard";
 import { FeedSkeleton } from "@/components/feed/FeedSkeleton";
@@ -430,8 +430,9 @@ export function HomePage({
                   <GistCard post={post} />
                 </motion.div>
               ))
-            ) : feedHasLoaded && !feedHasMore && !showingFollowing && activeTab !== "My School" ? (
-              <CaughtUpFeed />
+            ) : (feedHasLoaded && !feedHasMore && !showingFollowing && activeTab !== "My School") ||
+              (followingHasLoaded && !followingHasMore && showingFollowing) ? (
+              null
             ) : canShowEmptyState ? (
               <EmptyFeed
                 title={
@@ -485,8 +486,14 @@ export function HomePage({
           </Button>
         </div>
       )}
-      {!showingConfessions && !loading && ((showingTrending && trendingPosts.length > 0) || (!visibleHasMore && visiblePosts.length > 0)) && (
-        <p className="pb-8 pt-6 text-center text-xs font-semibold text-ink-muted">You&apos;re all caught up!</p>
+      {!showingConfessions && !showingTrending && activeTab !== "My School" && !loading &&
+        (showingFollowing
+          ? followingHasLoaded && !followingHasMore
+          : feedHasLoaded && !feedHasMore) && (
+        <CaughtUpFeed
+          onCreate={() => startComposing("gist")}
+          onShareToGroup={() => navigate(profile?.schoolId ? `/schools/${profile.schoolId}?tab=groups` : "/schools")}
+        />
       )}
     </div>
   );
@@ -502,12 +509,20 @@ function EmptyFeed({ title, detail, action, onAction }: { title: string; detail:
   );
 }
 
-function CaughtUpFeed() {
+function CaughtUpFeed({ onCreate, onShareToGroup }: { onCreate: () => void; onShareToGroup: () => void }) {
   return (
-    <div className="mx-4 flex flex-col items-center rounded-2xl border-2 border-dashed border-line bg-card px-5 py-10 text-center sm:mx-0">
+    <div className="mx-4 mb-8 mt-3 flex flex-col items-center rounded-2xl border-2 border-dashed border-line bg-card px-5 py-8 text-center sm:mx-0">
       <CheckCircle2 size={26} className="text-success-deep" aria-hidden />
       <p className="mt-2 text-sm font-extrabold text-ink">You&apos;re all caught up!</p>
       <p className="mt-1 text-xs font-semibold text-ink-muted">New gists will show up here.</p>
+      <div className="mt-4 flex w-full flex-col justify-center gap-2 sm:w-auto sm:flex-row">
+        <Button leftIcon={<Plus size={15} strokeWidth={2.8} aria-hidden />} onClick={onCreate}>
+          Create a Gist
+        </Button>
+        <Button variant="outline" leftIcon={<Users size={15} strokeWidth={2.5} aria-hidden />} onClick={onShareToGroup}>
+          Share to School Group
+        </Button>
+      </div>
     </div>
   );
 }

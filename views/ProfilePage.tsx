@@ -50,15 +50,6 @@ const TABS: Array<{ id: ProfileTab; label: string; icon: typeof MessageCircle }>
   { id: "Brand Deals", label: "Brand deals", icon: BriefcaseBusiness },
 ];
 
-function ProfileStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-[#171717] bg-card p-3 text-center text-[#171717]">
-      <span className="block text-lg font-black tabular-nums">{value}</span>
-      <span className="text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">{label}</span>
-    </div>
-  );
-}
-
 const GUIDELINES = [
   { id: "community", title: "SHS Community Guidelines", subtitle: "Healthy inter-school banter, zero bullying", icon: BookOpen, points: ["Friendly NSMQ, inter-co and dining hall banter is welcome — personal attacks are removed by your school's moderators.", "Never post private phone numbers, dormitory details or exam leaks.", "Respect students from every region, school and form."] },
   { id: "confessions", title: "Anonymous Confessions Policy", subtitle: "How identity protection & review work", icon: Lock, points: ["The database strips your nickname and avatar before any confession is readable publicly.", "Every confession passes the global admin queue before publishing.", "Use the report menu on any post to alert moderators."] },
@@ -110,6 +101,7 @@ export function ProfilePage() {
     role: profile?.role,
   });
   const websiteHref = profile?.website ? safeExternalUrl(profile.website) : null;
+  const likesReceived = myPosts.reduce((total, post) => total + post.likeCount, 0);
   const verifiedLabel = activeVerification
     ? profile?.verifiedTitle || (isGlobalAdminProfile({
       isAdmin: profile?.isAdmin || isGlobalAdmin,
@@ -411,32 +403,29 @@ export function ProfilePage() {
 
   return (
     <div className="mx-auto w-full max-w-[740px] min-w-0 px-4 pb-10 pt-5 sm:px-6 sm:pt-7 lg:px-5 xl:px-7">
-      <Card className="relative overflow-hidden rounded-3xl border-2 border-[#171717] shadow-[0_4px_0_#171717]">
-        <CardBody className="px-4 pb-6 pt-5 sm:px-6 sm:pt-6">
-          <input ref={avatarRef} type="file" accept="image/*" onChange={pickAvatar} className="sr-only" aria-label="Upload avatar" />
-          <div className="flex min-w-0 items-center gap-4 sm:gap-8">
-            <div className="relative shrink-0 rounded-full border-4 border-white shadow-md">
-              <Avatar
-                name={profile.username}
-                src={editing ? draftAvatar : profile.avatarUrl}
-                size="3xl"
-                online
-                viewable={!editing}
-              />
-              {editing && (
-                <button
-                  type="button"
-                  onClick={() => avatarRef.current?.click()}
-                  aria-label="Upload new avatar"
-                  className="absolute inset-0 flex items-center justify-center rounded-full bg-black/55 text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
-                >
-                  <Camera size={22} strokeWidth={2.5} aria-hidden />
-                </button>
-              )}
-            </div>
-            <p className="text-sm font-bold text-ink-muted">Your profile</p>
+      <section aria-label="Your profile" className="relative min-w-0 border-b border-line pb-5 sm:pb-6">
+        <input ref={avatarRef} type="file" accept="image/*" onChange={pickAvatar} className="sr-only" aria-label="Upload avatar" />
+        <div className="flex min-w-0 items-start gap-4 sm:gap-6">
+          <div className="relative shrink-0 rounded-full border-4 border-card bg-card shadow-md">
+            <Avatar
+              name={profile.username}
+              src={editing ? draftAvatar : profile.avatarUrl}
+              size="3xl"
+              online
+              viewable={!editing}
+            />
+            {editing && (
+              <button
+                type="button"
+                onClick={() => avatarRef.current?.click()}
+                aria-label="Upload new avatar"
+                className="absolute inset-0 flex items-center justify-center rounded-full bg-black/55 text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+              >
+                <Camera size={22} strokeWidth={2.5} aria-hidden />
+              </button>
+            )}
           </div>
-          <div className="mt-4">
+          <div className="min-w-0 flex-1">
             <ProfileHeader
               username={profile.username}
               fullName={profile.fullName ?? null}
@@ -476,62 +465,74 @@ export function ProfilePage() {
               onSettings={() => setSettingsOpen(true)}
               onShoutouts={() => navigate("/shoutouts")}
             />
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Badge className="border border-line bg-page px-2.5 py-0.5 text-[10px] text-ink">Online</Badge>
+              {profile.classForm && (
+                <Badge className="border border-brand/40 bg-brand-wash px-2.5 py-0.5 text-[10px] text-brand-deep">
+                  {profile.classForm}
+                </Badge>
+              )}
+            </div>
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Badge className="border border-[#171717] bg-[#171717] px-2.5 py-0.5 text-[10px] text-white">Online</Badge>
-            {profile.classForm && <Badge className="border border-[#171717] bg-[#FACC15] px-2.5 py-0.5 text-[10px] text-[#171717]">{profile.classForm}</Badge>}
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <ProfileStat label="Posts" value={formatCompactNumber(postCount)} />
-            <Link
-              to="/shoutouts"
-              className="rounded-2xl border border-[#171717] bg-[#FACC15] p-3 text-center text-[#171717] transition-colors hover:bg-yellow-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
-            >
-              <span className="block text-lg font-black tabular-nums">{formatCompactNumber(shoutoutCount)}</span>
-              <span className="text-[10px] font-extrabold uppercase tracking-wide">Shoutouts</span>
+        </div>
+        <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-line pt-3">
+          <span className="inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-ink-muted">
+            <strong className="font-black tabular-nums text-ink">{formatCompactNumber(postCount)}</strong>
+            Posts
+          </span>
+          <span className="inline-flex min-h-10 items-center gap-1.5 text-sm font-semibold text-ink-muted">
+            <strong className="font-black tabular-nums text-ink">{formatCompactNumber(likesReceived)}</strong>
+            Likes
+          </span>
+          <Link
+            to="/shoutouts"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg text-sm font-semibold text-ink-muted transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          >
+            <strong className="font-black tabular-nums text-ink">{formatCompactNumber(shoutoutCount)}</strong>
+            Shoutouts
+          </Link>
+          <button
+            type="button"
+            onClick={() => setFollowList("followers")}
+            aria-label={`${formatCompactNumber(followSummary.followerCount)} followers`}
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg text-sm font-semibold text-ink-muted transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          >
+            <strong className="font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followerCount)}</strong>
+            Followers
+          </button>
+          <button
+            type="button"
+            onClick={() => setFollowList("following")}
+            aria-label={`${formatCompactNumber(followSummary.followingCount)} following`}
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg text-sm font-semibold text-ink-muted transition-colors hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          >
+            <strong className="font-black tabular-nums text-ink">{formatCompactNumber(followSummary.followingCount)}</strong>
+            Following
+          </button>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {activeVerification ? (
+            <>
+              {profile.verifiedExpiresAt && !isGlobalAdminProfile({
+                isAdmin: profile.isAdmin || isGlobalAdmin,
+                role: profile.role,
+              }) && (
+                <span className="text-[10px] font-semibold text-ink-muted">
+                  Expires {new Date(profile.verifiedExpiresAt).toLocaleDateString()}
+                </span>
+              )}
+            </>
+          ) : (
+            <Link to="/get-verified" className="inline-flex items-center gap-1 text-[11px] font-extrabold text-brand-deep hover:underline">
+              <ShieldCheck size={14} aria-hidden /> Get verified
             </Link>
-            <button
-              type="button"
-              onClick={() => setFollowList("followers")}
-              aria-label={`${formatCompactNumber(followSummary.followerCount)} followers`}
-              className="rounded-2xl border border-line bg-page p-3 text-center text-ink transition-colors hover:border-[#171717] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
-            >
-              <span className="block text-lg font-black tabular-nums">{formatCompactNumber(followSummary.followerCount)}</span>
-              <span className="text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">Followers</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFollowList("following")}
-              aria-label={`${formatCompactNumber(followSummary.followingCount)} following`}
-              className="rounded-2xl border border-line bg-page p-3 text-center text-ink transition-colors hover:border-[#171717] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
-            >
-              <span className="block text-lg font-black tabular-nums">{formatCompactNumber(followSummary.followingCount)}</span>
-              <span className="text-[10px] font-extrabold uppercase tracking-wide text-ink-muted">Following</span>
-            </button>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {activeVerification ? (
-              <>
-                {profile.verifiedExpiresAt && !isGlobalAdminProfile({
-                  isAdmin: profile.isAdmin || isGlobalAdmin,
-                  role: profile.role,
-                }) && (
-                  <span className="text-[10px] font-semibold text-ink-muted">
-                    Expires {new Date(profile.verifiedExpiresAt).toLocaleDateString()}
-                  </span>
-                )}
-              </>
-            ) : (
-              <Link to="/get-verified" className="inline-flex items-center gap-1 text-[11px] font-extrabold text-brand-deep hover:underline">
-                <ShieldCheck size={14} aria-hidden /> Get verified
-              </Link>
-            )}
-          </div>
+          )}
+        </div>
 
-          <AnimatePresence initial={false}>
-            {editing && (
-              <motion.form onSubmit={saveProfile} initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={springs.gentle} className="overflow-hidden">
-                <div className="mt-4 space-y-3 rounded-2xl border-2 border-line bg-page p-3.5 sm:p-4">
+        <AnimatePresence initial={false}>
+          {editing && (
+            <motion.form onSubmit={saveProfile} initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={springs.gentle} className="overflow-hidden">
+              <div className="mt-4 space-y-3 rounded-2xl border-2 border-line bg-page p-3.5 sm:p-4">
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-brand-deep">Edit student profile</p>
                   <label className="block">
                     <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Nickname</span>
@@ -599,10 +600,9 @@ export function ProfilePage() {
                 </div>
               </motion.form>
             )}
-          </AnimatePresence>
+        </AnimatePresence>
 
-        </CardBody>
-      </Card>
+      </section>
 
       <section className="mt-5 md:hidden" aria-labelledby="profile-quick-access">
         <h2 id="profile-quick-access" className="mb-3 text-sm font-extrabold text-ink">

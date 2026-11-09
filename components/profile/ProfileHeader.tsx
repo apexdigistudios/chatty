@@ -73,11 +73,11 @@ export function ProfileHeader({
       )}
       <div className="mt-3 max-w-full">{schoolBadge}</div>
 
-      <div className="mt-4 grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem] gap-2 sm:flex sm:flex-wrap">
+      <div className="mt-4 flex w-full flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={onEdit}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border-2 border-line bg-card px-4 text-xs font-extrabold text-ink transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#FACC15] bg-[#FACC15] px-4 text-xs font-extrabold text-[#171717] transition-colors hover:bg-yellow-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
         >
           <Pencil size={14} strokeWidth={2.6} aria-hidden />
           Edit Profile
@@ -85,7 +85,7 @@ export function ProfileHeader({
         <button
           type="button"
           onClick={onShoutouts}
-          className="inline-flex min-h-11 items-center justify-center rounded-xl border-2 border-line bg-card px-4 text-xs font-extrabold text-ink transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          className="inline-flex min-h-10 items-center justify-center rounded-full border border-line bg-page px-4 text-xs font-extrabold text-ink transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
         >
           Shoutouts
         </button>
@@ -94,7 +94,7 @@ export function ProfileHeader({
           onClick={onSettings}
           aria-label="Open profile settings"
           title="Profile settings"
-          className="inline-flex size-11 items-center justify-center rounded-xl border-2 border-line bg-card text-ink-muted transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          className="inline-flex size-10 items-center justify-center rounded-full border border-line bg-page text-ink-muted transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
         >
           <Settings size={17} strokeWidth={2.5} aria-hidden />
         </button>
