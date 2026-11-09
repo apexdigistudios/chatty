@@ -72,7 +72,6 @@ export function ProfileHeader({
           onClick={onEdit}
           size="sm"
           variant="primary"
-          className="bg-[#FFCC00] text-[#171717] hover:brightness-105"
           leftIcon={<Pencil size={14} strokeWidth={2.6} aria-hidden />}
         >
           Edit Profile
