@@ -124,6 +124,7 @@ function AuthWizardContent() {
   const [schoolSearchError, setSchoolSearchError] = useState<string | null>(null);
   const [nicknameStatus, setNicknameStatus] = useState<NicknameStatus>("idle");
   const [busy, setBusy] = useState(false);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [emailConfirmPending, setEmailConfirmPending] = useState(false);
   const [oauthOnboarding, setOauthOnboarding] = useState(initialStep === 2);
@@ -146,6 +147,26 @@ function AuthWizardContent() {
   }, [schools, schoolQuery, selectedSchoolId]);
   const stepCount = mode === "signup" ? 3 : 1;
   const progress = mode === "signup" ? (step / stepCount) * 100 : 100;
+  const stepOneValid = ageConfirmed && email.trim().includes("@") && password.length >= 6;
+  const stepTwoHasInvalidFields =
+    !selectedSchool ||
+    !selectedSchoolId ||
+    !isValidUsername(username) ||
+    nicknameStatus === "taken" ||
+    nicknameStatus === "invalid";
+  const stepTwoValid =
+    !stepTwoHasInvalidFields && nicknameStatus === "available";
+  const validationErrorVisible = hasAttemptedSubmit && mode === "signup" && (
+    (step === 1 && !stepOneValid) || (step === 2 && stepTwoHasInvalidFields)
+  );
+  const mascotReaction =
+    mode === "signup" && step <= 2
+      ? validationErrorVisible
+        ? "error"
+        : reaction === "error"
+          ? "idle"
+          : reaction
+      : reaction;
 
   useEffect(() => {
     if (schools.length === 0) void loadSchools();
@@ -231,6 +252,19 @@ function AuthWizardContent() {
                 : "Could not search for that school.";
               throw new Error(message);
             }
+            if (
+              result &&
+              typeof result === "object" &&
+              "schools" in result &&
+              Array.isArray(result.schools) &&
+              result.schools.length === 0
+            ) {
+              if (active) {
+                setSchoolSearchState("error");
+                setSchoolSearchError("No matching school was found. Check the spelling or choose a listed school.");
+              }
+              return;
+            }
             if (!result || typeof result !== "object" || !("school" in result) || !isSchoolRecord(result.school)) {
               throw new Error("The school search returned an invalid result.");
             }
@@ -264,7 +298,6 @@ function AuthWizardContent() {
     }
     if (!isValidUsername(username)) {
       setNicknameStatus("invalid");
-      setReaction("error");
       return;
     }
 
@@ -287,6 +320,7 @@ function AuthWizardContent() {
   const switchMode = (nextMode: AuthMode) => {
     setMode(nextMode);
     setErrorMessage(null);
+    setHasAttemptedSubmit(false);
     setStep(1);
     setOauthOnboarding(false);
     if (nextMode === "signup") setAgeConfirmed(false);
@@ -391,12 +425,24 @@ function AuthWizardContent() {
   };
 
   const continueFromStepOne = () => {
-    if (!ageConfirmed || !email.trim().includes("@") || password.length < 6) return;
+    setHasAttemptedSubmit(true);
+    if (!stepOneValid) {
+      setErrorMessage(
+        !ageConfirmed
+          ? "Confirm your age before continuing."
+          : !email.trim().includes("@")
+            ? "Enter a valid email address."
+            : "Your password must be at least 6 characters."
+      );
+      return;
+    }
     setErrorMessage(null);
+    setHasAttemptedSubmit(false);
     setStep(2);
   };
 
   const continueFromStepTwo = () => {
+    setHasAttemptedSubmit(true);
     if (!selectedSchool || !selectedSchoolId) {
       setErrorMessage("Choose your school badge before continuing.");
       return;
@@ -409,6 +455,7 @@ function AuthWizardContent() {
       return;
     }
     setErrorMessage(null);
+    setHasAttemptedSubmit(false);
     setStep(3);
     setReaction("valid");
   };
@@ -432,7 +479,10 @@ function AuthWizardContent() {
           {mode === "signup" && step > 1 ? (
             <button
               type="button"
-              onClick={() => setStep((current) => (current === 3 ? 2 : 1))}
+              onClick={() => {
+                setHasAttemptedSubmit(false);
+                setStep((current) => (current === 3 ? 2 : 1));
+              }}
               aria-label="Go back one step"
               className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line text-ink hover:bg-page focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
             >
@@ -482,7 +532,7 @@ function AuthWizardContent() {
           step={mode === "signin" ? 1 : step}
           outfit={mode === "signin" ? "login_welcome" : undefined}
           compact
-          reaction={reaction}
+          reaction={mascotReaction}
           badgeLabel={mode === "signin" ? "WELCOME BACK" : `STEP ${step} OF 3`}
           speech={mascotSpeech}
           className="gap-2 sm:gap-3"
@@ -603,7 +653,6 @@ function AuthWizardContent() {
                     type="button"
                     fullWidth
                     size="lg"
-                    disabled={!ageConfirmed || !email.trim().includes("@") || password.length < 6}
                     rightIcon={<ArrowRight size={18} aria-hidden />}
                     onClick={continueFromStepOne}
                   >
@@ -611,7 +660,9 @@ function AuthWizardContent() {
                   </Button>
                 </div>
               )}
-              {errorMessage && <ErrorMessage className="mt-3">{errorMessage}</ErrorMessage>}
+              {errorMessage && (validationErrorVisible || reaction === "error") && (
+                <ErrorMessage className="mt-3">{errorMessage}</ErrorMessage>
+              )}
               {!ageConfirmed && (
                 <p className="mt-3 text-center text-xs font-semibold text-ink-muted">
                   Confirm your age and promise to keep the community safe to continue.
@@ -644,7 +695,7 @@ function AuthWizardContent() {
                     placeholder="Type any name you like"
                     className={cn(
                       "min-h-12 w-full rounded-2xl border-2 bg-page px-4 text-base font-bold text-ink outline-none placeholder:text-ink-muted focus:border-brand-deep focus:ring-4 focus:ring-brand-soft",
-                      nicknameStatus === "taken" || nicknameStatus === "invalid"
+                      hasAttemptedSubmit && (nicknameStatus === "taken" || nicknameStatus === "invalid")
                         ? "border-danger"
                         : nicknameStatus === "available"
                           ? "border-success"
@@ -739,7 +790,7 @@ function AuthWizardContent() {
                       No local match. Searching Ghana school directories…
                     </p>
                   )}
-                  {schoolSearchState === "error" && schoolSearchError && (
+                  {validationErrorVisible && !selectedSchool && schoolSearchState === "error" && schoolSearchError && (
                     <p role="alert" className="mt-2 text-xs font-semibold text-danger">{schoolSearchError}</p>
                   )}
                 </div>
@@ -750,10 +801,10 @@ function AuthWizardContent() {
                     Checking username…
                   </p>
                 )}
-                {nicknameStatus === "taken" && (
+                {hasAttemptedSubmit && nicknameStatus === "taken" && (
                   <p className="text-sm font-semibold text-danger">That username is taken. Try another one.</p>
                 )}
-                {nicknameStatus === "invalid" && (
+                {hasAttemptedSubmit && nicknameStatus === "invalid" && (
                   <p className="text-sm font-semibold text-danger">Use 3 to 24 characters.</p>
                 )}
                 {nicknameStatus === "available" && (
@@ -763,17 +814,14 @@ function AuthWizardContent() {
                 )}
               </div>
 
-              {errorMessage && <ErrorMessage className="mt-3">{errorMessage}</ErrorMessage>}
+              {errorMessage && (validationErrorVisible || reaction === "error") && (
+                <ErrorMessage className="mt-3">{errorMessage}</ErrorMessage>
+              )}
               <Button
                 type="button"
                 fullWidth
                 size="lg"
                 className="mt-4"
-                disabled={
-                  !isValidUsername(username) ||
-                  nicknameStatus !== "available" ||
-                  !selectedSchool
-                }
                 rightIcon={<ArrowRight size={18} aria-hidden />}
                 onClick={continueFromStepTwo}
               >

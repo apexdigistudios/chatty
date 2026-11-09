@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
 import { normalizeSchoolName } from "@/lib/services/school-resolver";
 import type { School, SchoolType } from "@/types/models";
 
@@ -52,8 +53,12 @@ const requestsByIp = new Map<string, number[]>();
 const SCHOOL_ROW_SELECT =
   "id, name, region, school_type, code, motto, category, aliases, normalized_name, logo_url, creator_id, created_at";
 
-function jsonError(message: string, status: number): Response {
-  return Response.json({ error: message }, { status });
+function jsonError(message: string, status: number): NextResponse {
+  return NextResponse.json({ error: message }, { status });
+}
+
+function emptySchoolsResponse(status = 200): NextResponse {
+  return NextResponse.json({ schools: [] }, { status });
 }
 
 function enforceRateLimit(ip: string): boolean {
@@ -120,39 +125,40 @@ function schoolResult(row: SchoolRow | null): School | null {
   return row ? mapSchool(row) : null;
 }
 
-export async function POST(request: Request): Promise<Response> {
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  if (!enforceRateLimit(ip)) return jsonError("Too many school searches. Please wait a minute and try again.", 429);
-
-  let body: unknown;
+export async function POST(request: Request): Promise<NextResponse> {
   try {
-    body = await request.json();
-  } catch {
-    return jsonError("Enter a school name to search.", 400);
-  }
-  if (!body || typeof body !== "object" || !("query" in body) || typeof body.query !== "string") {
-    return jsonError("Enter a school name to search.", 400);
-  }
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    if (!enforceRateLimit(ip)) return jsonError("Too many school searches. Please wait a minute and try again.", 429);
 
-  const query = body.query.trim();
-  const normalizedQuery = normalizeSchoolName(query);
-  if (normalizedQuery.length < 3 || query.length > 120) {
-    return jsonError("Enter at least 3 characters for the school name.", 400);
-  }
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return jsonError("Enter a school name to search.", 400);
+    }
+    if (!body || typeof body !== "object" || !("query" in body) || typeof body.query !== "string") {
+      return jsonError("Enter a school name to search.", 400);
+    }
 
-  const googleKey = process.env.GOOGLE_CSE_API_KEY;
-  const googleCx = process.env.GOOGLE_CSE_ID;
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!googleKey || !googleCx) {
-    return jsonError("Live school search is not configured. Please contact support.", 503);
-  }
-  if (!supabaseUrl || !serviceRoleKey) {
-    console.error("Live school search cannot save results without server-side Supabase credentials.");
-    return jsonError("School search is unavailable right now. Please try again later.", 503);
-  }
+    const query = body.query.trim();
+    const normalizedQuery = normalizeSchoolName(query);
+    if (normalizedQuery.length < 3 || query.length > 120) {
+      return jsonError("Enter at least 3 characters for the school name.", 400);
+    }
 
-  try {
+    const googleKey = process.env.GOOGLE_CSE_API_KEY;
+    const googleCx = process.env.GOOGLE_CSE_ID;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!googleKey || !googleCx) {
+      console.warn("Live school search is not configured; returning no external results.");
+      return emptySchoolsResponse();
+    }
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error("Live school search cannot save results without server-side Supabase credentials.");
+      return emptySchoolsResponse(503);
+    }
+
     const searchUrl = new URL("https://www.googleapis.com/customsearch/v1");
     searchUrl.search = new URLSearchParams({
       key: googleKey,
@@ -160,19 +166,31 @@ export async function POST(request: Request): Promise<Response> {
       q: `${query} Ghana Senior High School SHS`,
       num: "10",
     }).toString();
-    const response = await fetch(searchUrl, { signal: AbortSignal.timeout(8_000) });
+    let response: Response;
+    try {
+      response = await fetch(searchUrl, { signal: AbortSignal.timeout(8_000) });
+    } catch (error) {
+      console.warn("Google Custom Search request failed.", error);
+      return emptySchoolsResponse();
+    }
     if (!response.ok) {
-      console.error("Google Custom Search failed with status", response.status);
-      return jsonError("Live school search failed. Please try again.", 502);
+      console.warn("Google Custom Search failed with status", response.status);
+      return emptySchoolsResponse();
     }
 
-    const searchResults = (await response.json()) as GoogleSearchResponse;
+    let searchResults: GoogleSearchResponse;
+    try {
+      searchResults = (await response.json()) as GoogleSearchResponse;
+    } catch (error) {
+      console.warn("Google Custom Search returned an invalid response.", error);
+      return emptySchoolsResponse();
+    }
     const match = searchResults.items?.map((item) => ({
       item,
       name: readName(item),
     })).find(({ name }) => name !== null);
     if (!match?.name) {
-      return Response.json({ school: null, message: "No matching school was found." }, { status: 404 });
+      return emptySchoolsResponse();
     }
 
     const client = createClient(supabaseUrl, serviceRoleKey, {
@@ -187,7 +205,7 @@ export async function POST(request: Request): Promise<Response> {
       .eq("normalized_name", normalizedName)
       .maybeSingle<SchoolRow>();
     if (existingError) throw new Error(existingError.message);
-    if (existing) return Response.json({ school: mapSchool(existing) });
+    if (existing) return NextResponse.json({ school: mapSchool(existing) });
 
     const region = inferRegion(`${match.item.title ?? ""} ${match.item.snippet ?? ""}`);
     const { data: inserted, error: insertError } = await client
@@ -205,7 +223,7 @@ export async function POST(request: Request): Promise<Response> {
       .select(SCHOOL_ROW_SELECT)
       .maybeSingle<SchoolRow>();
     if (insertError) throw new Error(insertError.message);
-    if (inserted) return Response.json({ school: mapSchool(inserted) });
+    if (inserted) return NextResponse.json({ school: mapSchool(inserted) });
 
     const { data: racedSchool, error: racedError } = await client
       .from("schools")
@@ -215,9 +233,9 @@ export async function POST(request: Request): Promise<Response> {
     if (racedError) throw new Error(racedError.message);
     const school = schoolResult(racedSchool);
     if (!school) throw new Error("The discovered school could not be saved.");
-    return Response.json({ school });
+    return NextResponse.json({ school });
   } catch (error) {
     console.error("Could not complete live school search.", error);
-    return jsonError("Could not search or save that school. Please try again.", 500);
+    return emptySchoolsResponse(500);
   }
 }
