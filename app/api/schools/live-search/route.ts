@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { normalizeSchoolName } from "@/lib/services/school-resolver";
 import type { School, SchoolType } from "@/types/models";
 
@@ -13,6 +13,21 @@ interface GoogleSearchItem {
 
 interface GoogleSearchResponse {
   items?: GoogleSearchItem[];
+  searchInformation?: { totalResults?: string };
+}
+
+interface GoogleSchoolCandidate {
+  name: string;
+  snippet: string;
+  link: string;
+}
+
+interface LiveSchoolResult {
+  id: string;
+  name: string;
+  snippet: string;
+  link: string;
+  school: School;
 }
 
 interface SchoolRow {
@@ -70,7 +85,7 @@ function enforceRateLimit(ip: string): boolean {
   return true;
 }
 
-function readName(item: GoogleSearchItem): string | null {
+function readSchoolCandidate(item: GoogleSearchItem): GoogleSchoolCandidate | null {
   if (typeof item.title !== "string" || typeof item.link !== "string" || typeof item.snippet !== "string") {
     return null;
   }
@@ -88,12 +103,13 @@ function readName(item: GoogleSearchItem): string | null {
   }
 
   const title = item.title
+    .replace(/\s+-\s+(?:Wikipedia|Google Search)$/i, "")
     .split(/\s(?:\||–|—|-)\s/u, 1)[0]
     ?.replace(/^(?:welcome to|home of)\s+/i, "")
     .replace(/\s+\((?:official|ghana)\)$/i, "")
     .trim();
   if (!title || title.length < 3 || title.length > 160) return null;
-  return title;
+  return { name: title, snippet: item.snippet, link: url.toString() };
 }
 
 function inferRegion(text: string): string {
@@ -121,26 +137,27 @@ function mapSchool(row: SchoolRow): School {
   };
 }
 
-function schoolResult(row: SchoolRow | null): School | null {
-  return row ? mapSchool(row) : null;
-}
-
-export async function POST(request: Request): Promise<NextResponse> {
+async function searchSchools(request: NextRequest, submittedQuery?: string | null): Promise<NextResponse> {
   try {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
     if (!enforceRateLimit(ip)) return jsonError("Too many school searches. Please wait a minute and try again.", 429);
 
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return jsonError("Enter a school name to search.", 400);
+    let query = submittedQuery ?? request.nextUrl.searchParams.get("query") ?? request.nextUrl.searchParams.get("q");
+    if (!query && request.method === "POST") {
+      try {
+        const body: unknown = await request.json();
+        if (body && typeof body === "object" && "query" in body && typeof body.query === "string") {
+          query = body.query;
+        }
+      } catch {
+        return jsonError("Enter a school name to search.", 400);
+      }
     }
-    if (!body || typeof body !== "object" || !("query" in body) || typeof body.query !== "string") {
+    if (typeof query !== "string") {
       return jsonError("Enter a school name to search.", 400);
     }
 
-    const query = body.query.trim();
+    query = query.trim();
     const normalizedQuery = normalizeSchoolName(query);
     if (normalizedQuery.length < 3 || query.length > 120) {
       return jsonError("Enter at least 3 characters for the school name.", 400);
@@ -150,6 +167,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     const googleCx = process.env.GOOGLE_CSE_ID;
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    console.info("Google Custom Search configuration:", {
+      apiKeyConfigured: Boolean(googleKey),
+      searchEngineConfigured: Boolean(googleCx),
+    });
     if (!googleKey || !googleCx) {
       console.warn("Live school search is not configured; returning no external results.");
       return emptySchoolsResponse();
@@ -185,57 +206,71 @@ export async function POST(request: Request): Promise<NextResponse> {
       console.warn("Google Custom Search returned an invalid response.", error);
       return emptySchoolsResponse();
     }
-    const match = searchResults.items?.map((item) => ({
-      item,
-      name: readName(item),
-    })).find(({ name }) => name !== null);
-    if (!match?.name) {
+    const candidates = [...new Map(
+      (searchResults.items ?? [])
+        .map(readSchoolCandidate)
+        .filter((candidate): candidate is GoogleSchoolCandidate => candidate !== null)
+        .map((candidate) => [normalizeSchoolName(candidate.name), candidate])
+    ).values()].slice(0, 8);
+    console.info("Google Custom Search results:", {
+      totalResults: searchResults.searchInformation?.totalResults ?? "0",
+      items: searchResults.items ?? [],
+    });
+    if (candidates.length === 0) {
       return emptySchoolsResponse();
     }
 
     const client = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
     });
-    const normalizedName = normalizeSchoolName(match.name);
-    const aliases = [...new Set([normalizedQuery].filter((alias) => alias !== normalizedName))];
-
-    const { data: existing, error: existingError } = await client
-      .from("schools")
-      .select(SCHOOL_ROW_SELECT)
-      .eq("normalized_name", normalizedName)
-      .maybeSingle<SchoolRow>();
-    if (existingError) throw new Error(existingError.message);
-    if (existing) return NextResponse.json({ school: mapSchool(existing) });
-
-    const region = inferRegion(`${match.item.title ?? ""} ${match.item.snippet ?? ""}`);
-    const { data: inserted, error: insertError } = await client
+    const normalizedNames = candidates.map(({ name }) => normalizeSchoolName(name));
+    const { error: insertError } = await client
       .from("schools")
       .upsert(
-        {
-          name: match.name,
-          region,
-          school_type: "public",
-          normalized_name: normalizedName,
-          aliases,
-        },
+        candidates.map(({ name, snippet }) => {
+          const normalizedName = normalizeSchoolName(name);
+          return {
+            name,
+            region: inferRegion(`${name} ${snippet}`),
+            school_type: "public",
+            normalized_name: normalizedName,
+            aliases: normalizedName === normalizedQuery ? [normalizedQuery] : [],
+          };
+        }),
         { onConflict: "normalized_name", ignoreDuplicates: true }
-      )
-      .select(SCHOOL_ROW_SELECT)
-      .maybeSingle<SchoolRow>();
+      );
     if (insertError) throw new Error(insertError.message);
-    if (inserted) return NextResponse.json({ school: mapSchool(inserted) });
-
-    const { data: racedSchool, error: racedError } = await client
+    const { data: schoolRows, error: schoolsError } = await client
       .from("schools")
       .select(SCHOOL_ROW_SELECT)
-      .eq("normalized_name", normalizedName)
-      .maybeSingle<SchoolRow>();
-    if (racedError) throw new Error(racedError.message);
-    const school = schoolResult(racedSchool);
-    if (!school) throw new Error("The discovered school could not be saved.");
-    return NextResponse.json({ school });
+      .in("normalized_name", normalizedNames)
+      .returns<SchoolRow[]>();
+    if (schoolsError) throw new Error(schoolsError.message);
+
+    const schoolsByName = new Map((schoolRows ?? []).map((row) => [row.normalized_name ?? normalizeSchoolName(row.name), row]));
+    const schools: LiveSchoolResult[] = candidates.flatMap((candidate) => {
+      const row = schoolsByName.get(normalizeSchoolName(candidate.name));
+      if (!row) return [];
+      const school = mapSchool(row);
+      return [{
+        id: school.id,
+        name: school.name,
+        snippet: candidate.snippet,
+        link: candidate.link,
+        school,
+      }];
+    });
+    return NextResponse.json({ schools });
   } catch (error) {
     console.error("Could not complete live school search.", error);
     return emptySchoolsResponse(500);
   }
+}
+
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  return searchSchools(request);
+}
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  return searchSchools(request);
 }
