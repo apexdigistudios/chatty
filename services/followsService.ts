@@ -1,5 +1,4 @@
 import { currentUserId, requireUserId, supabase } from "@/lib/supabase";
-import { trackEvent } from "@/lib/mixpanel";
 import { isBrowserOffline, readOfflineValue, writeOfflineValue } from "@/lib/offlineCache";
 import { shortNameOf } from "@/lib/media";
 
@@ -182,7 +181,6 @@ export async function unfollowUser(profileId: string): Promise<void> {
 }
 
 export async function recordPostShare(postId: string): Promise<void> {
-  trackEvent("Post Shared", { post_id: postId });
   const userId = await currentUserId();
   if (!userId) return;
   const { error } = await supabase.from("post_shares").insert({ post_id: postId, user_id: userId });

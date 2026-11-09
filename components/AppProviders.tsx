@@ -19,7 +19,7 @@ import { ToastProvider, ToastViewport } from "@/components/ui/Toast";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { identifyUser, resetUser } from "@/lib/mixpanel";
+import { identifyUser, initializeMixpanel, resetUser, trackEvent } from "@/lib/mixpanel";
 import { useGistStore } from "@/store/gistStore";
 import { SPOTLIGHT_SCROLL_DIRECTION_EVENT, useScrollDirection } from "@/hooks/useScrollDirection";
 
@@ -46,6 +46,44 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
   const schools = useGistStore((state) => state.schools);
   const analyticsUserId = useRef<string | null>(null);
   const analyticsIdentity = useRef<string | null>(null);
+  const sessionOpened = useRef(false);
+
+  useEffect(() => {
+    initializeMixpanel();
+  }, []);
+
+  useEffect(() => {
+    if (loading || sessionOpened.current) return;
+    sessionOpened.current = true;
+    try {
+      const sequenceKey = `gistme:mixpanel:session-sequence:${user?.id ?? "anonymous"}`;
+      const previous = Number(window.localStorage.getItem(sequenceKey) ?? "0");
+      const sequence = Number.isSafeInteger(previous) && previous > 0 ? previous + 1 : 1;
+      window.localStorage.setItem(sequenceKey, String(sequence));
+      const entryPoint = pathname.startsWith("/schools/")
+        ? "school_feed"
+        : pathname.startsWith("/posts/")
+          ? "gist_detail"
+          : pathname === "/trending"
+            ? "trending"
+            : pathname === "/"
+              ? "home"
+              : pathname.slice(1) || "home";
+      trackEvent("app_session_opened", {
+        session_sequence_number: sequence,
+        entry_point: entryPoint,
+        is_returning_user: sequence > 1,
+        timestamp_source: new Date().toISOString(),
+      });
+    } catch {
+      trackEvent("app_session_opened", {
+        session_sequence_number: 1,
+        entry_point: pathname.slice(1) || "home",
+        is_returning_user: false,
+        timestamp_source: new Date().toISOString(),
+      });
+    }
+  }, [loading, pathname, user?.id]);
   useEffect(() => {
     if (!user) {
       if (analyticsUserId.current) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { ArrowUpRight, CheckCircle2, Flame, Plus, RefreshCw, Sparkles, TrendingUp, Users, WifiOff, X } from "lucide-react";
@@ -17,6 +17,7 @@ import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
 import { rotateBySeed } from "@/lib/feedRotation";
 import { formatCompactNumber } from "@/lib/utils";
+import { trackEvent } from "@/lib/mixpanel";
 import type { Confession, Post } from "@/types/models";
 
 const tabs = ["All SHSs", "Following", "My School", "Confessions"] as const;
@@ -96,6 +97,14 @@ export function HomePage({
   const feedSchool = schools.find((school) => school.id === feedSchoolId) ?? null;
   const mySchool = schools.find((school) => school.id === profile?.schoolId) ?? null;
   const headerSchool = feedSchool ?? mySchool;
+  const analyticsFeedContext = useRef({
+    profileSchoolId: profile?.schoolId ?? null,
+    feedSchoolId,
+  });
+  analyticsFeedContext.current = {
+    profileSchoolId: profile?.schoolId ?? null,
+    feedSchoolId,
+  };
 
   useEffect(() => {
     hydrateInitialPublicContent(initialPosts, initialConfessions, initialTrendingPosts, initialTrendingFallback);
@@ -113,6 +122,37 @@ export function HomePage({
       void supabase.removeChannel(channel);
     };
   }, [loadFeed, loadFollowingFeed]);
+
+  useEffect(() => {
+    const enteredAt = Date.now();
+    const entryPoint = pathname.startsWith("/schools/") ? "push_deeplink" : "home_tab";
+    if (activeTab === "Trending") {
+      return () => {
+        const timeSpentSeconds = Math.max(0, Math.floor((Date.now() - enteredAt) / 1000));
+        if (timeSpentSeconds === 0) return;
+        trackEvent("trending_content_viewed", {
+          trending_category: analyticsFeedContext.current.profileSchoolId ? "school_trending" : "national_trending",
+          surface: "trending_tab",
+          time_spent_seconds: timeSpentSeconds,
+          entry_point: entryPoint,
+        });
+      };
+    }
+    if (activeTab === "Confessions") return;
+    const feedSurface = activeTab === "Following" ? "following_feed" : "school_feed";
+    return () => {
+      const timeSpentSeconds = Math.max(0, Math.floor((Date.now() - enteredAt) / 1000));
+      if (timeSpentSeconds === 0) return;
+      trackEvent("school_feed_viewed", {
+        feed_surface: feedSurface,
+        school_id: activeTab === "My School"
+          ? analyticsFeedContext.current.profileSchoolId
+          : analyticsFeedContext.current.feedSchoolId,
+        time_spent_seconds: timeSpentSeconds,
+        entry_point: entryPoint,
+      });
+    };
+  }, [activeTab, pathname]);
 
   useEffect(() => {
     if (activeTab === "Following" && followingPosts.length === 0 && !followingLoading) void loadFollowingFeed();
@@ -396,7 +436,7 @@ export function HomePage({
               displayTrendingPosts.length > 0 ? (
                 displayTrendingPosts.map((post) => (
                   <motion.div key={post.id} variants={itemVariants}>
-                    <GistCard post={post} />
+                    <GistCard post={post} surface="trending" />
                   </motion.div>
                 ))
               ) : trendingInitialized ? (
@@ -412,7 +452,7 @@ export function HomePage({
                   </div>
                   {displayTrendingFallback.map((post) => (
                     <motion.div key={post.id} variants={itemVariants}>
-                      <GistCard post={post} />
+                      <GistCard post={post} surface="trending" />
                     </motion.div>
                   ))}
                 </>
@@ -421,14 +461,14 @@ export function HomePage({
               mixedItems.map((item) => (
                 <motion.div key={`${item.kind}:${item.id}`} variants={itemVariants}>
                   {item.kind === "post"
-                    ? <GistCard post={item.post} />
+                    ? <GistCard post={item.post} surface={activeTab === "Following" ? "following_feed" : "school_feed"} />
                     : <ConfessionCard confession={item.confession} />}
                 </motion.div>
               ))
             ) : visiblePosts.length > 0 ? (
               visiblePosts.map((post) => (
                 <motion.div key={post.id} variants={itemVariants}>
-                  <GistCard post={post} />
+                  <GistCard post={post} surface={activeTab === "Following" ? "following_feed" : "school_feed"} />
                 </motion.div>
               ))
             ) : (feedHasLoaded && !feedHasMore && !showingFollowing && activeTab !== "My School") ||

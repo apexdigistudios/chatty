@@ -221,9 +221,20 @@ export async function submitConfession(input: SubmitConfessionInput): Promise<Co
     })
     .select("id, school_id, category, content, created_at, published_at, moderation_status")
     .single<RawPublicConfession>();
-  if (error) throw new Error(error.message);
+  if (error) {
+    trackEvent("confession_shoutout_interaction", {
+      interaction_type: "confession_posted",
+      interaction_result: "failed",
+      timestamp_source: new Date().toISOString(),
+    });
+    throw new Error(error.message);
+  }
   const [confession] = await attachReactions([data]);
-  trackEvent("Confession Submitted", {
+  trackEvent("confession_shoutout_interaction", {
+    interaction_type: "confession_posted",
+    target_gist_id: confession!.id,
+    interaction_result: "submitted",
+    timestamp_source: new Date().toISOString(),
     category: input.category,
     school_id: schoolId,
   });
@@ -245,10 +256,11 @@ export async function toggleReaction(
       .eq("confession_id", confessionId)
       .eq("user_id", userId);
     if (error) throw new Error(error.message);
-    trackEvent("Confession Reacted", {
-      confession_id: confessionId,
-      reaction: kind,
-      action: "removed",
+    trackEvent("confession_shoutout_interaction", {
+      interaction_type: "confession_supported",
+      target_gist_id: confessionId,
+      interaction_result: "removed",
+      timestamp_source: new Date().toISOString(),
     });
     return null;
   }
@@ -265,10 +277,11 @@ export async function toggleReaction(
     }
     throw new Error(error.message);
   }
-  trackEvent("Confession Reacted", {
-    confession_id: confessionId,
-    reaction: kind,
-    action: "added",
+  trackEvent("confession_shoutout_interaction", {
+    interaction_type: "confession_supported",
+    target_gist_id: confessionId,
+    interaction_result: "submitted",
+    timestamp_source: new Date().toISOString(),
   });
   return kind;
 }

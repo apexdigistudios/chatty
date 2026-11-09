@@ -6,6 +6,7 @@ import { countOf, supabase } from "@/lib/supabase";
 import type { Profile } from "@/types/models";
 import { fetchInbox } from "@/services/shoutoutsService";
 import { supportsPostVisibility } from "@/services/postsService";
+import { trackEvent } from "@/lib/mixpanel";
 
 /**
  * Real-Time Notification System (Step 12).
@@ -402,7 +403,7 @@ export interface RealtimeOptions {
 
 export function subscribeToNotificationEvents(
   channelKey: string,
-  onEvent: (source: NotificationSource) => void,
+  onEvent: (source: NotificationSource, notificationId: string) => void,
   options: RealtimeOptions = {}
 ): () => void {
   const sources: NotificationSource[] = ["likes", "comments", "shoutouts", "posts", "safety_notifications"];
@@ -420,7 +421,25 @@ export function subscribeToNotificationEvents(
     if (source === "posts" && options.schoolId) {
       payload.filter = `school_id=eq.${options.schoolId}`;
     }
-    channel = channel.on("postgres_changes", payload, () => onEvent(source));
+    channel = channel.on("postgres_changes", payload, (event) => {
+      const notificationId = typeof event.new?.id === "string" ? event.new.id : "";
+      const notificationType: Record<NotificationSource, string> = {
+        likes: "new_like",
+        comments: "new_comment",
+        shoutouts: "shoutout",
+        posts: "campus_news",
+        safety_notifications: "safety_notice",
+      };
+      if (notificationId) {
+        trackEvent("notification_received", {
+          notification_type: notificationType[source],
+          notification_campaign_id: null,
+          notification_id: notificationId,
+          timestamp_source: new Date().toISOString(),
+        });
+      }
+      onEvent(source, notificationId);
+    });
   }
 
   channel.subscribe();

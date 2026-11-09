@@ -45,7 +45,8 @@ import { ReportModal } from "@/components/feed/ReportModal";
 import { ProfileHoverCard } from "@/components/profile/ProfileHoverCard";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { AnimatedReaction } from "@/components/common/AnimatedReaction";
-import { shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLinks";
+import { isNativeSharePreferred, shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLinks";
+import { trackGistShare, trackGistViewed } from "@/lib/mixpanel";
 import { formatCompactNumber } from "@/lib/utils";
 import { isVideoUrl } from "@/lib/video";
 
@@ -76,12 +77,13 @@ function renderHashtags(content: string) {
 
 interface GistCardProps {
   post: Post;
+  surface?: string;
   /** Called after a post is removed (author delete or moderator removal). */
   onRemoved?: (postId: string) => void;
 }
 
 /** Public SHS gist card bound to live Supabase rows. */
-export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProps) {
+export const GistCard = memo(function GistCard({ post, onRemoved, surface }: GistCardProps) {
   const { toast } = useToast();
   const { user, isGlobalAdmin } = useAuth();
   const canModerate = useCanModerate();
@@ -177,6 +179,42 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
     return () => observer.disconnect();
   }, [post.id]);
 
+  useEffect(() => {
+    const article = articleRef.current;
+    if (!article || !("IntersectionObserver" in window)) return;
+    const currentPath = window.location.pathname;
+    const resolvedSurface = surface ?? (
+      currentPath === "/trending" ? "trending" :
+        currentPath.startsWith("/posts/") ? "gist_detail" :
+          currentPath.startsWith("/schools/") ? "school_feed" :
+            currentPath.startsWith("/shared/") ? "shared_link" : "profile"
+    );
+    let visibleSince: number | null = null;
+    let reported = false;
+    const reportView = () => {
+      if (visibleSince === null || reported) return;
+      reported = true;
+      trackGistViewed(post.id, {
+        surface: resolvedSurface,
+        gist_author_school_id: post.authorSchoolId,
+        time_spent_seconds: Math.max(0, Math.floor((Date.now() - visibleSince) / 1000)),
+      });
+    };
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+        if (visibleSince === null) visibleSince = Date.now();
+      } else if (visibleSince !== null) {
+        reportView();
+        observer.disconnect();
+      }
+    }, { threshold: [0, 0.5, 1] });
+    observer.observe(article);
+    return () => {
+      reportView();
+      observer.disconnect();
+    };
+  }, [post.authorSchoolId, post.id, surface]);
+
   const requireAuth = () => {
     if (user) return true;
     setMenuOpen(false);
@@ -216,10 +254,15 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
         text: post.content.slice(0, 120),
         url,
       });
-      if (result === "cancelled") return;
+      if (result === "cancelled") {
+        trackGistShare(post.id, "native_share", "cancelled");
+        return;
+      }
+      trackGistShare(post.id, result === "copied" ? "link_copy" : "native_share", "shared");
       if (result === "copied") toast("Gist link copied.", "success");
       void recordPostShare(post.id).catch((error: unknown) => console.error("Could not record this gist share.", error));
     } catch (error) {
+      trackGistShare(post.id, isNativeSharePreferred() ? "native_share" : "link_copy", "failed");
       toast("Could not copy the gist link.", "danger");
       console.error("Could not copy gist link.", error);
     }

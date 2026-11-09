@@ -903,11 +903,6 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
   if (!result || typeof result !== "object" || !("id" in result) || typeof result.id !== "string") {
     throw new Error("The post service returned an invalid response.");
   }
-  trackEvent("Post Created", {
-    post_type: "public",
-    has_media: files.length > 0,
-    school_id: input.schoolId,
-  });
   const post = await fetchPost(result.id);
   if (!post) throw new Error("The gist was created, but its details could not be loaded.");
   if (media.length === 0) return post;
@@ -939,11 +934,22 @@ export async function toggleLike(postId: string): Promise<boolean> {
   if (existing) {
     const { error } = await supabase.from("likes").delete().eq("id", existing.id);
     if (error) throw new Error(error.message);
+    trackEvent("gist_reacted", {
+      gist_id: postId,
+      reaction_type: "like",
+      reaction_result: "removed",
+      timestamp_source: new Date().toISOString(),
+    });
     return false;
   }
   const { error } = await supabase.from("likes").insert({ post_id: postId, user_id: userId });
   if (error && error.code !== "23505") throw new Error(error.message);
-  trackEvent("Post Liked", { post_id: postId });
+  trackEvent("gist_reacted", {
+    gist_id: postId,
+    reaction_type: "like",
+    reaction_result: "added",
+    timestamp_source: new Date().toISOString(),
+  });
   return true;
 }
 
@@ -1146,6 +1152,14 @@ export async function addComment(
   parentId: string | null = null
 ): Promise<Comment> {
   const userId = await requireUserId();
+  let isFirstComment = false;
+  if (target.type === "post") {
+    const { count, error: countError } = await supabase
+      .from("comments")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+    isFirstComment = !countError && (count ?? 0) === 0;
+  }
   const values = {
     parent_id: parentId,
     user_id: userId,
@@ -1158,7 +1172,21 @@ export async function addComment(
       .insert({ ...values, post_id: target.id })
       .select(authorSelect)
       .single<RawComment>();
-    if (error) throw new Error(error.message);
+    if (error) {
+      trackEvent("commented_on_gist", {
+        gist_id: target.id,
+        comment_length_chars: values.content.length,
+        comment_result: "failed",
+        is_first_comment: isFirstComment,
+      });
+      throw new Error(error.message);
+    }
+    trackEvent("commented_on_gist", {
+      gist_id: target.id,
+      comment_length_chars: values.content.length,
+      comment_result: "posted",
+      is_first_comment: isFirstComment,
+    });
     return mapComment(data, target, [], userId);
   }
   const authorSelect = await commentSelect();

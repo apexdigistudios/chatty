@@ -561,6 +561,7 @@ export interface SignUpInput {
 }
 
 export interface SignUpResult {
+  accountId: string;
   hasSession: boolean;
   profile: Profile | null;
   avatarUploadError?: string;
@@ -604,9 +605,11 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
     },
   });
   if (error) throw new Error(error.message);
+  if (!data.user) throw new Error("Signup completed, but account details were not returned.");
 
   if (!data.session) {
     return {
+      accountId: data.user.id,
       hasSession: false,
       profile: null,
       ...(input.avatarFile
@@ -639,6 +642,7 @@ export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult>
   });
 
   return {
+    accountId: data.user.id,
     hasSession: true,
     profile: updatedProfile,
     ...(avatarUploadError ? { avatarUploadError } : {}),
