@@ -7,13 +7,17 @@
     "prebuild": "node scripts/generate-sitemap.mjs",
     "build": "next build",
     "start": "next start",
-    "migrate:r2": "tsx scripts/migrate-to-r2.ts"
+    "migrate:r2": "tsx scripts/migrate-to-r2.ts",
+    "scrape:schools": "node scripts/scrape-schools.js",
+    "seed:schools": "tsx scripts/seed-database.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1164.0",
     "@fontsource-variable/nunito": "^5.3.0",
     "@paystack/inline-js": "^2.28.0",
     "@supabase/supabase-js": "^2.109.0",
+    "axios": "^1.21.0",
+    "cheerio": "^1.2.0",
     "clsx": "2.1.1",
     "framer-motion": "^14.9.0",
     "lottie-react": "^3.1.2",

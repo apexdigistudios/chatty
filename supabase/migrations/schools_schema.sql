@@ -1,5 +1,6 @@
 begin;
 
+create schema if not exists extensions;
 create extension if not exists pg_trgm with schema extensions;
 set local search_path = public, extensions, pg_temp;
 
@@ -55,8 +56,8 @@ begin
   select coalesce(array_agg(distinct normalized_alias), '{}'::text[])
   into new.aliases
   from (
-    select public.normalize_school_name(alias) as normalized_alias
-    from unnest(coalesce(new.aliases, '{}'::text[])) as alias
+    select public.normalize_school_name(alias_value) as normalized_alias
+    from unnest(coalesce(new.aliases, '{}'::text[])) as alias_rows(alias_value)
   ) as normalized_aliases
   where normalized_alias <> '';
   return new;
@@ -74,13 +75,48 @@ update public.schools
 set normalized_name = public.normalize_school_name(name),
     aliases = coalesce(aliases, '{}'::text[]);
 
+do $$
+begin
+  if exists (
+    select 1
+    from public.schools
+    where public.normalize_school_name(name) = ''
+  ) then
+    raise exception 'A school name normalizes to an empty value; correct it before applying this migration.';
+  end if;
+end
+$$;
+
 alter table public.schools
   alter column normalized_name set not null;
 
--- Widely used names for the existing Presbyterian Boys' SHS community.
+do $$
+declare
+  duplicate_names text;
+begin
+  select string_agg(grouped_names.names, '; ')
+  into duplicate_names
+  from (
+    select string_agg(school.name, ' / ' order by school.name) as names
+    from public.schools as school
+    group by school.normalized_name
+    having count(*) > 1
+  ) as grouped_names;
+
+  if duplicate_names is not null then
+    raise exception
+      'Resolve these duplicate normalized school names before applying the master-data migration: %',
+      duplicate_names;
+  end if;
+end
+$$;
+
+create unique index if not exists schools_normalized_name_unique_idx
+  on public.schools (normalized_name);
+
 update public.schools
 set aliases = array(
-  select distinct alias
+  select distinct alias_value
   from unnest(
     coalesce(aliases, '{}'::text[]) ||
     array[
@@ -90,10 +126,26 @@ set aliases = array(
       'presec legon',
       'presbyterian boys'
     ]::text[]
-  ) as alias
-  order by alias
+  ) as alias_rows(alias_value)
+  order by alias_value
 )
 where normalized_name like 'presbyterian boys%';
+
+update public.schools
+set aliases = array(
+  select distinct alias_value
+  from unnest(coalesce(aliases, '{}'::text[]) || array['motown', 'mo town']::text[]) as alias_rows(alias_value)
+  order by alias_value
+)
+where normalized_name like 'st margaret mary%';
+
+update public.schools
+set aliases = array(
+  select distinct alias_value
+  from unnest(coalesce(aliases, '{}'::text[]) || array['weygheyhey', 'we gyhey']::text[]) as alias_rows(alias_value)
+  order by alias_value
+)
+where normalized_name like 'wesley girls%';
 
 create or replace function public.search_schools_fuzzy(search_term text)
 returns table (
@@ -130,8 +182,8 @@ as $$
       similarity(school.normalized_name, normalized_query.value),
       coalesce(
         (
-          select max(similarity(alias, normalized_query.value))
-          from unnest(school.aliases) as alias
+          select max(similarity(alias_value, normalized_query.value))
+          from unnest(school.aliases) as alias_rows(alias_value)
         ),
         0
       )
@@ -140,8 +192,11 @@ as $$
   cross join normalized_query
   where normalized_query.value <> ''
     and (
-      similarity(school.normalized_name, normalized_query.value) > 0.4
-      or normalized_query.value = any(school.aliases)
+      (
+        school.normalized_name % normalized_query.value
+        and similarity(school.normalized_name, normalized_query.value) > 0.4
+      )
+      or school.aliases @> array[normalized_query.value]::text[]
     )
   order by similarity_score desc, school.name asc, school.id asc;
 $$;

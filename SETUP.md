@@ -154,13 +154,24 @@ the caller so existing row-level security continues to apply.
 
 ### A14 · Ghana SHS master data and alias search
 
-Run `supabase/migrations/ghana_shs_master_data.sql` after the base schema.
-It adds CSSPS code, motto, category, aliases, normalized names, trigram/array
-indexes, and `search_schools_fuzzy`. The migration also adds the common
-`PRESEC`, `Odade3`, `Presby Boys`, and `presec legon` aliases to the existing
-Presbyterian Boys' SHS record when present. Add the authoritative CSSPS codes,
-categories, mottos, and any further school aliases from the verified Ghana
-Education Service/WAEC data source; those source records were not supplied here.
+Run `supabase/migrations/schools_schema.sql` after the base schema. It adds
+CSSPS code, motto, category, aliases, normalized names, trigram/array indexes,
+and `search_schools_fuzzy`. The migration attaches common aliases to existing
+PRESEC, St. Margaret Mary SHS, and Wesley Girls records when present.
+
+`npm run scrape:schools` imports school names from the open Wikipedia school
+directory into `supabase/seed-schools.json`. The current page scrape found 196
+unique schools, not a complete 700+ master list. It records source attribution
+(Wikipedia content is CC BY-SA 4.0) and location text, and does not invent
+missing CSSPS codes, regions, categories, or mottos. For a complete list, run
+`npm run scrape:schools -- path/to/verified-schools.csv` or point
+`SCHOOLS_SOURCE_FILE` at a verified JSON/CSV data source with a `name` and
+`region` column. Review and enrich missing fields using a verified GES/CSSPS
+source before seeding. Set `NEXT_PUBLIC_SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY`, then run `npm run seed:schools`; the seeder
+validates and batch-upserts by normalized name, preserving unrelated school
+columns. This public directory does not constitute a verified, complete
+master list or provide official codes/mottos for every school.
 
 Example verification query:
 
