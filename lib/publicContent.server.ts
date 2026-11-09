@@ -328,7 +328,7 @@ export async function fetchPopularPublicPosts(limit = 8): Promise<Post[]> {
     .returns<Array<{ post_id: string; likes_count: number }>>();
   if (error && error.code !== "42P01" && error.code !== "PGRST205") throw new Error(error.message);
   if (error) {
-    return (await fetchPublicPosts({ limit: 100 }))
+    return (await fetchPublicPosts({ limit: 15 }))
       .filter((post) => post.likeCount > 100)
       .sort((left, right) => right.likeCount - left.likeCount)
       .slice(0, limit);
@@ -362,7 +362,7 @@ export async function fetchPublicTrendingContent(limit = 20): Promise<{
   }
 
   const trendingPosts = error
-    ? (await fetchPublicPosts({ limit: 100 }))
+    ? (await fetchPublicPosts({ limit: 15 }))
         .filter((post) => post.likeCount >= threshold)
         .sort((left, right) => right.likeCount - left.likeCount)
         .slice(0, limit)
@@ -377,7 +377,7 @@ export async function fetchPublicTrendingContent(limit = 20): Promise<{
         });
       })();
   const trendingIds = new Set(trendingPosts.map((post) => post.id));
-  const trendingFallback = (await fetchPublicPosts({ limit: 100 }))
+  const trendingFallback = (await fetchPublicPosts({ limit: 15 }))
     .filter((post) => !trendingIds.has(post.id))
     .sort((left, right) => right.likeCount - left.likeCount)
     .slice(0, 4);
@@ -390,9 +390,9 @@ export async function fetchPublicPost(id: string): Promise<Post | null> {
   return posts[0] ?? null;
 }
 
-export async function fetchPublicConfessions(limit = 40): Promise<Confession[]> {
+export async function fetchPublicConfessions(limit = 15): Promise<Confession[]> {
   const client = publicSupabase();
-  const select = "id, school_id, category, content, created_at, published_at, media_urls, media_types, comment_count, school_name, school_crest_url";
+  const select = "id, school_id, category, content, created_at, published_at, seed_username, seed_full_name, seed_avatar_url, is_seed, media_urls, media_types";
   let { data, error } = await client
     .from("public_confessions")
     .select(select)
@@ -419,7 +419,7 @@ export async function fetchPublicConfession(id: string): Promise<Confession | nu
   const client = publicSupabase();
   let { data, error } = await client
     .from("public_confessions")
-    .select("id, school_id, category, content, created_at, published_at, media_urls, media_types, comment_count, school_name, school_crest_url")
+    .select("id, school_id, category, content, created_at, published_at, seed_username, seed_full_name, seed_avatar_url, is_seed, media_urls, media_types")
     .eq("id", id)
     .maybeSingle<PublicConfessionRow>();
   if (error && (error.code === "42703" || error.code === "PGRST204")) {

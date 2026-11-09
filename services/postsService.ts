@@ -753,7 +753,7 @@ export async function fetchPopularGists(limit = 8): Promise<Post[]> {
     throw new Error(countError.message);
   }
   if (countError) {
-    return (await fetchFeed({ limit: 100 }))
+    return (await fetchFeed({ limit: 15 }))
       .filter((post) => post.likeCount > 100)
       .sort((a, b) => b.likeCount - a.likeCount)
       .slice(0, limit);

@@ -118,7 +118,8 @@ export function HomePage({
     if (activeTab === "Following" && followingPosts.length === 0 && !followingLoading) void loadFollowingFeed();
     if (
       (activeTab === "All SHSs" || activeTab === "My School" || activeTab === "Confessions") &&
-      displayConfessions.length === 0 &&
+      initialConfessions == null &&
+      !confessionsHasLoaded &&
       !confessionsLoading
     ) void loadConfessions();
     if (activeTab === "Trending" && initialTrendingPosts == null && trendingPosts.length === 0 && trendingFallback.length === 0 && !trendingLoading) void loadTrending();

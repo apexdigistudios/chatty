@@ -40,19 +40,23 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
   const [spotlightNavigationHidden, setSpotlightNavigationHidden] = useState(false);
   const loadFeed = useGistStore((state) => state.loadFeed);
   const loadSchools = useGistStore((state) => state.loadSchools);
+  const feedHasLoaded = useGistStore((state) => state.feedHasLoaded);
+  const schoolsHasLoaded = useGistStore((state) => state.schoolsHasLoaded);
   const needsOnboarding = Boolean(
     user && !loading && (!profile?.username?.trim() || !profile.schoolId)
   );
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || schoolsHasLoaded) return;
+    if (pathname === "/schools") return;
     void loadSchools();
-  }, [loadSchools]);
+  }, [loadSchools, pathname, schoolsHasLoaded]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || loading || needsOnboarding) return;
+    if (!isSupabaseConfigured || loading || needsOnboarding || feedHasLoaded) return;
+    if (pathname === "/" || pathname === "/trending" || pathname === "/spotlight") return;
     void loadFeed();
-  }, [loading, loadFeed, needsOnboarding]);
+  }, [feedHasLoaded, loading, loadFeed, needsOnboarding, pathname]);
 
   useEffect(() => {
     if (loading) return;

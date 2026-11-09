@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 export default async function TrendingPage() {
   const [trendingResult, confessionsResult] = await Promise.allSettled([
     fetchPublicTrendingContent(),
-    fetchPublicConfessions(20),
+    fetchPublicConfessions(15),
   ]);
   if (trendingResult.status === "rejected") console.error("Could not preload public trending gists.", trendingResult.reason);
   if (confessionsResult.status === "rejected") console.error("Could not preload approved confessions for trending.", confessionsResult.reason);

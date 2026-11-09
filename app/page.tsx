@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export default async function HomeRoute() {
   const [postsResult, confessionsResult] = await Promise.allSettled([
     fetchPublicPosts({ limit: 10 }),
-    fetchPublicConfessions(20),
+    fetchPublicConfessions(15),
   ]);
   if (postsResult.status === "rejected") console.error("Could not preload the public home feed.", postsResult.reason);
   if (confessionsResult.status === "rejected") console.error("Could not preload public confessions for the home feed.", confessionsResult.reason);

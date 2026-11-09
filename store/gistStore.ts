@@ -51,6 +51,7 @@ interface GistState {
   schoolsLoading: boolean;
   schoolsError: string | null;
   loadSchools: () => Promise<void>;
+  hydrateInitialSchools: (schools?: School[] | null) => void;
   upsertSchool: (school: School) => void;
   createSchool: (input: schoolsService.CreateSchoolInput) => Promise<School>;
   claimSchool: (schoolId: string, userId: string) => Promise<void>;
@@ -139,6 +140,16 @@ export const useGistStore = create<GistState>()((set, get) => ({
     } catch (error) {
       set({ schoolsLoading: false, schoolsError: describeError(error, "Could not load schools.") });
     }
+  },
+
+  hydrateInitialSchools: (schools) => {
+    if (schools == null) return;
+    set((state) => state.schoolsHasLoaded ? {} : {
+      schools,
+      schoolsHasLoaded: true,
+      schoolsLoading: false,
+      schoolsError: null,
+    });
   },
 
   upsertSchool: (school) => {

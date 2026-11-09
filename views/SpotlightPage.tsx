@@ -7,7 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { describeError } from "@/lib/supabase";
 import { timeAgo } from "@/lib/time";
 import { recordPostShare } from "@/services/followsService";
-import { fetchApprovedConfessions, toggleReaction } from "@/services/confessionsService";
+import { fetchApprovedConfessions, fetchConfessionEngagement, toggleReaction } from "@/services/confessionsService";
 import { fetchFeed, toggleLike } from "@/services/postsService";
 import { useAuthGateStore } from "@/store/authGateStore";
 import { useGistStore } from "@/store/gistStore";
@@ -99,8 +99,8 @@ export function SpotlightPage({
     setError(null);
     try {
       const [feed, confessions] = await Promise.all([
-        fetchFeed({ limit: 100 }),
-        fetchApprovedConfessions(100),
+        fetchFeed({ limit: 15 }),
+        fetchApprovedConfessions(15),
       ]);
       activeSlideIndexRef.current = 0;
       setVideoProgress(0);
@@ -119,8 +119,7 @@ export function SpotlightPage({
 
   useEffect(() => {
     if (!initialConfessions) return;
-    void fetchApprovedConfessions(100).then((latest) => {
-      const byId = new Map(latest.map((confession) => [confession.id, confession]));
+    void fetchConfessionEngagement(initialConfessions.map((confession) => confession.id)).then((byId) => {
       setItems((current) => current.map((item) => {
         if (item.kind !== "confession" || reactionTouched.current.has(item.confession.id)) return item;
         const fresh = byId.get(item.confession.id);
@@ -136,7 +135,9 @@ export function SpotlightPage({
             }
           : item;
       }));
-    }).catch(() => undefined);
+    }).catch((error: unknown) => {
+      console.warn("Could not refresh Spotlight confession engagement.", error);
+    });
   }, [initialConfessions]);
 
   const share = async (post: Post) => {

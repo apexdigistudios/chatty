@@ -38,6 +38,7 @@ export function SchoolsPage({
   const schoolsLoading = useGistStore((state) => state.schoolsLoading);
   const schoolsError = useGistStore((state) => state.schoolsError);
   const loadSchools = useGistStore((state) => state.loadSchools);
+  const hydrateInitialSchools = useGistStore((state) => state.hydrateInitialSchools);
   const createSchool = useGistStore((state) => state.createSchool);
 
   const [query, setQuery] = useState("");
@@ -54,8 +55,12 @@ export function SchoolsPage({
   const directoryError = schoolsError ?? (!schoolsHasLoaded ? initialSchoolsError : null);
 
   useEffect(() => {
-    void loadSchools();
-  }, [loadSchools]);
+    if (initialSchools != null) {
+      hydrateInitialSchools(initialSchools);
+    } else if (!schoolsHasLoaded) {
+      void loadSchools();
+    }
+  }, [hydrateInitialSchools, initialSchools, loadSchools, schoolsHasLoaded]);
 
   const regions = useMemo(() => ["All regions", ...Array.from(new Set(schools.map((school) => school.region))).sort()], [schools]);
 

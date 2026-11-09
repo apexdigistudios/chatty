@@ -20,8 +20,8 @@ export const metadata: Metadata = {
 
 export default async function SpotlightRoute() {
   const [postsResult, confessionsResult] = await Promise.allSettled([
-    fetchPublicPosts({ limit: 100 }),
-    fetchPublicConfessions(100),
+    fetchPublicPosts({ limit: 15 }),
+    fetchPublicConfessions(15),
   ]);
   if (postsResult.status === "rejected") console.error("Could not preload public Spotlight gists.", postsResult.reason);
   if (confessionsResult.status === "rejected") console.error("Could not preload approved Spotlight confessions.", confessionsResult.reason);

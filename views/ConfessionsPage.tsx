@@ -46,8 +46,8 @@ export function ConfessionsPage({
   }, [hydrateInitialPublicContent, initialConfessions]);
 
   useEffect(() => {
-    void loadConfessions();
-  }, [loadConfessions]);
+    if (initialConfessions == null && !confessionsHasLoaded) void loadConfessions();
+  }, [confessionsHasLoaded, initialConfessions, loadConfessions]);
 
   useEffect(() => {
     if (user) void loadMyConfessions();

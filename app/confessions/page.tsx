@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 
 export default async function ConfessionsRoute() {
   try {
-    return <ConfessionsPage initialConfessions={await fetchPublicConfessions(40)} />;
+    return <ConfessionsPage initialConfessions={await fetchPublicConfessions(15)} />;
   } catch (error) {
     console.error("Could not preload approved public confessions.", error);
     return <ConfessionsPage initialConfessions={null} initialConfessionsError="Approved confessions could not be loaded right now." />;

@@ -7,7 +7,7 @@ import {
 } from "@/lib/offlineCache";
 import type { Post } from "@/types/models";
 import { fetchFeed } from "@/services/postsService";
-import { fetchProfile, fetchPublicProfile } from "@/services/profilesService";
+import { fetchProfile, fetchPublicProfiles } from "@/services/profilesService";
 import { fetchSchools } from "@/services/schoolsService";
 
 const SYNC_INTERVAL_MS = 2 * 60 * 1000;
@@ -87,11 +87,10 @@ export function syncOfflineData(force = false): Promise<void> {
     const authors = [...new Set(posts.slice(0, 20).map((post) => post.authorId))]
       .filter((authorId) => authorId !== userId)
       .slice(0, 12);
-    const profileResults = await Promise.allSettled(authors.map((authorId) => fetchPublicProfile(authorId)));
-    for (const result of profileResults) {
-      if (result.status === "rejected") {
-        console.warn("Could not cache a public profile for offline use.", result.reason);
-      }
+    try {
+      await fetchPublicProfiles(authors);
+    } catch (error) {
+      console.warn("Could not cache public author profiles for offline use.", error);
     }
 
     lastSyncAt = Date.now();

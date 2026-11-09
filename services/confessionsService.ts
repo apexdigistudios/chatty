@@ -37,6 +37,12 @@ interface RawReaction {
   kind: ReactionKind;
 }
 
+export interface ConfessionEngagement {
+  reactions: Confession["reactions"];
+  myReaction: ReactionKind | null;
+  commentCount: number;
+}
+
 /**
  * `confession_reactions` is created by migration-step7.sql. Until it exists the
  * app still works — reactions just read as zero and the bar hides itself.
@@ -47,14 +53,12 @@ export const reactionsAvailable = (): boolean => reactionsTableAvailable;
 
 const isMissingTable = (code: string | undefined): boolean => code === "PGRST205" || code === "42P01";
 
-async function attachReactions(rows: RawPublicConfession[]): Promise<Confession[]> {
-  if (rows.length === 0) return [];
-
-  const ids = rows.map((row) => row.id);
+async function fetchEngagement(ids: string[], includeCommentCounts = true): Promise<Map<string, ConfessionEngagement>> {
+  if (ids.length === 0) return new Map();
   const commentCounts = new Map<string, number>();
   const [userId, commentsResult] = await Promise.all([
     currentUserId(),
-    commentsTableAvailable && rows.some((row) => row.comment_count === undefined)
+    commentsTableAvailable && includeCommentCounts
       ? supabase.from("confession_comments").select("confession_id").in("confession_id", ids).returns<RawConfessionCommentCount[]>()
       : Promise.resolve(null),
   ]);
@@ -90,6 +94,27 @@ async function attachReactions(rows: RawPublicConfession[]): Promise<Confession[
     if (userId && reaction.user_id === userId) mine.set(reaction.confession_id, reaction.kind);
   }
 
+  return new Map(ids.map((id) => [
+    id,
+    {
+      reactions: totals.get(id) ?? emptyReactions(),
+      myReaction: mine.get(id) ?? null,
+      commentCount: commentCounts.get(id) ?? 0,
+    },
+  ]));
+}
+
+export async function fetchConfessionEngagement(ids: string[]): Promise<Map<string, ConfessionEngagement>> {
+  return fetchEngagement([...new Set(ids.filter(Boolean))]);
+}
+
+async function attachReactions(rows: RawPublicConfession[]): Promise<Confession[]> {
+  if (rows.length === 0) return [];
+  const engagement = await fetchEngagement(
+    rows.map((row) => row.id),
+    rows.some((row) => row.comment_count === undefined)
+  );
+
   return rows.map((row) => ({
     id: row.id,
     content: row.content,
@@ -100,9 +125,9 @@ async function attachReactions(rows: RawPublicConfession[]): Promise<Confession[
     moderationStatus: row.moderation_status ?? "approved",
     createdAt: row.created_at,
     publishedAt: row.published_at,
-    reactions: totals.get(row.id) ?? emptyReactions(),
-    myReaction: mine.get(row.id) ?? null,
-    commentCount: row.comment_count ?? commentCounts.get(row.id) ?? 0,
+    reactions: engagement.get(row.id)?.reactions ?? emptyReactions(),
+    myReaction: engagement.get(row.id)?.myReaction ?? null,
+    commentCount: row.comment_count ?? engagement.get(row.id)?.commentCount ?? 0,
     isSeed: row.is_seed ?? false,
     seedUsername: row.seed_username ?? null,
     seedFullName: row.seed_full_name ?? null,
@@ -113,10 +138,10 @@ async function attachReactions(rows: RawPublicConfession[]): Promise<Confession[
 }
 
 /** Public, anonymous read path — the view never exposes author_id. */
-export async function fetchApprovedConfessions(limit = 40): Promise<Confession[]> {
+export async function fetchApprovedConfessions(limit = 15): Promise<Confession[]> {
   let { data, error } = await supabase
     .from("public_confessions")
-    .select("id, school_id, category, content, created_at, published_at, seed_username, seed_full_name, seed_avatar_url, is_seed, media_urls, media_types, comment_count, school_name, school_crest_url")
+    .select("id, school_id, category, content, created_at, published_at, seed_username, seed_full_name, seed_avatar_url, is_seed, media_urls, media_types")
     .order("published_at", { ascending: false, nullsFirst: false })
     .limit(limit)
     .returns<RawPublicConfession[]>();
@@ -137,7 +162,7 @@ export async function fetchApprovedConfessions(limit = 40): Promise<Confession[]
 export async function fetchApprovedConfession(id: string): Promise<Confession | null> {
   let { data, error } = await supabase
     .from("public_confessions")
-    .select("id, school_id, category, content, created_at, published_at, seed_username, seed_full_name, seed_avatar_url, is_seed, media_urls, media_types, comment_count, school_name, school_crest_url")
+    .select("id, school_id, category, content, created_at, published_at, seed_username, seed_full_name, seed_avatar_url, is_seed, media_urls, media_types")
     .eq("id", id)
     .maybeSingle<RawPublicConfession>();
   if (error?.code === "42703" || error?.code === "PGRST204") {

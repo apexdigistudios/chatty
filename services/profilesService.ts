@@ -222,86 +222,109 @@ interface RawPublicProfile extends ProfileRow {
   school: { name: string; crest_url: string | null } | null;
 }
 
+interface RawSeedPublicProfile {
+  id: string;
+  username: string;
+  full_name: string;
+  avatar_url: string | null;
+  school_id: string;
+  created_at: string;
+  school: { name: string; crest_url: string | null } | null;
+}
+
+function mapPublicProfile(data: RawPublicProfile): PublicProfile {
+  return {
+    id: data.id,
+    username: data.username,
+    avatarUrl: data.avatar_url,
+    coverUrl: data.cover_url ?? null,
+    bio: data.bio ?? "",
+    fullName: data.full_name ?? null,
+    classForm: data.class_form ?? null,
+    website: data.website ?? null,
+    isVerified: data.is_verified ?? false,
+    verifiedTitle: data.verified_title ?? null,
+    verifiedExpiresAt: data.verified_expires_at ?? null,
+    isAdmin: data.is_admin ?? false,
+    role: data.role ?? null,
+    schoolId: data.school_id,
+    schoolName: data.school?.name ?? null,
+    schoolShort: data.school ? shortNameOf(data.school.name) : null,
+    schoolCrest: data.school?.crest_url ?? null,
+    createdAt: data.created_at,
+  };
+}
+
+function mapSeedPublicProfile(data: RawSeedPublicProfile): PublicProfile {
+  return {
+    id: data.id,
+    username: data.username,
+    avatarUrl: data.avatar_url,
+    coverUrl: null,
+    bio: "",
+    fullName: data.full_name,
+    classForm: null,
+    website: null,
+    schoolId: data.school_id,
+    schoolName: data.school?.name ?? null,
+    schoolShort: data.school ? shortNameOf(data.school.name) : null,
+    schoolCrest: data.school?.crest_url ?? null,
+    createdAt: data.created_at,
+    isSeed: true,
+  };
+}
+
 /** Read-only public profile for `/profile/:userId` (no email or private fields). */
 export async function fetchPublicProfile(userId: string): Promise<PublicProfile | null> {
-  const cacheKey = `profile:public:${userId}`;
-  if (isBrowserOffline()) return readOfflineValue<PublicProfile>(cacheKey);
+  const profiles = await fetchPublicProfiles([userId]);
+  return profiles.get(userId) ?? null;
+}
+
+/** Fetches regular and seed profiles in batches, preserving input IDs in the result map. */
+export async function fetchPublicProfiles(userIds: string[]): Promise<Map<string, PublicProfile>> {
+  const ids = [...new Set(userIds.filter(Boolean))];
+  if (ids.length === 0) return new Map();
+  const cacheKey = (userId: string) => `profile:public:${userId}`;
+  if (isBrowserOffline()) {
+    const cached = await Promise.all(ids.map(async (id) => [id, await readOfflineValue<PublicProfile>(cacheKey(id))] as const));
+    return new Map(cached.flatMap(([id, profile]) => profile ? [[id, profile] as const] : []));
+  }
 
   try {
     const select = await profileSelect();
     const { data, error } = await supabase
       .from("profiles")
       .select(`${select}, school:schools!school_id(name, crest_url:logo_url)`)
-      .eq("id", userId)
-      .maybeSingle<RawPublicProfile>();
+      .in("id", ids)
+      .returns<RawPublicProfile[]>();
     if (error) throw new Error(error.message);
-    let profile: PublicProfile | null = data
-      ? {
-          id: data.id,
-          username: data.username,
-          avatarUrl: data.avatar_url,
-          coverUrl: data.cover_url ?? null,
-          bio: data.bio ?? "",
-          fullName: data.full_name ?? null,
-          classForm: data.class_form ?? null,
-          website: data.website ?? null,
-          isVerified: data.is_verified ?? false,
-          verifiedTitle: data.verified_title ?? null,
-          verifiedExpiresAt: data.verified_expires_at ?? null,
-          isAdmin: data.is_admin ?? false,
-          role: data.role ?? null,
-          schoolId: data.school_id,
-          schoolName: data.school?.name ?? null,
-          schoolShort: data.school ? shortNameOf(data.school.name) : null,
-          schoolCrest: data.school?.crest_url ?? null,
-          createdAt: data.created_at,
-        }
-      : null;
-    if (!profile) {
-      const { data: seedProfile, error: seedError } = await supabase
+    const profiles = new Map((data ?? []).map((row) => [row.id, mapPublicProfile(row)]));
+    const missingIds = ids.filter((id) => !profiles.has(id));
+    if (missingIds.length > 0) {
+      const { data: seedProfiles, error: seedError } = await supabase
         .from("admin_seed_profiles")
         .select("id, username, full_name, avatar_url, school_id, created_at, school:schools!school_id(name, crest_url:logo_url)")
-        .eq("id", userId)
-        .maybeSingle<{
-          id: string;
-          username: string;
-          full_name: string;
-          avatar_url: string | null;
-          school_id: string;
-          created_at: string;
-          school: { name: string; crest_url: string | null } | null;
-        }>();
+        .in("id", missingIds)
+        .returns<RawSeedPublicProfile[]>();
       if (seedError) {
         if (seedError.code !== "42P01" && seedError.code !== "PGRST205") throw new Error(seedError.message);
-      } else if (seedProfile) {
-        profile = {
-          id: seedProfile.id,
-          username: seedProfile.username,
-          avatarUrl: seedProfile.avatar_url,
-          coverUrl: null,
-          bio: "",
-          fullName: seedProfile.full_name,
-          classForm: null,
-          website: null,
-          schoolId: seedProfile.school_id,
-          schoolName: seedProfile.school?.name ?? null,
-          schoolShort: seedProfile.school ? shortNameOf(seedProfile.school.name) : null,
-          schoolCrest: seedProfile.school?.crest_url ?? null,
-          createdAt: seedProfile.created_at,
-          isSeed: true,
-        };
+      } else {
+        for (const row of seedProfiles ?? []) profiles.set(row.id, mapSeedPublicProfile(row));
       }
     }
-    if (!profile) return null;
-    try {
-      await writeOfflineValue(cacheKey, profile);
-    } catch (cacheError) {
-      console.warn("Could not save this profile for offline use.", cacheError);
-    }
-    return profile;
+
+    await Promise.all([...profiles].map(async ([id, profile]) => {
+      try {
+        await writeOfflineValue(cacheKey(id), profile);
+      } catch (cacheError) {
+        console.warn("Could not save this profile for offline use.", cacheError);
+      }
+    }));
+    return profiles;
   } catch (error) {
     if (!isBrowserOffline()) throw error;
-    return readOfflineValue<PublicProfile>(cacheKey);
+    const cached = await Promise.all(ids.map(async (id) => [id, await readOfflineValue<PublicProfile>(cacheKey(id))] as const));
+    return new Map(cached.flatMap(([id, profile]) => profile ? [[id, profile] as const] : []));
   }
 }
 
