@@ -142,6 +142,7 @@ interface PostMediaCapabilities {
   available: boolean;
   supportsMediaType: boolean;
   supportsVideoDuration: boolean;
+  supportsVideoThumbnail: boolean;
 }
 
 let postMediaCapabilitiesPromise: Promise<PostMediaCapabilities> | null = null;
@@ -150,25 +151,37 @@ function postMediaCapabilities(): Promise<PostMediaCapabilities> {
     postMediaCapabilitiesPromise = (async () => {
       const { error } = await supabase
         .from("post_media")
-        .select("id, media_url, media_type, video_duration_seconds, sort_order")
+        .select("id, media_url, media_type, video_duration_seconds, video_thumbnail_url, sort_order")
         .limit(1);
-      if (!error) return { available: true, supportsMediaType: true, supportsVideoDuration: true };
+      if (!error) return { available: true, supportsMediaType: true, supportsVideoDuration: true, supportsVideoThumbnail: true };
       if (error.code === "42P01" || error.code === "PGRST205") {
-        return { available: false, supportsMediaType: false, supportsVideoDuration: false };
+        return { available: false, supportsMediaType: false, supportsVideoDuration: false, supportsVideoThumbnail: false };
       }
       if (error.code !== "42703" && error.code !== "PGRST204") throw new Error(error.message);
 
       const fallback = await supabase
         .from("post_media")
-        .select("id, media_url, sort_order")
+        .select("id, media_url, media_type, video_duration_seconds, sort_order")
         .limit(1);
       if (fallback.error) {
         if (fallback.error.code === "42P01" || fallback.error.code === "PGRST205") {
-          return { available: false, supportsMediaType: false, supportsVideoDuration: false };
+          return { available: false, supportsMediaType: false, supportsVideoDuration: false, supportsVideoThumbnail: false };
+        }
+        if (fallback.error.code === "42703" || fallback.error.code === "PGRST204") {
+          const basic = await supabase.from("post_media").select("id, media_url, sort_order").limit(1);
+          if (basic.error && basic.error.code !== "42P01" && basic.error.code !== "PGRST205") {
+            throw new Error(basic.error.message);
+          }
+          return {
+            available: !basic.error,
+            supportsMediaType: false,
+            supportsVideoDuration: false,
+            supportsVideoThumbnail: false,
+          };
         }
         throw new Error(fallback.error.message);
       }
-      return { available: true, supportsMediaType: false, supportsVideoDuration: false };
+      return { available: true, supportsMediaType: true, supportsVideoDuration: true, supportsVideoThumbnail: false };
     })();
   }
   return postMediaCapabilitiesPromise;
@@ -191,10 +204,11 @@ function supportsSeedEngagement(): Promise<boolean> {
 }
 
 async function selectForGroups(): Promise<string> {
-  const [groups, video, videoDuration, hidden, shares, seededEngagement, authorIdentity, seededViews, authorVerification, mediaCapabilities] = await Promise.all([
+  const [groups, video, videoDuration, videoThumbnail, hidden, shares, seededEngagement, authorIdentity, seededViews, authorVerification, mediaCapabilities] = await Promise.all([
     supportsSchoolGroups(),
     supportsColumn("posts", "media_type"),
     supportsColumn("posts", "video_duration_seconds"),
+    supportsColumn("posts", "video_thumbnail_url"),
     supportsPostVisibility(),
     supportsPostShares(),
     supportsSeedEngagement(),
@@ -210,9 +224,9 @@ async function selectForGroups(): Promise<string> {
     : authorIdentity ? AUTHOR_IDENTITY_SELECT : AUTHOR_SELECT;
   const select = baseSelect.replace(AUTHOR_SELECT, authorSelect);
   const mediaSelect = mediaCapabilities.available
-    ? `, media:post_media(post_id, media_url${mediaCapabilities.supportsMediaType ? ", media_type" : ""}${mediaCapabilities.supportsVideoDuration ? ", video_duration_seconds" : ""}, sort_order)`
+    ? `, media:post_media(post_id, media_url${mediaCapabilities.supportsMediaType ? ", media_type" : ""}${mediaCapabilities.supportsVideoDuration ? ", video_duration_seconds" : ""}${mediaCapabilities.supportsVideoThumbnail ? ", video_thumbnail_url" : ""}, sort_order)`
     : "";
-  return `${select}${seedProfiles ? SEED_AUTHOR_SELECT : ""}${video ? ", media_type" : ""}${videoDuration ? `, ${VIDEO_DURATION_SELECT}` : ""}${hidden ? ", is_hidden" : ""}${shares ? ", post_shares(count)" : ""}${seededEngagement ? ", seed_likes_count, seed_comments_count" : ""}${seededViews ? ", seed_views_count" : ""}${mediaSelect}`;
+  return `${select}${seedProfiles ? SEED_AUTHOR_SELECT : ""}${video ? ", media_type" : ""}${videoDuration ? `, ${VIDEO_DURATION_SELECT}` : ""}${videoThumbnail ? ", video_thumbnail_url" : ""}${hidden ? ", is_hidden" : ""}${shares ? ", post_shares(count)" : ""}${seededEngagement ? ", seed_likes_count, seed_comments_count" : ""}${seededViews ? ", seed_views_count" : ""}${mediaSelect}`;
 }
 
 export interface RawPost {
@@ -225,6 +239,7 @@ export interface RawPost {
   media_url: string | null;
   media_type?: "image" | "video" | null;
   video_duration_seconds?: number | null;
+  video_thumbnail_url?: string | null;
   post_type: "public" | "confession";
   status: PostStatus;
   is_hidden?: boolean;
@@ -258,6 +273,7 @@ interface RawPostMedia {
   media_url: string;
   media_type?: MediaType;
   video_duration_seconds?: number | null;
+  video_thumbnail_url?: string | null;
   sort_order: number;
 }
 
@@ -300,6 +316,8 @@ export function mapPost(row: RawPost, liked: boolean): Post {
       ? [row.media_type === "video" || isVideoUrl(row.media_url) ? "video" : row.media_type ?? "image"]
       : [],
     videoDurations: row.media_url ? [row.video_duration_seconds ?? null] : [],
+    videoThumbnailUrl: row.video_thumbnail_url ?? null,
+    videoThumbnailUrls: row.media_url ? [row.video_thumbnail_url ?? null] : [],
     mediaType: row.media_type === "video" || isVideoUrl(row.media_url ?? "")
       ? "video"
       : row.media_type ?? "image",
@@ -309,10 +327,13 @@ export function mapPost(row: RawPost, liked: boolean): Post {
     spotlightStatus: null,
     spotlightExpiresAt: null,
     spotlightTargetSchoolIds: null,
-    likeCount: Math.max(countOf(row.likes), row.seed_likes_count ?? 0),
+    likeCount: countOf(row.likes) + (row.seed_likes_count ?? 0),
+    seed_likes_count: row.seed_likes_count ?? 0,
     likedByMe: liked,
-    commentCount: Math.max(countOf(row.comments), row.seed_comments_count ?? 0),
+    commentCount: countOf(row.comments) + (row.seed_comments_count ?? 0),
+    seed_comments_count: row.seed_comments_count ?? 0,
     viewCount: row.seed_views_count ?? 0,
+    seed_views_count: row.seed_views_count ?? 0,
     shareCount: countOf(row.post_shares),
   };
 }
@@ -343,6 +364,8 @@ export async function hydrateLikes(rows: RawPost[]): Promise<Post[]> {
         item.media_type === "video" || isVideoUrl(item.media_url) ? "video" : item.media_type ?? "image"
       ),
       videoDurations: items.map((item) => item.video_duration_seconds ?? null),
+      videoThumbnailUrls: items.map((item) => item.video_thumbnail_url ?? null),
+      videoThumbnailUrl: items[0]!.video_thumbnail_url ?? null,
       mediaType: items[0]!.media_type === "video" || isVideoUrl(items[0]!.media_url)
         ? "video"
         : items[0]!.media_type ?? "image",
@@ -887,7 +910,8 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
       media: media.map((item, index) => ({
         url: item.url,
         mediaType: item.mediaType,
-        duration: input.videoDurations?.[index] ?? null,
+        duration: item.duration ?? input.videoDurations?.[index] ?? null,
+        thumbnailUrl: item.thumbnailUrl ?? null,
       })),
     }),
   });
@@ -910,11 +934,13 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
     mediaUrls: media.map((item) => item.url),
     mediaTypes: media.map((item) => item.mediaType),
     videoDurations: media.map((item, index) =>
-      item.mediaType === "video" ? input.videoDurations?.[index] ?? null : null
+      item.mediaType === "video" ? item.duration ?? input.videoDurations?.[index] ?? null : null
     ),
+    videoThumbnailUrls: media.map((item) => item.thumbnailUrl ?? null),
+    videoThumbnailUrl: media[0]!.thumbnailUrl ?? null,
     mediaType: media[0]!.mediaType,
     videoDurationSeconds: media[0]!.mediaType === "video"
-      ? input.videoDurations?.[0] ?? null
+      ? media[0]!.duration ?? input.videoDurations?.[0] ?? null
       : null,
   };
 }

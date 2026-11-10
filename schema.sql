@@ -59,6 +59,7 @@ create table if not exists public.posts (
     or (char_length(content) = 0 and media_url is not null)
   ),
   media_url   text,
+  video_thumbnail_url text,
   post_type   text not null default 'public' check (post_type in ('public','confession')),
   status      text not null default 'active' check (status in ('active','flagged','removed')),
   created_at  timestamptz not null default now(),

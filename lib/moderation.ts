@@ -1,11 +1,6 @@
-import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
-import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
-import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 import OpenAI from "openai";
+import type { ProcessedVideo } from "@/lib/videoProcessor";
 
 const MODERATION_MODEL = "omni-moderation-latest";
 const SAFE_UPLOAD_MESSAGE =
@@ -100,24 +95,31 @@ async function writeAudit(input: {
   }
 }
 
-async function runOpenAIModeration(input: OpenAI.ModerationCreateParams["input"]): Promise<ModerationResult> {
+async function runOpenAIModeration(
+  input: OpenAI.ModerationCreateParams["input"]
+): Promise<ModerationResult | null> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("OpenAI moderation is not configured; bypassing automated moderation in this environment.");
+      return null;
+    }
     throw new ModerationUnavailableError("Safety checks are not set up yet. Please try again later.");
   }
 
   try {
-    const client = new OpenAI({ apiKey, timeout: 25_000, maxRetries: 0 });
-    const response = await client.moderations.create({
-      model: MODERATION_MODEL,
-      input,
-    });
+    const client = new OpenAI({ apiKey, timeout: 2_500, maxRetries: 0 });
+    const response = await client.moderations.create({ model: MODERATION_MODEL, input });
     const result = readModerationResult(response.results[0]);
     if (!result) throw new ModerationUnavailableError("OpenAI returned an invalid moderation response.");
     return result;
   } catch (error) {
     console.error("OpenAI moderation request failed.", error);
     if (error instanceof ModerationUnavailableError) throw error;
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("Bypassing unavailable OpenAI moderation in this environment.");
+      return null;
+    }
     throw new ModerationUnavailableError();
   }
 }
@@ -133,100 +135,28 @@ export async function moderatePostCaption(text: string, userId: string): Promise
   }
 
   const result = await runOpenAIModeration([{ type: "text", text: caption }]);
-  if (result.flagged || Object.values(result.categories).some(Boolean)) {
+  if (result && (result.flagged || Object.values(result.categories).some(Boolean))) {
     await writeAudit({ userId, source: "post_caption", categories: result.categories });
     throw new CommunitySafetyViolationError(SAFE_CAPTION_MESSAGE);
   }
 }
 
-function runCommand(command: string, args: string[], timeoutMs: number): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
-    const timeout = setTimeout(() => {
-      child.kill();
-      reject(new Error(`${path.basename(command)} timed out.`));
-    }, timeoutMs);
-
-    child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
-      stdout += chunk;
-    });
-    child.stderr.setEncoding("utf8").on("data", (chunk: string) => {
-      stderr = `${stderr}${chunk}`.slice(-4000);
-    });
-    child.once("error", (error) => {
-      clearTimeout(timeout);
-      reject(error);
-    });
-    child.once("close", (code) => {
-      clearTimeout(timeout);
-      if (code === 0) resolve(stdout.trim());
-      else reject(new Error(`${path.basename(command)} exited with code ${code}: ${stderr}`));
-    });
-  });
-}
-
-async function extractVideoFrames(file: File): Promise<{ directory: string; frames: Buffer[] }> {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "gistme-moderation-"));
-  try {
-    const videoPath = path.join(directory, "upload");
-    await writeFile(videoPath, Buffer.from(await file.arrayBuffer()));
-    const durationOutput = await runCommand(
-      ffprobeInstaller.path,
-      ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", videoPath],
-      20_000
-    );
-    const duration = Number.parseFloat(durationOutput);
-    if (!Number.isFinite(duration) || duration <= 0) {
-      throw new Error("Could not read the uploaded video's duration.");
-    }
-
-    const frames: Buffer[] = [];
-    for (const [index, portion] of [0.25, 0.5, 0.75].entries()) {
-      const framePath = path.join(directory, `frame-${index}.jpg`);
-      await runCommand(
-        ffmpegInstaller.path,
-        [
-          "-hide_banner",
-          "-loglevel",
-          "error",
-          "-ss",
-          String(duration * portion),
-          "-i",
-          videoPath,
-          "-frames:v",
-          "1",
-          "-q:v",
-          "3",
-          "-y",
-          framePath,
-        ],
-        25_000
-      );
-      const frame = await readFile(framePath);
-      if (frame.length === 0) throw new Error("FFmpeg extracted an empty video frame.");
-      frames.push(frame);
-    }
-    return { directory, frames };
-  } catch (error) {
-    await rm(directory, { recursive: true, force: true });
-    console.warn("Video moderation could not extract key frames; upload is blocked.", error);
-    throw new ModerationUnavailableError(
-      "We couldn't check this video safely. Please try again later or upload a photo."
-    );
-  }
-}
-
 async function moderateImages(
   images: Array<{ buffer: Buffer; mimeType: string }>,
-  text: string
-): Promise<ModerationResult> {
+  text: string,
+  video?: Pick<ProcessedVideo, "durationSeconds" | "width" | "height">
+): Promise<ModerationResult | null> {
   const input: Array<
     | { type: "text"; text: string }
     | { type: "image_url"; image_url: { url: string } }
   > = [];
   if (text.trim()) input.push({ type: "text", text: text.trim() });
+  if (video) {
+    input.push({
+      type: "text",
+      text: `Uploaded video metadata: duration ${video.durationSeconds.toFixed(2)} seconds, ${video.width} by ${video.height} pixels.`,
+    });
+  }
   for (const image of images) {
     input.push({
       type: "image_url",
@@ -239,34 +169,26 @@ async function moderateImages(
 export async function moderateUploadedMedia(
   file: File,
   userId: string,
-  caption = ""
+  caption = "",
+  video?: ProcessedVideo
 ): Promise<void> {
   const isVideo = file.type.startsWith("video/");
-  let framesDirectory: string | null = null;
-  try {
-    const images = isVideo
-      ? await extractVideoFrames(file).then(({ directory, frames }) => {
-          framesDirectory = directory;
-          return frames.map((buffer) => ({ buffer, mimeType: "image/jpeg" }));
-        })
-      : [{ buffer: Buffer.from(await file.arrayBuffer()), mimeType: file.type }];
+  if (isVideo && !video) {
+    throw new ModerationUnavailableError("Video metadata could not be checked. Please try again.");
+  }
+  const images = isVideo
+    ? [{ buffer: video!.thumbnail, mimeType: "image/jpeg" }]
+    : [{ buffer: Buffer.from(await file.arrayBuffer()), mimeType: file.type }];
 
-    const result = await moderateImages(images, caption);
-    if (result.flagged || Object.values(result.categories).some(Boolean)) {
-      await writeAudit({
-        userId,
-        source: "post_media",
-        fileName: file.name,
-        mediaType: isVideo ? "video" : "image",
-        categories: result.categories,
-      });
-      throw new CommunitySafetyViolationError(isVideo ? SAFE_VIDEO_MESSAGE : SAFE_UPLOAD_MESSAGE);
-    }
-  } finally {
-    if (framesDirectory) {
-      await rm(framesDirectory, { recursive: true, force: true }).catch((error: unknown) => {
-        console.error("Could not clean temporary video moderation files.", error);
-      });
-    }
+  const result = await moderateImages(images, caption, video);
+  if (result && (result.flagged || Object.values(result.categories).some(Boolean))) {
+    await writeAudit({
+      userId,
+      source: "post_media",
+      fileName: file.name,
+      mediaType: isVideo ? "video" : "image",
+      categories: result.categories,
+    });
+    throw new CommunitySafetyViolationError(isVideo ? SAFE_VIDEO_MESSAGE : SAFE_UPLOAD_MESSAGE);
   }
 }

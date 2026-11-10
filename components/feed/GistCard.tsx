@@ -116,8 +116,10 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
   }, [post.id, post.likedByMe, post.likeCount, post.commentCount]);
 
   useEffect(() => {
-    if (!commentsLoading && cachedComments) setLocalCommentCount(cachedComments.length);
-  }, [cachedComments, commentsLoading]);
+    if (!commentsLoading && cachedComments) {
+      setLocalCommentCount(Math.max(post.commentCount, cachedComments.length + (post.seed_comments_count ?? 0)));
+    }
+  }, [cachedComments, commentsLoading, post.commentCount, post.seed_comments_count]);
 
   useEffect(() => {
     setSaved(isPostSaved(post.id));
@@ -145,6 +147,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
 
   const media = post.mediaUrls.map((src, index) => ({
     src,
+    poster: post.videoThumbnailUrls?.[index] ?? (index === 0 ? post.videoThumbnailUrl : null),
     alt: `Photo ${index + 1} shared by ${post.authorName} from ${post.schoolShort}`,
     type: post.mediaTypes?.[index] === "video" || isVideoUrl(src)
       ? "video"
@@ -244,10 +247,10 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
   const handleSeeded = (counts: { likesCount?: number; commentsCount?: number }) => {
     const updatedCounts = {
       ...(counts.likesCount !== undefined
-        ? { likeCount: Math.max(post.likeCount, counts.likesCount) }
+        ? { seed_likes_count: counts.likesCount, likeCount: Math.max(0, displayLikeCount - (post.seed_likes_count ?? 0)) + counts.likesCount }
         : {}),
       ...(counts.commentsCount !== undefined
-        ? { commentCount: Math.max(post.commentCount, counts.commentsCount) }
+        ? { seed_comments_count: counts.commentsCount, commentCount: Math.max(0, displayCommentCount - (post.seed_comments_count ?? 0)) + counts.commentsCount }
         : {}),
     };
     if (updatedCounts.likeCount !== undefined) setLocalLikeCount(updatedCounts.likeCount);
@@ -266,11 +269,11 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
         ? await addSeedPostLikes(post.id, increment)
         : await addSeedPostComments(post.id, increment);
       if (metric === "likes") {
-        const nextLikeCount = Math.max(displayLikeCount + increment, post.likeCount, count);
+        const nextLikeCount = Math.max(0, displayLikeCount - (post.seed_likes_count ?? 0)) + count;
         setLocalLikeCount(nextLikeCount);
-        useGistStore.getState().patchPost(post.id, { likeCount: nextLikeCount });
+        useGistStore.getState().patchPost(post.id, { likeCount: nextLikeCount, seed_likes_count: count });
       }
-      if (metric === "comments") handleSeeded({ commentsCount: Math.max(post.commentCount, count) });
+      if (metric === "comments") handleSeeded({ commentsCount: count });
       toast(`Added ${increment} seed ${metric}.`, "success");
     } catch (error) {
       toast(describeError(error, `Could not add seed ${metric}.`), "danger");
@@ -439,6 +442,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           >
             <VideoPostPlayer
               src={media[0].src}
+              poster={media[0].poster}
               durationSeconds={media[0].duration}
               edgeToEdge
               onOpenFullScreen={() => setMediaViewerIndex(0)}
@@ -455,6 +459,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
               <div key={item.src} className="overflow-hidden bg-black">
                 <VideoPostPlayer
                   src={item.src}
+                  poster={item.poster}
                   durationSeconds={item.duration}
                   edgeToEdge
                   onOpenFullScreen={() => setMediaViewerIndex(media.indexOf(item))}

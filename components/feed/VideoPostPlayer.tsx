@@ -12,13 +12,14 @@ import { VideoLightbox } from "@/components/feed/VideoLightbox";
 
 interface VideoPostPlayerProps {
   src: string;
+  poster?: string | null;
   durationSeconds?: number | null;
   edgeToEdge?: boolean;
   onOpenFullScreen?: () => void;
 }
 
 /** TikTok-style video: muted autoplay in view, pause offscreen, custom overlays. */
-export function VideoPostPlayer({ src, durationSeconds, edgeToEdge = false, onOpenFullScreen }: VideoPostPlayerProps) {
+export function VideoPostPlayer({ src, poster, durationSeconds, edgeToEdge = false, onOpenFullScreen }: VideoPostPlayerProps) {
   const mediaSrc = cloudflareMediaUrl(src);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -128,6 +129,7 @@ export function VideoPostPlayer({ src, durationSeconds, edgeToEdge = false, onOp
         <video
           ref={videoRef}
           src={playbackSrc}
+          poster={poster ?? undefined}
           crossOrigin="anonymous"
           controlsList="nodownload noremoteplayback"
           disablePictureInPicture

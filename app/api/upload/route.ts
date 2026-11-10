@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { deleteFromR2, uploadToR2 } from "@/lib/r2";
 import { moderateUploadedMedia } from "@/lib/moderation";
 import type { R2UploadFolder } from "@/lib/r2Upload";
+import { cleanupProcessedVideo, processVideo, VideoProcessingError } from "@/lib/videoProcessor";
 
 export const runtime = "nodejs";
 
@@ -50,6 +51,8 @@ export async function POST(request: Request): Promise<Response> {
   const auth = await authorize(request);
   if (auth.response) return auth.response;
 
+  let processedVideo: Awaited<ReturnType<typeof processVideo>> | null = null;
+  const uploadedUrls: string[] = [];
   try {
     const formData = await request.formData();
     const file = formData.get("file");
@@ -93,10 +96,43 @@ export async function POST(request: Request): Promise<Response> {
     if (moderationText !== null && typeof moderationText !== "string") {
       return errorResponse("The caption is invalid.", 400);
     }
-    await moderateUploadedMedia(file, auth.user.id, moderationText ?? "");
+    if (isVideo) processedVideo = await processVideo(file);
+    await moderateUploadedMedia(file, auth.user.id, moderationText ?? "", processedVideo ?? undefined);
     const url = await uploadToR2(file, `${auth.user.id}/${folder}/${name}`, contentType, folder);
-    return Response.json({ url });
+    uploadedUrls.push(url);
+    let thumbnailUrl: string | null = null;
+    if (processedVideo && folder === "posts") {
+      const thumbnailName = `${name.replace(/\.[^.]+$/, "")}-thumbnail.jpg`;
+      thumbnailUrl = await uploadToR2(
+        processedVideo.thumbnail,
+        `${auth.user.id}/${folder}/${thumbnailName}`,
+        "image/jpeg",
+        folder
+      );
+      uploadedUrls.push(thumbnailUrl);
+    }
+    return Response.json({
+      url,
+      ...(processedVideo
+        ? {
+            duration: processedVideo.durationSeconds,
+            width: processedVideo.width,
+            height: processedVideo.height,
+            thumbnailUrl,
+          }
+        : {}),
+    });
   } catch (error) {
+    if (uploadedUrls.length > 0) {
+      const keys = uploadedUrls.map((url) => new URL(url).pathname.slice(1).split("/").map(decodeURIComponent).join("/"));
+      const cleanup = await Promise.allSettled(keys.map((key) => deleteFromR2(key)));
+      for (const result of cleanup) {
+        if (result.status === "rejected") console.error("Could not remove incomplete R2 upload.", result.reason);
+      }
+    }
+    if (error instanceof VideoProcessingError) {
+      return errorResponse(error.message, 422);
+    }
     if (error instanceof Error && error.name === "CommunitySafetyViolationError") {
       return errorResponse(error.message, 422);
     }
@@ -105,6 +141,8 @@ export async function POST(request: Request): Promise<Response> {
     }
     console.error("R2 upload failed.", error);
     return errorResponse("Upload failed. Please try again.", 500);
+  } finally {
+    if (processedVideo) await cleanupProcessedVideo(processedVideo);
   }
 }
 

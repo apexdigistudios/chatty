@@ -101,17 +101,27 @@ export function HomePage({
   }, [hydrateInitialPublicContent, initialPosts, initialConfessions, initialTrendingFallback, initialTrendingPosts]);
 
   useEffect(() => {
+    const refreshFeeds = () => {
+      void loadFeed({ silent: true });
+      void loadFollowingFeed({ silent: true });
+    };
     const channel = supabase
       .channel("feed-posts")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "posts" }, () => {
-        void loadFeed({ silent: true });
-        void loadFollowingFeed({ silent: true });
+      .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, refreshFeeds)
+      .on("postgres_changes", { event: "*", schema: "public", table: "likes" }, refreshFeeds)
+      .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, (payload) => {
+        refreshFeeds();
+        const row = Object.keys(payload.new).length ? payload.new : payload.old;
+        if ("confession_id" in row && typeof row.confession_id === "string") void loadConfessions();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "confession_reactions" }, () => {
+        void loadConfessions();
       })
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [loadFeed, loadFollowingFeed]);
+  }, [loadFeed, loadFollowingFeed, loadConfessions]);
 
   useEffect(() => {
     if (activeTab === "Following" && followingPosts.length === 0 && !followingLoading) void loadFollowingFeed();

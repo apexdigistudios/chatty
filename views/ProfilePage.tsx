@@ -360,7 +360,7 @@ export function ProfilePage() {
               type="button"
               size="sm"
               variant="primary"
-              className="bg-[#FFCC00] text-[#171717] hover:brightness-105"
+              className="bg-[#FFCC00] text-blue-900 hover:brightness-105"
               leftIcon={<ShieldCheck size={14} strokeWidth={2.6} aria-hidden />}
               onClick={() => navigate("/get-verified")}
             >

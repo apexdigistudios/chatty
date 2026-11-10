@@ -5,10 +5,11 @@ import { ArrowDown, ArrowLeft, ArrowUp, Copy, Download, Heart, MessageCircle, Mo
 import { Link } from "@/lib/router";
 import { useAuth } from "@/context/AuthContext";
 import { describeError } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { timeAgo } from "@/lib/time";
 import { recordPostShare } from "@/services/followsService";
-import { fetchApprovedConfessions, fetchConfessionEngagement, toggleReaction } from "@/services/confessionsService";
-import { fetchFeed, toggleLike } from "@/services/postsService";
+import { fetchApprovedConfessions, fetchConfessionEngagement } from "@/services/confessionsService";
+import { fetchFeed, fetchPostsByIds } from "@/services/postsService";
 import { useAuthGateStore } from "@/store/authGateStore";
 import { useGistStore } from "@/store/gistStore";
 import type { Confession, Post } from "@/types/models";
@@ -24,8 +25,8 @@ import { isVideoUrl } from "@/lib/video";
 import { cloudflareMediaUrl } from "@/lib/mediaUrl";
 
 type SpotlightItem =
-  | { kind: "post"; key: string; videoUrl: string; post: Post }
-  | { kind: "confession"; key: string; videoUrl: string; confession: Confession };
+  | { kind: "post"; key: string; videoUrl: string; posterUrl?: string | null; post: Post }
+  | { kind: "confession"; key: string; videoUrl: string; posterUrl?: string | null; confession: Confession };
 
 type SpotlightShareTarget =
   | { kind: "post"; post: Post }
@@ -43,7 +44,7 @@ function collectSpotlightItems(feed: Post[], confessions: Confession[]): Spotlig
         post.mediaTypes?.[index] === "video" ||
         isVideoUrl(videoUrl) ||
         (index === 0 && post.mediaType === "video")
-          ? [{ kind: "post" as const, key: `post:${post.id}:${index}`, videoUrl, post }]
+          ? [{ kind: "post" as const, key: `post:${post.id}:${index}`, videoUrl, posterUrl: post.videoThumbnailUrls?.[index] ?? (index === 0 ? post.videoThumbnailUrl : null), post }]
           : []
       )
     );
@@ -73,6 +74,8 @@ export function SpotlightPage({
   const { user } = useAuth();
   const { toast } = useToast();
   const openComments = useGistStore((state) => state.openComments);
+  const togglePostLike = useGistStore((state) => state.toggleLike);
+  const toggleConfessionReaction = useGistStore((state) => state.toggleReaction);
   const commentsByThread = useGistStore((state) => state.commentsByThread);
   const slideListRef = useRef<HTMLDivElement>(null);
   const previousSlideScrollTop = useRef(0);
@@ -120,6 +123,74 @@ export function SpotlightPage({
   useEffect(() => {
     if (initialPosts === undefined && initialConfessions === undefined) void load();
   }, [initialPosts, initialConfessions, load]);
+
+  useEffect(() => {
+    const refreshPost = async (postId: string) => {
+      try {
+        const [post] = await fetchPostsByIds([postId]);
+        if (!post) return;
+        setItems((current) => current.map((item) =>
+          item.kind === "post" && item.post.id === postId ? { ...item, post } : item
+        ));
+      } catch (cause) {
+        console.warn("Could not refresh Spotlight post engagement.", cause);
+      }
+    };
+    const refreshConfession = async (confessionId: string) => {
+      try {
+        const fresh = (await fetchConfessionEngagement([confessionId])).get(confessionId);
+        if (!fresh) return;
+        setItems((current) => current.map((item) =>
+          item.kind === "confession" && item.confession.id === confessionId
+            ? {
+                ...item,
+                confession: {
+                  ...item.confession,
+                  reactions: fresh.reactions,
+                  myReaction: fresh.myReaction,
+                  commentCount: fresh.commentCount,
+                },
+              }
+            : item
+        ));
+      } catch (cause) {
+        console.warn("Could not refresh Spotlight confession engagement.", cause);
+      }
+    };
+    const postIdFrom = (payload: { new: Record<string, unknown>; old: Record<string, unknown> }) => {
+      const row = Object.keys(payload.new).length ? payload.new : payload.old;
+      const id = typeof row.post_id === "string" ? row.post_id : row.id;
+      return typeof id === "string" ? id : null;
+    };
+    const confessionIdFrom = (payload: { new: Record<string, unknown>; old: Record<string, unknown> }) => {
+      const row = Object.keys(payload.new).length ? payload.new : payload.old;
+      return typeof row.confession_id === "string" ? row.confession_id : null;
+    };
+    const channel = supabase
+      .channel("spotlight-engagement")
+      .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, (payload) => {
+        const id = postIdFrom(payload);
+        if (id) void refreshPost(id);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "likes" }, (payload) => {
+        const id = postIdFrom(payload);
+        if (id) void refreshPost(id);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, (payload) => {
+        const row = (Object.keys(payload.new).length ? payload.new : payload.old) as Record<string, unknown>;
+        if (typeof row.post_id === "string") void refreshPost(row.post_id);
+        const confessionId = typeof row.confession_id === "string" ? row.confession_id : null;
+        if (confessionId) void refreshConfession(confessionId);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "confession_reactions" }, (payload) => {
+        const id = confessionIdFrom(payload);
+        if (id) void refreshConfession(id);
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, []);
 
   useEffect(() => {
     if (!initialConfessions) return;
@@ -298,7 +369,7 @@ export function SpotlightPage({
             const threadId = item.kind === "post" ? item.post.id : item.confession.id;
             const cachedCount = commentsByThread[`${item.kind}:${threadId}`]?.length;
             const slideItem = item.kind === "post"
-              ? { ...item, post: { ...item.post, commentCount: Math.max(item.post.commentCount, cachedCount ?? 0) } }
+              ? { ...item, post: { ...item.post, commentCount: Math.max(item.post.commentCount, (cachedCount ?? 0) + (item.post.seed_comments_count ?? 0)) } }
               : { ...item, confession: { ...item.confession, commentCount: Math.max(item.confession.commentCount, cachedCount ?? 0) } };
             return (
               <SpotlightSlide
@@ -323,11 +394,17 @@ export function SpotlightPage({
                     return;
                   }
                   try {
-                    const liked = await toggleLike(item.post.id);
+                    const post = item.post;
                     setItems((current) => current.map((entry) => entry.key === item.key && entry.kind === "post"
-                      ? { ...entry, post: { ...entry.post, likedByMe: liked, likeCount: Math.max(0, entry.post.likeCount + (liked ? 1 : -1)) } }
+                      ? { ...entry, post: { ...entry.post, likedByMe: !post.likedByMe, likeCount: Math.max(0, entry.post.likeCount + (post.likedByMe ? -1 : 1)) } }
                       : entry));
+                    await togglePostLike(post.id, post);
                   } catch (cause) {
+                    if (item.kind === "post") {
+                      setItems((current) => current.map((entry) => entry.key === item.key && entry.kind === "post"
+                        ? { ...entry, post: { ...entry.post, likedByMe: item.post.likedByMe, likeCount: item.post.likeCount } }
+                        : entry));
+                    }
                     toast(describeError(cause, "Could not update your reaction."), "danger");
                   }
                 }}
@@ -360,16 +437,23 @@ export function SpotlightPage({
                     const current = confession.myReaction;
                     const next = current === "heart" ? null : "heart";
                     reactionTouched.current.add(confession.id);
-                    await toggleReaction(confession.id, "heart", current);
-                    setItems((currentItems) => currentItems.map((entry) => {
-                      if (entry.kind !== "confession" || entry.confession.id !== confession.id) return entry;
-                      const reactions = { ...entry.confession.reactions };
-                      if (current) reactions[current] = Math.max(0, reactions[current] - 1);
-                      if (next) reactions[next] += 1;
-                      return { ...entry, confession: { ...entry.confession, reactions, myReaction: next } };
-                    }));
+                      setItems((currentItems) => currentItems.map((entry) => {
+                        if (entry.kind !== "confession" || entry.confession.id !== confession.id) return entry;
+                        const reactions = { ...entry.confession.reactions };
+                        if (current) reactions[current] = Math.max(0, reactions[current] - 1);
+                        if (next) reactions[next] += 1;
+                        return { ...entry, confession: { ...entry.confession, reactions, myReaction: next } };
+                      }));
+                      await toggleConfessionReaction(confession.id, "heart", current);
                   } catch (cause) {
-                    toast(describeError(cause, "Could not update your reaction."), "danger");
+                      if (item.kind === "confession") {
+                        setItems((currentItems) => currentItems.map((entry) =>
+                          entry.kind === "confession" && entry.confession.id === item.confession.id
+                            ? { ...entry, confession: item.confession }
+                            : entry
+                        ));
+                      }
+                      toast(describeError(cause, "Could not update your reaction."), "danger");
                   }
                 }}
               />
@@ -616,6 +700,7 @@ function SpotlightSlide({
       <video
         ref={videoRef}
         src={cloudflareMediaUrl(item.videoUrl)}
+        poster={item.posterUrl ?? undefined}
         crossOrigin="anonymous"
         controlsList="nodownload noremoteplayback"
         disablePictureInPicture

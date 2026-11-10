@@ -14,6 +14,7 @@ interface SubmittedMedia {
   url: string;
   mediaType: "image" | "video";
   duration: number | null;
+  thumbnailUrl: string | null;
 }
 
 class PostRequestError extends Error {
@@ -132,17 +133,24 @@ export async function POST(request: Request): Promise<Response> {
         (item.mediaType !== "image" && item.mediaType !== "video") ||
         !("duration" in item) ||
         (item.duration !== null &&
-          (typeof item.duration !== "number" || !Number.isFinite(item.duration)))
+          (typeof item.duration !== "number" || !Number.isFinite(item.duration))) ||
+        ("thumbnailUrl" in item && item.thumbnailUrl !== null && typeof item.thumbnailUrl !== "string")
       ) {
         throw new PostRequestError("One of the uploaded files is invalid.", 400);
       }
       const key = readMediaKey(item.url, user.id);
       if (!key) throw new PostRequestError("One of the uploaded files is not yours.", 403);
       mediaKeys.push(key);
+      const thumbnailKey = readMediaKey("thumbnailUrl" in item ? item.thumbnailUrl : null, user.id);
+      if (item.mediaType === "video" && item.thumbnailUrl && !thumbnailKey) {
+        throw new PostRequestError("One of the video thumbnails is not yours.", 403);
+      }
+      if (thumbnailKey) mediaKeys.push(thumbnailKey);
       media.push({
         url: item.url as string,
         mediaType: item.mediaType,
         duration: item.duration as number | null,
+        thumbnailUrl: thumbnailKey ? item.thumbnailUrl as string : null,
       });
     }
 
@@ -167,7 +175,7 @@ export async function POST(request: Request): Promise<Response> {
       throw new PostRequestError("Choose your school in your profile before publishing a gist.", 400);
     }
 
-    const [groupsAvailable, postMediaAvailable, mediaTypeAvailable, durationAvailable] =
+    const [groupsAvailable, postMediaAvailable, mediaTypeAvailable, durationAvailable, thumbnailAvailable] =
       await Promise.all([
         columnExists(serviceClient, "posts", "group_id"),
         serviceClient.from("post_media").select("id").limit(1).then(({ error }) => {
@@ -177,6 +185,7 @@ export async function POST(request: Request): Promise<Response> {
         }),
         columnExists(serviceClient, "posts", "media_type"),
         columnExists(serviceClient, "posts", "video_duration_seconds"),
+        columnExists(serviceClient, "posts", "video_thumbnail_url"),
       ]);
 
     if (media.length > 1 && !postMediaAvailable) {
@@ -212,6 +221,9 @@ export async function POST(request: Request): Promise<Response> {
         post.video_duration_seconds =
           firstMedia.duration === null ? null : Math.max(0, Math.round(firstMedia.duration));
       }
+      if (firstMedia.mediaType === "video" && thumbnailAvailable) {
+        post.video_thumbnail_url = firstMedia.thumbnailUrl;
+      }
     }
 
     const { data: created, error: createError } = await serviceClient
@@ -223,9 +235,10 @@ export async function POST(request: Request): Promise<Response> {
     createdPostId = created.id;
 
     if (media.length > 0 && postMediaAvailable) {
-      const [postMediaTypeAvailable, postMediaDurationAvailable] = await Promise.all([
+      const [postMediaTypeAvailable, postMediaDurationAvailable, postMediaThumbnailAvailable] = await Promise.all([
         columnExists(serviceClient, "post_media", "media_type"),
         columnExists(serviceClient, "post_media", "video_duration_seconds"),
+        columnExists(serviceClient, "post_media", "video_thumbnail_url"),
       ]);
       const rows = media.map((item, index) => ({
         post_id: created.id,
@@ -238,6 +251,9 @@ export async function POST(request: Request): Promise<Response> {
                   ? Math.max(0, Math.round(item.duration))
                   : null,
             }
+          : {}),
+        ...(postMediaThumbnailAvailable
+          ? { video_thumbnail_url: item.mediaType === "video" ? item.thumbnailUrl : null }
           : {}),
         sort_order: index,
       }));

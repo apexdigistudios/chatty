@@ -1,5 +1,5 @@
 import { COMPRESSION_PRESETS, compressImageFile } from "@/lib/imageCompression";
-import { uploadFileToR2, type R2UploadFolder } from "@/lib/r2Upload";
+import { uploadFileToR2, uploadFileToR2WithMetadata, type R2UploadFolder } from "@/lib/r2Upload";
 
 export type MediaFolder = R2UploadFolder;
 
@@ -84,6 +84,10 @@ export async function uploadVideo(
 export interface UploadedMedia {
   url: string;
   mediaType: "image" | "video";
+  duration?: number;
+  width?: number;
+  height?: number;
+  thumbnailUrl?: string | null;
 }
 
 /** Single entry point for post media: images are compressed, videos are streamed as-is. */
@@ -93,7 +97,11 @@ export async function uploadPostMedia(
   moderationText?: string
 ): Promise<UploadedMedia> {
   if (isVideoFile(file)) {
-    return { url: await uploadVideo(file, folder, moderationText), mediaType: "video" };
+    const format = getVideoFormat(file);
+    if (!format) throw new Error("Choose an MP4, WebM, MOV, or Ogg video.");
+    if (file.size > MAX_VIDEO_BYTES) throw new Error("Videos must be 80MB or smaller.");
+    const uploaded = await uploadFileToR2WithMetadata(file, folder, format.contentType, undefined, moderationText);
+    return { ...uploaded, mediaType: "video" };
   }
   return { url: await uploadImage(file, folder, moderationText), mediaType: "image" };
 }

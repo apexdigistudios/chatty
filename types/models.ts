@@ -138,6 +138,8 @@ export interface Post {
   content: string;
   mediaUrls: string[];
   mediaTypes?: MediaType[];
+  videoThumbnailUrl?: string | null;
+  videoThumbnailUrls?: Array<string | null>;
   videoDurations?: Array<number | null>;
   /** Video posts get a custom autoplay-on-scroll player. */
   mediaType: MediaType;
@@ -148,9 +150,12 @@ export interface Post {
   spotlightExpiresAt?: string | null;
   spotlightTargetSchoolIds?: string[] | null;
   likeCount: number;
+  seed_likes_count?: number;
   likedByMe: boolean;
   commentCount: number;
+  seed_comments_count?: number;
   viewCount?: number;
+  seed_views_count?: number;
   shareCount?: number;
 }
 

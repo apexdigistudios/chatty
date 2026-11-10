@@ -42,6 +42,7 @@ export function PostMediaViewer({
   const [downloading, setDownloading] = useState(false);
   const media = post.mediaUrls.map((src, index) => ({
     src,
+    poster: post.videoThumbnailUrls?.[index] ?? (index === 0 ? post.videoThumbnailUrl : null),
     type: post.mediaTypes?.[index] === "video" || isVideoUrl(src)
       ? "video"
       : post.mediaTypes?.[index] ?? (index === 0 ? post.mediaType : "image"),
@@ -133,6 +134,7 @@ export function PostMediaViewer({
                     {item.type === "video" ? (
                       <video
                         src={cloudflareMediaUrl(item.src)}
+                        poster={item.poster ?? undefined}
                         crossOrigin="anonymous"
                         controls
                         autoPlay={index === currentIndex}

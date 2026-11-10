@@ -133,12 +133,12 @@ create or update `posts` and `post_media` policies. It routes post creation
 through the authenticated server API and disables direct client inserts so the
 moderation check cannot be skipped.
 Set the server-only `OPENAI_API_KEY` and `SUPABASE_SERVICE_ROLE_KEY` values.
-Video duration and sample frames are extracted with the locally bundled FFmpeg
-and FFprobe binaries, then checked by OpenAI moderation; no external video
-moderation endpoint or token is used. Uploaded videos are sampled at 25%, 50%,
-and 75%; if moderation is unavailable, the upload is blocked rather than skipped.
-Flagged media is rejected before it reaches R2. Global admins can review flagged
-entries in `automated_moderation_audit`.
+Video duration, dimensions, and a single thumbnail frame are extracted with the
+locally bundled FFmpeg and FFprobe binaries. OpenAI checks the caption, metadata,
+and thumbnail. When OpenAI is unavailable in a non-production environment,
+automated moderation is skipped; production uploads receive a clear validation
+error. Flagged media is rejected before it reaches R2. Global admins can review
+flagged entries in `automated_moderation_audit`.
 
 ### A13 · Hybrid smart feed
 
@@ -168,6 +168,19 @@ source before seeding. Set `NEXT_PUBLIC_SUPABASE_URL` and
 validates and batch-upserts by normalized name, preserving unrelated school
 columns. This public directory does not constitute a verified, complete
 master list or provide official codes/mottos for every school.
+
+### A16 · Video thumbnail metadata
+
+Run `supabase/migrations/video_thumbnail_metadata.sql` after
+`profile_explore_and_post_media.sql`. It adds `video_thumbnail_url` to posts and
+post media. Video uploads extract metadata and one thumbnail in a temporary
+directory, upload the thumbnail to R2, and remove temporary files when finished.
+
+### A17 · Additive seeded engagement counts
+
+Run `supabase/migrations/post_like_counts_include_seeded_engagement.sql` after
+`admin_seed_engagement.sql`. It keeps ranked post like totals synchronized by
+adding real likes to the configured seed count.
 
 Example verification query:
 

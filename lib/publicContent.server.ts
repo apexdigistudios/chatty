@@ -15,6 +15,11 @@ type PublicPostRow = {
   content: string;
   media_url: string | null;
   media_type?: "image" | "video" | null;
+  video_duration_seconds?: number | null;
+  video_thumbnail_url?: string | null;
+  seed_likes_count?: number;
+  seed_comments_count?: number;
+  seed_views_count?: number;
   created_at: string;
   author: {
     id: string;
@@ -38,6 +43,8 @@ type PublicPostRow = {
     post_id: string;
     media_url: string;
     media_type?: "image" | "video" | null;
+    video_duration_seconds?: number | null;
+    video_thumbnail_url?: string | null;
     sort_order: number;
   }>;
   likes: Array<{ count: number }>;
@@ -89,6 +96,37 @@ function relationCount(rows: Array<{ count: number }> | null | undefined): numbe
 }
 
 let publicSeedAuthorsPromise: Promise<boolean> | null = null;
+const publicColumnSupport = new Map<string, Promise<boolean>>();
+
+function supportsPublicColumn(table: "posts" | "post_media", column: string): Promise<boolean> {
+  const key = `${table}.${column}`;
+  let support = publicColumnSupport.get(key);
+  if (!support) {
+    support = (async () => {
+      const { error } = await publicSupabase().from(table).select(column).limit(1);
+      if (error && (error.code === "42703" || error.code === "PGRST204")) return false;
+      if (error && (error.code === "42P01" || error.code === "PGRST205")) return false;
+      if (error) throw new Error(error.message);
+      return true;
+    })();
+    publicColumnSupport.set(key, support);
+  }
+  return support;
+}
+
+let publicPostMediaAvailable: Promise<boolean> | null = null;
+function supportsPublicPostMedia(): Promise<boolean> {
+  if (!publicPostMediaAvailable) {
+    publicPostMediaAvailable = (async () => {
+      const { error } = await publicSupabase().from("post_media").select("id").limit(1);
+      if (error && (error.code === "42P01" || error.code === "PGRST205")) return false;
+      if (error) throw new Error(error.message);
+      return true;
+    })();
+  }
+  return publicPostMediaAvailable;
+}
+
 function supportsPublicSeedAuthors(): Promise<boolean> {
   if (!publicSeedAuthorsPromise) {
     publicSeedAuthorsPromise = (async () => {
@@ -110,7 +148,12 @@ function supportsPublicSeedAuthors(): Promise<boolean> {
   return publicSeedAuthorsPromise;
 }
 
-function mapPost(row: PublicPostRow, media?: Array<{ media_url: string; media_type?: "image" | "video" | null }>): Post {
+function mapPost(row: PublicPostRow, media?: Array<{
+  media_url: string;
+  media_type?: "image" | "video" | null;
+  video_duration_seconds?: number | null;
+  video_thumbnail_url?: string | null;
+}>): Post {
   const joinedMedia = row.media?.length
     ? [...row.media].sort((left, right) => left.sort_order - right.sort_order)
     : undefined;
@@ -149,29 +192,63 @@ function mapPost(row: PublicPostRow, media?: Array<{ media_url: string; media_ty
     content: row.content,
     mediaUrls,
     mediaTypes,
-    videoDurations: mediaItems.map(() => null),
+    videoDurations: mediaItems.map((item) => item.video_duration_seconds ?? null),
+    videoThumbnailUrl: mediaItems[0]?.video_thumbnail_url ?? row.video_thumbnail_url ?? null,
+    videoThumbnailUrls: mediaItems.map((item) => item.video_thumbnail_url ?? null),
     mediaType: mediaTypes[0] ?? "image",
     status: "active",
     createdAt: row.created_at,
     spotlightStatus: null,
     spotlightExpiresAt: null,
     spotlightTargetSchoolIds: null,
-    likeCount: relationCount(row.likes),
+    likeCount: relationCount(row.likes) + (row.seed_likes_count ?? 0),
+    seed_likes_count: row.seed_likes_count ?? 0,
     likedByMe: false,
-    commentCount: relationCount(row.comments),
-    viewCount: 0,
+    commentCount: relationCount(row.comments) + (row.seed_comments_count ?? 0),
+    seed_comments_count: row.seed_comments_count ?? 0,
+    viewCount: row.seed_views_count ?? 0,
+    seed_views_count: row.seed_views_count ?? 0,
     shareCount: 0,
   };
 }
 
-async function fetchPostMedia(ids: string[]) {
-  if (ids.length === 0) return new Map<string, Array<{ media_url: string; media_type?: "image" | "video" | null }>>();
+type PublicPostMedia = {
+  post_id: string;
+  media_url: string;
+  media_type?: "image" | "video" | null;
+  video_duration_seconds?: number | null;
+  video_thumbnail_url?: string | null;
+  sort_order: number;
+};
+
+async function fetchPostMedia(ids: string[]): Promise<Map<string, PublicPostMedia[]>> {
+  if (ids.length === 0) return new Map();
+  const [mediaType, videoDuration, videoThumbnail] = await Promise.all([
+    supportsPublicColumn("post_media", "media_type"),
+    supportsPublicColumn("post_media", "video_duration_seconds"),
+    supportsPublicColumn("post_media", "video_thumbnail_url"),
+  ]);
+  const columns = [
+    "post_id",
+    "media_url",
+    ...(mediaType ? ["media_type"] : []),
+    ...(videoDuration ? ["video_duration_seconds"] : []),
+    ...(videoThumbnail ? ["video_thumbnail_url"] : []),
+    "sort_order",
+  ].join(", ");
   const { data, error } = await publicSupabase()
     .from("post_media")
-    .select("post_id, media_url, media_type, sort_order")
+    .select(columns)
     .in("post_id", ids)
     .order("sort_order", { ascending: true })
-    .returns<Array<{ post_id: string; media_url: string; media_type?: "image" | "video" | null }>>();
+    .returns<Array<{
+      post_id: string;
+      media_url: string;
+      media_type?: "image" | "video" | null;
+      video_duration_seconds?: number | null;
+      video_thumbnail_url?: string | null;
+      sort_order: number;
+    }>>();
   if (error) {
     if (error.code === "42P01" || error.code === "PGRST205") return new Map();
     if (error.code === "42703" || error.code === "PGRST204") {
@@ -180,7 +257,7 @@ async function fetchPostMedia(ids: string[]) {
         .select("post_id, media_url, sort_order")
         .in("post_id", ids)
         .order("sort_order", { ascending: true })
-        .returns<Array<{ post_id: string; media_url: string }>>();
+        .returns<Array<{ post_id: string; media_url: string; sort_order: number }>>();
       if (fallback.error) throw new Error(fallback.error.message);
       return groupMedia(fallback.data ?? []);
     }
@@ -189,13 +266,27 @@ async function fetchPostMedia(ids: string[]) {
   return groupMedia(data ?? []);
 }
 
-function groupMedia<T extends { post_id: string; media_url: string; media_type?: "image" | "video" | null }>(
+function groupMedia<T extends {
+  post_id: string;
+  media_url: string;
+  sort_order?: number;
+  media_type?: "image" | "video" | null;
+  video_duration_seconds?: number | null;
+  video_thumbnail_url?: string | null;
+}>(
   rows: T[]
-): Map<string, Array<{ media_url: string; media_type?: "image" | "video" | null }>> {
-  const result = new Map<string, Array<{ media_url: string; media_type?: "image" | "video" | null }>>();
+): Map<string, PublicPostMedia[]> {
+  const result = new Map<string, PublicPostMedia[]>();
   for (const row of rows) {
     const items = result.get(row.post_id) ?? [];
-    items.push({ media_url: row.media_url, media_type: row.media_type });
+    items.push({
+      post_id: row.post_id,
+      media_url: row.media_url,
+      media_type: row.media_type,
+      video_duration_seconds: "video_duration_seconds" in row ? row.video_duration_seconds : null,
+      video_thumbnail_url: "video_thumbnail_url" in row ? row.video_thumbnail_url : null,
+      sort_order: row.sort_order ?? items.length,
+    });
     result.set(row.post_id, items);
   }
   return result;
@@ -256,8 +347,20 @@ async function fetchPublicPostRows(options: {
 }): Promise<PublicPostRow[]> {
   const client = publicSupabase();
   const withSeedAuthors = await supportsPublicSeedAuthors();
+  const [hasMediaType, hasVideoDuration, hasVideoThumbnail, hasSeedLikes, hasSeedComments, hasSeedViews, hasPostMedia, hasPostMediaType, hasPostMediaDuration, hasPostMediaThumbnail] = await Promise.all([
+    supportsPublicColumn("posts", "media_type"),
+    supportsPublicColumn("posts", "video_duration_seconds"),
+    supportsPublicColumn("posts", "video_thumbnail_url"),
+    supportsPublicColumn("posts", "seed_likes_count"),
+    supportsPublicColumn("posts", "seed_comments_count"),
+    supportsPublicColumn("posts", "seed_views_count"),
+    supportsPublicPostMedia(),
+    supportsPublicColumn("post_media", "media_type"),
+    supportsPublicColumn("post_media", "video_duration_seconds"),
+    supportsPublicColumn("post_media", "video_thumbnail_url"),
+  ]);
   const select = (withMediaType: boolean, withProfileDetails: boolean, withPostMedia: boolean) =>
-    `id, user_id, ${withSeedAuthors ? `seed_profile_id, seed_author:admin_seed_profiles!posts_seed_profile_id_fkey(id, username, full_name, avatar_url, school_id), ` : ""}school_id, content, media_url, ${withMediaType ? "media_type, " : ""}created_at, author:profiles(id, username, ${withProfileDetails ? "full_name, is_verified, verified_title, verified_expires_at, " : ""}avatar_url, school_id), school:schools(id, name, crest_url:logo_url), likes(count), comments(count)${withPostMedia ? `, media:post_media(post_id, media_url${withMediaType ? ", media_type" : ""}, sort_order)` : ""}`;
+    `id, user_id, ${withSeedAuthors ? `seed_profile_id, seed_author:admin_seed_profiles!posts_seed_profile_id_fkey(id, username, full_name, avatar_url, school_id), ` : ""}school_id, content, media_url, ${withMediaType && hasMediaType ? "media_type, " : ""}${hasVideoDuration ? "video_duration_seconds, " : ""}${hasVideoThumbnail ? "video_thumbnail_url, " : ""}${hasSeedLikes ? "seed_likes_count, " : ""}${hasSeedComments ? "seed_comments_count, " : ""}${hasSeedViews ? "seed_views_count, " : ""}created_at, author:profiles(id, username, ${withProfileDetails ? "full_name, is_verified, verified_title, verified_expires_at, " : ""}avatar_url, school_id), school:schools(id, name, crest_url:logo_url), likes(count), comments(count)${withPostMedia && hasPostMedia ? `, media:post_media(post_id, media_url${withMediaType && hasPostMediaType ? ", media_type" : ""}${hasPostMediaDuration ? ", video_duration_seconds" : ""}${hasPostMediaThumbnail ? ", video_thumbnail_url" : ""}, sort_order)` : ""}`;
   const request = (withMediaType: boolean, withProfileDetails: boolean, withPostMedia: boolean) => {
     let query = client
     .from("posts")
@@ -293,7 +396,7 @@ async function fetchPublicPostRows(options: {
     data = result.data;
     error = result.error;
     if (!error) {
-      includesPostMedia = withPostMedia;
+      includesPostMedia = withPostMedia && hasPostMedia;
       break;
     }
     if (!["42703", "PGRST204", "PGRST200", "PGRST201"].includes(error.code ?? "")) break;

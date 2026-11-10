@@ -117,7 +117,7 @@ interface GistState {
   upsertPublicConfession: (confession: Confession) => void;
   submitConfession: (input: { content: string; category: ConfessionCategory; schoolId: string | null }) => Promise<Confession>;
   publishConfessionLocally: (confession: Confession) => void;
-  toggleReaction: (confessionId: string, kind: ReactionKind) => Promise<void>;
+  toggleReaction: (confessionId: string, kind: ReactionKind, currentReaction?: ReactionKind | null) => Promise<void>;
 
   /* composer intent */
   composerType: ComposerType;
@@ -245,7 +245,6 @@ export const useGistStore = create<GistState>()((set, get) => ({
 
   loadFeed: async ({ silent } = {}) => {
     const schoolId = get().feedSchoolId;
-    const seenPostIds = get().seenPostIds;
     const requestId = ++feedLoadRequestId;
     if (!silent) set({ feedLoading: true, feedError: null });
     try {
@@ -254,16 +253,13 @@ export const useGistStore = create<GistState>()((set, get) => ({
         userSchoolId: schoolId,
         page: 1,
         limit: PAGE_SIZE,
-        seenPostIds,
       });
       // Ignore stale responses if the school filter changed mid-flight.
       if (get().feedSchoolId !== schoolId || requestId !== feedLoadRequestId) return;
       set((state) => {
-        const alreadySeen = new Set(state.seenPostIds);
-        const freshPosts = result.posts.filter((post) => !alreadySeen.has(post.id));
-        const freshPostIds = new Set(freshPosts.map((post) => post.id));
-        const retainedPosts = state.posts.filter((post) => !freshPostIds.has(post.id));
-        const nextPosts = [...freshPosts, ...retainedPosts];
+        const refreshedIds = new Set(result.posts.map((post) => post.id));
+        const retainedPosts = state.posts.filter((post) => !refreshedIds.has(post.id));
+        const nextPosts = [...result.posts, ...retainedPosts];
         const nextSeenPostIds = [...new Set([...state.seenPostIds, ...nextPosts.map((post) => post.id)])];
         return {
           posts: nextPosts,
@@ -394,6 +390,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
   toggleLike: async (postId, fallbackPost) => {
     const findPost = (): Post | undefined =>
       get().posts.find((post) => post.id === postId) ??
+      get().followingPosts.find((post) => post.id === postId) ??
       get().trendingPosts.find((post) => post.id === postId) ??
       get().trendingFallback.find((post) => post.id === postId);
     const before = findPost() ?? fallbackPost;
@@ -430,6 +427,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
         list.map((post) => (post.id === postId ? { ...post, ...patch } : post));
       return {
         posts: apply(state.posts),
+        followingPosts: apply(state.followingPosts),
         trendingPosts: apply(state.trendingPosts),
         trendingFallback: apply(state.trendingFallback),
       };
@@ -468,7 +466,11 @@ export const useGistStore = create<GistState>()((set, get) => ({
         commentsByThread: { ...state.commentsByThread, [key]: comments },
         commentsLoading: { ...state.commentsLoading, [key]: false },
       }));
-      if (target.type === "post") get().patchPost(target.id, { commentCount: comments.length });
+      if (target.type === "post") {
+        const post = [...get().posts, ...get().followingPosts, ...get().trendingPosts, ...get().trendingFallback]
+          .find((item) => item.id === target.id);
+        get().patchPost(target.id, { commentCount: comments.length + (post?.seed_comments_count ?? 0) });
+      }
       else set((state) => ({
         confessions: state.confessions.map((item) => item.id === target.id ? { ...item, commentCount: comments.length } : item),
         myConfessions: state.myConfessions.map((item) => item.id === target.id ? { ...item, commentCount: comments.length } : item),
@@ -483,37 +485,74 @@ export const useGistStore = create<GistState>()((set, get) => ({
   },
 
   addComment: async (target, content, parentId = null) => {
-    const comment = await postsService.addComment(target, content, parentId);
     const key = commentThreadKey(target);
-    set((state) => ({
-      commentsByThread: {
-        ...state.commentsByThread,
-        [key]: [...(state.commentsByThread[key] ?? []), comment],
-      },
-    }));
-    const comments = get().commentsByThread[key];
-    if (target.type === "post") get().patchPost(target.id, { commentCount: comments.length });
-    else set((state) => ({
-      confessions: state.confessions.map((item) => item.id === target.id ? { ...item, commentCount: comments.length } : item),
-      myConfessions: state.myConfessions.map((item) => item.id === target.id ? { ...item, commentCount: comments.length } : item),
-    }));
+    const previousCount = target.type === "post"
+      ? [...get().posts, ...get().followingPosts, ...get().trendingPosts, ...get().trendingFallback]
+          .find((item) => item.id === target.id)?.commentCount
+      : [...get().confessions, ...get().myConfessions].find((item) => item.id === target.id)?.commentCount;
+    const adjustCount = (delta: number) => {
+      if (target.type === "post") {
+        const post = [...get().posts, ...get().followingPosts, ...get().trendingPosts, ...get().trendingFallback]
+          .find((item) => item.id === target.id);
+        if (post) get().patchPost(target.id, { commentCount: Math.max(post.seed_comments_count ?? 0, post.commentCount + delta) });
+      } else {
+        set((state) => ({
+          confessions: state.confessions.map((item) => item.id === target.id ? { ...item, commentCount: Math.max(0, item.commentCount + delta) } : item),
+          myConfessions: state.myConfessions.map((item) => item.id === target.id ? { ...item, commentCount: Math.max(0, item.commentCount + delta) } : item),
+        }));
+      }
+    };
+    adjustCount(1);
+    try {
+      const comment = await postsService.addComment(target, content, parentId);
+      set((state) => ({
+        commentsByThread: {
+          ...state.commentsByThread,
+          [key]: [...(state.commentsByThread[key] ?? []), comment],
+        },
+      }));
+    } catch (error) {
+      if (previousCount !== undefined) {
+        if (target.type === "post") get().patchPost(target.id, { commentCount: previousCount });
+        else set((state) => ({
+          confessions: state.confessions.map((item) => item.id === target.id ? { ...item, commentCount: previousCount } : item),
+          myConfessions: state.myConfessions.map((item) => item.id === target.id ? { ...item, commentCount: previousCount } : item),
+        }));
+      }
+      throw error;
+    }
   },
 
   deleteComment: async (target, commentId) => {
-    await postsService.deleteComment(target, commentId);
     const key = commentThreadKey(target);
-    const comments = removeCommentBranch(get().commentsByThread[key] ?? [], commentId);
-    set((state) => ({
-      commentsByThread: {
-        ...state.commentsByThread,
-        [key]: comments,
-      },
-    }));
-    if (target.type === "post") get().patchPost(target.id, { commentCount: comments.length });
-    else set((state) => ({
-      confessions: state.confessions.map((item) => item.id === target.id ? { ...item, commentCount: comments.length } : item),
-      myConfessions: state.myConfessions.map((item) => item.id === target.id ? { ...item, commentCount: comments.length } : item),
-    }));
+    const previousComments = get().commentsByThread[key] ?? [];
+    const comments = removeCommentBranch(previousComments, commentId);
+    const removedCount = previousComments.length - comments.length || 1;
+    const targetItem = target.type === "post"
+      ? [...get().posts, ...get().followingPosts, ...get().trendingPosts, ...get().trendingFallback].find((item) => item.id === target.id)
+      : [...get().confessions, ...get().myConfessions].find((item) => item.id === target.id);
+    const seedCommentsCount = targetItem && "seed_comments_count" in targetItem
+      ? targetItem.seed_comments_count ?? 0
+      : 0;
+    const previousCount = targetItem?.commentCount;
+    const updateCount = (count: number) => {
+      if (target.type === "post") get().patchPost(target.id, {
+        commentCount: Math.max(seedCommentsCount, count),
+      });
+      else set((state) => ({
+        confessions: state.confessions.map((item) => item.id === target.id ? { ...item, commentCount: Math.max(0, count) } : item),
+        myConfessions: state.myConfessions.map((item) => item.id === target.id ? { ...item, commentCount: Math.max(0, count) } : item),
+      }));
+    };
+    set((state) => ({ commentsByThread: { ...state.commentsByThread, [key]: comments } }));
+    if (previousCount !== undefined) updateCount(previousCount - removedCount);
+    try {
+      await postsService.deleteComment(target, commentId);
+    } catch (error) {
+      set((state) => ({ commentsByThread: { ...state.commentsByThread, [key]: previousComments } }));
+      if (previousCount !== undefined) updateCount(previousCount);
+      throw error;
+    }
   },
 
   toggleCommentLike: async (target, commentId) => {
@@ -592,7 +631,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
     };
   }),
 
-  toggleReaction: async (confessionId, kind) => {
+  toggleReaction: async (confessionId, kind, currentReaction) => {
     const apply = (list: Confession[], next: ReactionKind | null) =>
       list.map((confession) => {
         if (confession.id !== confessionId) return confession;
@@ -602,7 +641,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
         return { ...confession, reactions, myReaction: next };
       });
 
-    const current =
+    const current = currentReaction !== undefined ? currentReaction :
       get().confessions.find((item) => item.id === confessionId)?.myReaction ??
       get().myConfessions.find((item) => item.id === confessionId)?.myReaction ??
       null;
