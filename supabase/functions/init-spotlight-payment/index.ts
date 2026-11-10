@@ -7,10 +7,10 @@ const corsHeaders = {
 };
 
 const PACKAGE_CATALOG = {
-  "2_hours": { amountPesewas: 300 },
-  "1_day": { amountPesewas: 800 },
-  "2_days": { amountPesewas: 1400 },
-  "7_days": { amountPesewas: 3500 },
+  "2_hours": { amountPesewas: 300, durationHours: 2 },
+  "1_day": { amountPesewas: 800, durationHours: 24 },
+  "2_days": { amountPesewas: 1400, durationHours: 48 },
+  "7_days": { amountPesewas: 3500, durationHours: 168 },
 } as const;
 
 interface InitRequest {
@@ -145,6 +145,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
         post_id: post.id,
         user_id: user.id,
         package_type: payload.package_type,
+        duration_hours: packageInfo.durationHours,
         target_school_ids: payload.target_school_ids,
       })
       .select("id")

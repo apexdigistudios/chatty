@@ -16,6 +16,7 @@ import type { Confession, Post } from "@/types/models";
 import { useToast } from "@/components/ui/Toast";
 import { Avatar } from "@/components/ui/Avatar";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
+import { PromotedBadge } from "@/components/feed/PromotedBadge";
 import { rotateBySeed } from "@/lib/feedRotation";
 import { shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLinks";
 import { reportSpotlightScrollDirection } from "@/hooks/useScrollDirection";
@@ -23,6 +24,7 @@ import { downloadSpotlightVideo } from "@/lib/download";
 import { formatCompactNumber } from "@/lib/utils";
 import { isVideoUrl } from "@/lib/video";
 import { cloudflareMediaUrl } from "@/lib/mediaUrl";
+import { isPostPromoted } from "@/lib/promotions";
 
 type SpotlightItem =
   | { kind: "post"; key: string; videoUrl: string; posterUrl?: string | null; post: Post }
@@ -56,6 +58,9 @@ function collectSpotlightItems(feed: Post[], confessions: Confession[]): Spotlig
     ) ?? []
   );
   return [...videoPosts, ...videoConfessions].sort((left, right) => {
+    const leftPromoted = left.kind === "post" && isPostPromoted(left.post);
+    const rightPromoted = right.kind === "post" && isPostPromoted(right.post);
+    if (leftPromoted !== rightPromoted) return leftPromoted ? -1 : 1;
     const leftCreatedAt = left.kind === "post" ? left.post.createdAt : left.confession.publishedAt ?? left.confession.createdAt;
     const rightCreatedAt = right.kind === "post" ? right.post.createdAt : right.confession.publishedAt ?? right.confession.createdAt;
     return Date.parse(rightCreatedAt) - Date.parse(leftCreatedAt);
@@ -111,7 +116,10 @@ export function SpotlightPage({
       ]);
       activeSlideIndexRef.current = 0;
       setVideoProgress(0);
-      setItems(rotateBySeed(collectSpotlightItems(feed, confessions), Math.random()));
+      const collected = collectSpotlightItems(feed, confessions);
+      const promoted = collected.filter((item) => item.kind === "post" && isPostPromoted(item.post));
+      const organic = collected.filter((item) => item.kind !== "post" || !isPostPromoted(item.post));
+      setItems([...promoted, ...rotateBySeed(organic, Math.random())]);
     } catch (cause) {
       setError(describeError(cause, "Could not load Spotlight videos."));
     } finally {
@@ -187,10 +195,13 @@ export function SpotlightPage({
         if (id) void refreshConfession(id);
       })
       .subscribe();
+    const handlePromotionExpired = () => void load(true);
+    window.addEventListener("gistme:promotion-expired", handlePromotionExpired);
     return () => {
+      window.removeEventListener("gistme:promotion-expired", handlePromotionExpired);
       void supabase.removeChannel(channel);
     };
-  }, []);
+  }, [load]);
 
   useEffect(() => {
     if (!initialConfessions) return;
@@ -756,6 +767,12 @@ function SpotlightSlide({
               verifiedTitle={post.authorVerifiedTitle}
               isAdmin={post.authorIsAdmin}
               role={post.authorRole}
+            />
+          )}
+          {post && (
+            <PromotedBadge
+              isPromoted={post.isPromoted}
+              promotedUntil={post.promotedUntil}
             />
           )}
           {confession?.seedUsername && (

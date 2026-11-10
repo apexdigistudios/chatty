@@ -62,6 +62,10 @@ create table if not exists public.posts (
   video_thumbnail_url text,
   post_type   text not null default 'public' check (post_type in ('public','confession')),
   status      text not null default 'active' check (status in ('active','flagged','removed')),
+  is_promoted boolean not null default false,
+  promoted_until timestamptz,
+  promotion_status text not null default 'expired'
+               check (promotion_status in ('active','expired')),
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );

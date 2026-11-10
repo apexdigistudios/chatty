@@ -16,6 +16,7 @@ import { useAuthGateStore } from "@/store/authGateStore";
 import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
 import { rotateBySeed } from "@/lib/feedRotation";
+import { isPostPromoted } from "@/lib/promotions";
 import { formatCompactNumber } from "@/lib/utils";
 import type { Confession, Post } from "@/types/models";
 
@@ -118,7 +119,9 @@ export function HomePage({
         void loadConfessions();
       })
       .subscribe();
+    window.addEventListener("gistme:promotion-expired", refreshFeeds);
     return () => {
+      window.removeEventListener("gistme:promotion-expired", refreshFeeds);
       void supabase.removeChannel(channel);
     };
   }, [loadFeed, loadFollowingFeed, loadConfessions]);
@@ -184,7 +187,9 @@ export function HomePage({
       }
     }
     items.sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
-    return rotateBySeed(items, rotationSeed);
+    const promotedItems = items.filter((item) => item.kind === "post" && isPostPromoted(item.post));
+    const organicItems = items.filter((item) => item.kind !== "post" || !isPostPromoted(item.post));
+    return [...promotedItems, ...rotateBySeed(organicItems, rotationSeed)];
   }, [activeTab, displayConfessions, feedSchoolId, profile?.schoolId, rotationSeed, visiblePosts]);
 
   const startComposing = (type: "gist" | "confession") => {

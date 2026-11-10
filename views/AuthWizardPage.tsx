@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
+import posthog from "posthog-js";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link, useLocation, useNavigate, useSearchParams } from "@/lib/router";
 import {
@@ -433,6 +434,7 @@ function AuthWizardContent() {
     setErrorMessage(null);
     try {
       await signInWithEmail(email, password);
+      posthog.capture("user_signed_in", { authentication_method: "email" });
       toast("Welcome back!", "success");
       navigate(returnTo, { replace: true });
     } catch (error) {
@@ -475,6 +477,7 @@ function AuthWizardContent() {
         });
         setProfile(updatedProfile);
         await refreshProfile();
+        posthog.capture("user_signed_up", { authentication_method: "google" });
         toast("Welcome to Gist me!", "success");
         setOauthOnboarding(false);
         navigate(returnTo, { replace: true });
@@ -491,6 +494,7 @@ function AuthWizardContent() {
       if (result.profile) setProfile(result.profile);
       if (result.hasSession) {
         await refreshProfile();
+        posthog.capture("user_signed_up", { authentication_method: "email" });
         toast("Welcome to Gist me!", "success");
         navigate(returnTo, { replace: true });
       } else {

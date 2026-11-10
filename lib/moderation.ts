@@ -95,8 +95,61 @@ async function writeAudit(input: {
   }
 }
 
+async function captureOpenAIModeration(input: {
+  userId: string;
+  traceId: string;
+  requestInput: OpenAI.ModerationCreateParams["input"];
+  latencySeconds: number;
+  result?: ModerationResult;
+  error?: string;
+}): Promise<void> {
+  const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+  const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+  if (!key || !host) {
+    if (process.env.NODE_ENV !== "production") {
+      if (!key) {
+        console.warn("NEXT_PUBLIC_POSTHOG_KEY variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once NEXT_PUBLIC_POSTHOG_KEY is configured");
+      }
+      if (!host) {
+        console.warn("NEXT_PUBLIC_POSTHOG_HOST variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once NEXT_PUBLIC_POSTHOG_HOST is configured");
+      }
+    }
+    return;
+  }
+
+  try {
+    await fetch(`${host.replace(/\/$/, "")}/i/v0/e/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: key,
+        event: "$ai_generation",
+        properties: {
+          distinct_id: input.userId,
+          $ai_trace_id: input.traceId,
+          $ai_session_id: `moderation:${input.userId}`,
+          $ai_model: MODERATION_MODEL,
+          $ai_provider: "openai",
+          $ai_input: input.requestInput,
+          $ai_output_choices: input.result
+            ? [{ role: "assistant", content: JSON.stringify(input.result) }]
+            : [],
+          $ai_input_tokens: null,
+          $ai_output_tokens: null,
+          $ai_latency: input.latencySeconds,
+          ...(input.error ? { $ai_is_error: true, $ai_error: input.error } : {}),
+        },
+      }),
+      signal: AbortSignal.timeout(2_000),
+    });
+  } catch {
+    console.warn("PostHog AI Observability capture failed.");
+  }
+}
+
 async function runOpenAIModeration(
-  input: OpenAI.ModerationCreateParams["input"]
+  input: OpenAI.ModerationCreateParams["input"],
+  userId: string
 ): Promise<ModerationResult | null> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -107,13 +160,29 @@ async function runOpenAIModeration(
     throw new ModerationUnavailableError("Safety checks are not set up yet. Please try again later.");
   }
 
+  const traceId = crypto.randomUUID();
+  const startedAt = performance.now();
   try {
     const client = new OpenAI({ apiKey, timeout: 2_500, maxRetries: 0 });
     const response = await client.moderations.create({ model: MODERATION_MODEL, input });
     const result = readModerationResult(response.results[0]);
     if (!result) throw new ModerationUnavailableError("OpenAI returned an invalid moderation response.");
+    await captureOpenAIModeration({
+      userId,
+      traceId,
+      requestInput: input,
+      latencySeconds: (performance.now() - startedAt) / 1_000,
+      result,
+    });
     return result;
   } catch (error) {
+    await captureOpenAIModeration({
+      userId,
+      traceId,
+      requestInput: input,
+      latencySeconds: (performance.now() - startedAt) / 1_000,
+      error: error instanceof Error ? error.message : "OpenAI moderation request failed.",
+    });
     console.error("OpenAI moderation request failed.", error);
     if (error instanceof ModerationUnavailableError) throw error;
     if (process.env.NODE_ENV !== "production") {
@@ -134,7 +203,7 @@ export async function moderatePostCaption(text: string, userId: string): Promise
     throw new CommunitySafetyViolationError(SAFE_CAPTION_MESSAGE);
   }
 
-  const result = await runOpenAIModeration([{ type: "text", text: caption }]);
+  const result = await runOpenAIModeration([{ type: "text", text: caption }], userId);
   if (result && (result.flagged || Object.values(result.categories).some(Boolean))) {
     await writeAudit({ userId, source: "post_caption", categories: result.categories });
     throw new CommunitySafetyViolationError(SAFE_CAPTION_MESSAGE);
@@ -144,6 +213,7 @@ export async function moderatePostCaption(text: string, userId: string): Promise
 async function moderateImages(
   images: Array<{ buffer: Buffer; mimeType: string }>,
   text: string,
+  userId: string,
   video?: Pick<ProcessedVideo, "durationSeconds" | "width" | "height">
 ): Promise<ModerationResult | null> {
   const input: Array<
@@ -163,7 +233,7 @@ async function moderateImages(
       image_url: { url: `data:${image.mimeType};base64,${image.buffer.toString("base64")}` },
     });
   }
-  return runOpenAIModeration(input);
+  return runOpenAIModeration(input, userId);
 }
 
 export async function moderateUploadedMedia(
@@ -180,7 +250,7 @@ export async function moderateUploadedMedia(
     ? [{ buffer: video!.thumbnail, mimeType: "image/jpeg" }]
     : [{ buffer: Buffer.from(await file.arrayBuffer()), mimeType: file.type }];
 
-  const result = await moderateImages(images, caption, video);
+  const result = await moderateImages(images, caption, userId, video);
   if (result && (result.flagged || Object.values(result.categories).some(Boolean))) {
     await writeAudit({
       userId,

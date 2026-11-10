@@ -182,6 +182,14 @@ Run `supabase/migrations/post_like_counts_include_seeded_engagement.sql` after
 `admin_seed_engagement.sql`. It keeps ranked post like totals synchronized by
 adding real likes to the configured seed count.
 
+### A18 · Promoted post campaign lifecycle
+
+Run `supabase/migrations/promoted_post_campaign_lifecycle.sql` after
+`spotlight_and_reports.sql`. It records the chosen campaign duration and keeps
+the post's promotion metadata synchronized with the verified Spotlight payment.
+The feed expires campaigns against their timestamp and the expiry-aware badge
+disappears automatically; expired rows are retained.
+
 Example verification query:
 
 ```sql

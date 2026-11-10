@@ -7,10 +7,10 @@ const corsHeaders = {
 };
 
 const PACKAGE_CATALOG = {
-  "2_hours": { amountPesewas: 300, durationMs: 2 * 60 * 60 * 1000 },
-  "1_day": { amountPesewas: 800, durationMs: 24 * 60 * 60 * 1000 },
-  "2_days": { amountPesewas: 1400, durationMs: 2 * 24 * 60 * 60 * 1000 },
-  "7_days": { amountPesewas: 3500, durationMs: 7 * 24 * 60 * 60 * 1000 },
+  "2_hours": { amountPesewas: 300, durationHours: 2 },
+  "1_day": { amountPesewas: 800, durationHours: 24 },
+  "2_days": { amountPesewas: 1400, durationHours: 48 },
+  "7_days": { amountPesewas: 3500, durationHours: 168 },
 } as const;
 
 interface RequestPayload {
@@ -24,6 +24,7 @@ interface SpotlightPromotion {
   user_id: string;
   payment_id: string | null;
   package_type: string;
+  duration_hours: number;
   status: string;
 }
 
@@ -129,6 +130,60 @@ function isModerationResult(value: unknown): value is ModerationResult {
   );
 }
 
+async function captureOpenAIModeration(input: {
+  userId: string;
+  traceId: string;
+  requestInput: Array<Record<string, unknown>>;
+  latencySeconds: number;
+  httpStatus?: number;
+  result?: ModerationResult;
+  error?: string;
+}): Promise<void> {
+  const key = Deno.env.get("NEXT_PUBLIC_POSTHOG_KEY");
+  const host = Deno.env.get("NEXT_PUBLIC_POSTHOG_HOST");
+  if (!key || !host) {
+    if (Deno.env.get("NODE_ENV") !== "production") {
+      if (!key) {
+        console.warn("NEXT_PUBLIC_POSTHOG_KEY variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once NEXT_PUBLIC_POSTHOG_KEY is configured");
+      }
+      if (!host) {
+        console.warn("NEXT_PUBLIC_POSTHOG_HOST variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once NEXT_PUBLIC_POSTHOG_HOST is configured");
+      }
+    }
+    return;
+  }
+
+  try {
+    await fetch(`${host.replace(/\/$/, "")}/i/v0/e/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: key,
+        event: "$ai_generation",
+        properties: {
+          distinct_id: input.userId,
+          $ai_trace_id: input.traceId,
+          $ai_session_id: `moderation:${input.userId}`,
+          $ai_span_id: crypto.randomUUID(),
+          $ai_span_name: "openai_moderation",
+          $ai_model: "omni-moderation-latest",
+          $ai_provider: "openai",
+          $ai_input: [{ role: "user", content: input.requestInput }],
+          $ai_output_choices: input.result
+            ? [{ role: "assistant", content: JSON.stringify(input.result) }]
+            : [],
+          $ai_latency: input.latencySeconds,
+          ...(input.httpStatus ? { $ai_http_status: input.httpStatus } : {}),
+          ...(input.error ? { $ai_is_error: true, $ai_error: input.error } : {}),
+        },
+      }),
+      signal: AbortSignal.timeout(2_000),
+    });
+  } catch {
+    console.warn("PostHog AI Observability capture failed.");
+  }
+}
+
 Deno.serve(async (request: Request): Promise<Response> => {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -187,7 +242,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
     const { data: promotion, error: promotionError } = await supabase
       .from("spotlight_promotions")
-      .select("id, post_id, user_id, payment_id, package_type, status")
+      .select("id, post_id, user_id, payment_id, package_type, duration_hours, status")
       .eq("id", payload.promotion_id)
       .maybeSingle<SpotlightPromotion>();
     if (promotionError) throw new Error("Could not load spotlight promotion.");
@@ -219,6 +274,9 @@ Deno.serve(async (request: Request): Promise<Response> => {
     const packageInfo = PACKAGE_CATALOG[promotion.package_type as keyof typeof PACKAGE_CATALOG];
     if (!packageInfo) {
       return jsonResponse(400, { error: "Spotlight package is not supported." });
+    }
+    if (promotion.duration_hours !== packageInfo.durationHours) {
+      return jsonResponse(400, { error: "Spotlight duration does not match the selected package." });
     }
 
     let paystackResponse: Response;
@@ -295,6 +353,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
       input.push({ type: "image_url", image_url: { url: post.media_url } });
     }
 
+    const moderationTraceId = crypto.randomUUID();
+    const moderationStartedAt = performance.now();
     let moderationResponse: Response;
     try {
       moderationResponse = await fetch("https://api.openai.com/v1/moderations", {
@@ -307,6 +367,13 @@ Deno.serve(async (request: Request): Promise<Response> => {
         signal: AbortSignal.timeout(20_000),
       });
     } catch (error) {
+      await captureOpenAIModeration({
+        userId,
+        traceId: moderationTraceId,
+        requestInput: input,
+        latencySeconds: (performance.now() - moderationStartedAt) / 1_000,
+        error: "OpenAI moderation request failed.",
+      });
       if (error instanceof DOMException && error.name === "TimeoutError") {
         return jsonResponse(200, {
           status: "pending_moderation",
@@ -331,11 +398,28 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
     const moderationResult: unknown = moderationBody?.results?.[0];
     if (!moderationResponse.ok || !isModerationResult(moderationResult)) {
+      await captureOpenAIModeration({
+        userId,
+        traceId: moderationTraceId,
+        requestInput: input,
+        latencySeconds: (performance.now() - moderationStartedAt) / 1_000,
+        httpStatus: moderationResponse.status,
+        error: "OpenAI moderation did not return a valid result.",
+      });
       return jsonResponse(200, {
         status: "pending_moderation",
         error: "Automated moderation did not complete. The promotion remains on hold.",
       });
     }
+
+    await captureOpenAIModeration({
+      userId,
+      traceId: moderationTraceId,
+      requestInput: input,
+      latencySeconds: (performance.now() - moderationStartedAt) / 1_000,
+      httpStatus: moderationResponse.status,
+      result: moderationResult,
+    });
 
     const isFlagged =
       moderationResult.flagged ||
@@ -362,22 +446,24 @@ Deno.serve(async (request: Request): Promise<Response> => {
       });
     }
 
-    const startedAt = new Date();
-    const expiresAt = new Date(startedAt.getTime() + packageInfo.durationMs);
-    const { error: activationError } = await supabase
-      .from("spotlight_promotions")
-      .update({
-        status: "active",
-        started_at: startedAt.toISOString(),
-        expires_at: expiresAt.toISOString(),
-      })
-      .eq("id", promotion.id);
+    const { data: activationData, error: activationError } = await supabase.rpc(
+      "activate_spotlight_promotion",
+      { p_promotion_id: promotion.id },
+    );
     if (activationError) throw new Error("Could not activate spotlight promotion.");
+    const activation = Array.isArray(activationData) ? activationData[0] : activationData;
+    if (
+      !isRecord(activation) ||
+      typeof activation.started_at !== "string" ||
+      typeof activation.expires_at !== "string"
+    ) {
+      throw new Error("Promotion activation returned invalid timing metadata.");
+    }
 
     return jsonResponse(200, {
       status: "active",
-      started_at: startedAt.toISOString(),
-      expires_at: expiresAt.toISOString(),
+      started_at: activation.started_at,
+      expires_at: activation.expires_at,
     });
   } catch (error) {
     console.error(

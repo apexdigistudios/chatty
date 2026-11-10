@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import posthog from "posthog-js";
 import { isUserGlobalAdmin } from "@/lib/adminAccess";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { ensureProfile, fetchMyRoles, signOut as signOutService } from "@/services/profilesService";
@@ -33,6 +34,9 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const isPostHogConfigured = Boolean(
+  process.env.NEXT_PUBLIC_POSTHOG_KEY && process.env.NEXT_PUBLIC_POSTHOG_HOST
+);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -41,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(isSupabaseConfigured);
   const [profileError, setProfileError] = useState<string | null>(null);
   const sessionUserId = useRef<string | null>(null);
+  const identifiedUserId = useRef<string | null>(null);
   const authEventRevision = useRef(0);
 
   // Session bootstrap + live auth changes.
@@ -94,6 +99,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const userId = session?.user.id ?? null;
+
+  // Keep browser analytics aligned with the Supabase session, including restored sessions.
+  useEffect(() => {
+    if (!isPostHogConfigured) return;
+
+    if (!userId) {
+      if (identifiedUserId.current) {
+        posthog.reset();
+        identifiedUserId.current = null;
+      }
+      return;
+    }
+
+    if (identifiedUserId.current === userId) return;
+
+    if (identifiedUserId.current) {
+      posthog.reset();
+    }
+
+    const user = session?.user;
+    posthog.identify(userId, {
+      ...(user?.email ? { email: user.email } : {}),
+      ...(typeof user?.user_metadata?.full_name === "string"
+        ? { name: user.user_metadata.full_name }
+        : {}),
+    });
+    identifiedUserId.current = userId;
+  }, [session?.user, userId]);
 
   const refreshProfile = useCallback(async () => {
     if (!userId) {

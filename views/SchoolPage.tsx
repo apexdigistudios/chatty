@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import posthog from "posthog-js";
 import { motion } from "framer-motion";
 import { Link, useNavigate, useParams, useSearchParams } from "@/lib/router";
 import { ArrowLeft, Hash, Loader2, MapPin, Plus, ShieldCheck, Sparkles, Users, WifiOff, X } from "lucide-react";
@@ -164,6 +165,7 @@ export function SchoolPage({
     setClaiming(true);
     try {
       await claimSchool(id, user.id);
+      posthog.capture("school_claimed");
       setSchool((prev) => (prev ? { ...prev, creatorId: user.id } : prev));
       toast(`You now moderate ${school?.shortName ?? "this community"}.`, "success");
       setSearchParams({ tab: "manage" });
@@ -207,6 +209,9 @@ export function SchoolPage({
         description: groupDescription,
         emoji: groupEmoji,
       });
+      posthog.capture("group_created", {
+        has_description: Boolean(groupDescription.trim()),
+      });
       setGroups((prev) => [group, ...prev]);
       setGroupName("");
       setGroupDescription("");
@@ -226,9 +231,11 @@ export function SchoolPage({
     try {
       if (group.isMember) {
         await leaveGroup(group.id);
+        posthog.capture("group_membership_changed", { membership_status: "left" });
         toast(`Left ${group.name}.`, "brand");
       } else {
         await joinGroup(group.id);
+        posthog.capture("group_membership_changed", { membership_status: "joined" });
         toast(`You joined ${group.emoji} ${group.name}!`, "success");
       }
       setGroups((prev) =>

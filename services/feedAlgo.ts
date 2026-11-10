@@ -4,6 +4,7 @@ import { rotateBySeed } from "@/lib/feedRotation";
 import type { Post, Profile } from "@/types/models";
 import { fetchFollowingIds } from "@/services/followsService";
 import { fetchFeed } from "@/services/postsService";
+import { isPostPromoted } from "@/lib/promotions";
 
 const CANDIDATE_LIMIT = 100;
 const TIME_DECAY_PER_HOUR = 0.35;
@@ -17,6 +18,7 @@ export interface FeedRankingContext {
 export function scoreFeedPost(post: Post, context: FeedRankingContext): number {
   const ageInHours = Math.max(0, (context.now ?? Date.now()) - Date.parse(post.createdAt)) / 3_600_000;
   return (
+    (isPostPromoted(post, context.now) ? 1_000_000_000 : 0) +
     (context.followingIds.has(post.authorId) ? 50 : 0) +
     (context.schoolId !== null && post.schoolId === context.schoolId ? 30 : 0) +
     post.likeCount * 10 +
@@ -87,8 +89,10 @@ export async function fetchRankedFeed({
     candidates = await fetchFeed({ limit: 10, schoolId: schoolId ?? undefined, tag });
   }
   const rankedCandidates = rankFeedPosts(candidates, context);
-  const rotatedCandidates = rotationSeed === undefined
-    ? rankedCandidates
-    : rotateBySeed(rankedCandidates, rotationSeed);
-  return rotatedCandidates.slice(offset, offset + limit);
+  const promoted = rankedCandidates.filter((post) => isPostPromoted(post, context.now));
+  const organic = rankedCandidates.filter((post) => !isPostPromoted(post, context.now));
+  const rotatedOrganic = rotationSeed === undefined
+    ? organic
+    : rotateBySeed(organic, rotationSeed);
+  return [...promoted, ...rotatedOrganic].slice(offset, offset + limit);
 }

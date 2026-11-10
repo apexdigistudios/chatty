@@ -149,6 +149,9 @@ export interface Post {
   spotlightStatus?: "active" | null;
   spotlightExpiresAt?: string | null;
   spotlightTargetSchoolIds?: string[] | null;
+  isPromoted?: boolean;
+  promotedUntil?: string | null;
+  promotionStatus?: "active" | "expired";
   likeCount: number;
   seed_likes_count?: number;
   likedByMe: boolean;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import posthog from "posthog-js";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate, useSearchParams } from "@/lib/router";
 import {
@@ -274,6 +275,11 @@ export function ShoutoutCreatePage() {
         message: message.trim(),
         envelopeTheme,
         stamp,
+      });
+      posthog.capture("shoutout_sent", {
+        envelope_theme: envelopeTheme,
+        stamp,
+        recipient_registered: Boolean(recipientUserId),
       });
       setDispatch(sent);
       setDispatchStage("in_transit");

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import posthog from "posthog-js";
 import { motion } from "framer-motion";
 import { useNavigate, useSearchParams } from "@/lib/router";
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Globe2, Hash, ImagePlus, Loader2, Send, Smile, X } from "lucide-react";
@@ -311,6 +312,13 @@ export function CreatePage() {
         groupId: postGroup?.schoolId === schoolId ? postGroup.id : null,
         files: attachments.map((item) => item.file),
         videoDurations: attachments.map((item) => item.duration ?? null),
+      });
+      posthog.capture("gist_published", {
+        audience_scope: isGlobalAdminAuthor ? "global" : "school",
+        posted_to_group: Boolean(postGroup?.schoolId === schoolId),
+        has_caption: Boolean(text),
+        image_count: attachments.filter((item) => item.kind === "image").length,
+        video_count: attachments.filter((item) => item.kind === "video").length,
       });
       toast("Gist published to the feed!", "success");
       navigate("/");

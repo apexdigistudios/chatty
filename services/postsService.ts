@@ -13,6 +13,7 @@ import { fetchBlockedUserIds } from "@/services/blocksService";
 import { isVideoFile, uploadPostMedia } from "@/services/storageService";
 import { hasActiveVerification } from "@/lib/verification";
 import { isVideoUrl } from "@/lib/video";
+import { isPostPromoted } from "@/lib/promotions";
 
 const AUTHOR_SELECT = "author:profiles(id, username, avatar_url, school_id)";
 const AUTHOR_IDENTITY_SELECT = "author:profiles(id, username, full_name, avatar_url, school_id)";
@@ -71,6 +72,32 @@ function supportsColumn(table: "posts" | "profiles", column: string): Promise<bo
 }
 
 const columnSupportPromises = new Map<string, Promise<boolean>>();
+let expirePromotedCampaignsAvailable: boolean | null = null;
+let expirePromotedCampaignsPromise: Promise<void> | null = null;
+
+async function expirePromotedCampaigns(): Promise<void> {
+  const [isPromoted, promotedUntil, promotionStatus] = await Promise.all([
+    supportsColumn("posts", "is_promoted"),
+    supportsColumn("posts", "promoted_until"),
+    supportsColumn("posts", "promotion_status"),
+  ]);
+  if (!isPromoted || !promotedUntil || !promotionStatus) return;
+  if (expirePromotedCampaignsAvailable === false) return;
+  if (!expirePromotedCampaignsPromise) {
+    expirePromotedCampaignsPromise = (async () => {
+      const { error } = await supabase.rpc("expire_promoted_campaigns");
+      if (error && (error.code === "PGRST202" || error.code === "42883")) {
+        expirePromotedCampaignsAvailable = false;
+        return;
+      }
+      if (error) throw new Error(`Could not expire completed promotion campaigns: ${error.message}`);
+      expirePromotedCampaignsAvailable = true;
+    })().finally(() => {
+      expirePromotedCampaignsPromise = null;
+    });
+  }
+  await expirePromotedCampaignsPromise;
+}
 
 /**
  * Step 9 adds `posts.group_id` + `school_groups`. Until migration-step9.sql is
@@ -204,7 +231,7 @@ function supportsSeedEngagement(): Promise<boolean> {
 }
 
 async function selectForGroups(): Promise<string> {
-  const [groups, video, videoDuration, videoThumbnail, hidden, shares, seededEngagement, authorIdentity, seededViews, authorVerification, mediaCapabilities] = await Promise.all([
+  const [groups, video, videoDuration, videoThumbnail, hidden, shares, seededEngagement, authorIdentity, seededViews, authorVerification, mediaCapabilities, isPromoted, promotedUntil, promotionStatus] = await Promise.all([
     supportsSchoolGroups(),
     supportsColumn("posts", "media_type"),
     supportsColumn("posts", "video_duration_seconds"),
@@ -216,6 +243,9 @@ async function selectForGroups(): Promise<string> {
     supportsColumn("posts", "seed_views_count"),
     supportsColumn("profiles", "is_verified"),
     postMediaCapabilities(),
+    supportsColumn("posts", "is_promoted"),
+    supportsColumn("posts", "promoted_until"),
+    supportsColumn("posts", "promotion_status"),
   ]);
   const seedProfiles = await supportsSeedProfiles();
   const baseSelect = groups ? GROUP_POST_SELECT : BASE_POST_SELECT;
@@ -226,7 +256,10 @@ async function selectForGroups(): Promise<string> {
   const mediaSelect = mediaCapabilities.available
     ? `, media:post_media(post_id, media_url${mediaCapabilities.supportsMediaType ? ", media_type" : ""}${mediaCapabilities.supportsVideoDuration ? ", video_duration_seconds" : ""}${mediaCapabilities.supportsVideoThumbnail ? ", video_thumbnail_url" : ""}, sort_order)`
     : "";
-  return `${select}${seedProfiles ? SEED_AUTHOR_SELECT : ""}${video ? ", media_type" : ""}${videoDuration ? `, ${VIDEO_DURATION_SELECT}` : ""}${videoThumbnail ? ", video_thumbnail_url" : ""}${hidden ? ", is_hidden" : ""}${shares ? ", post_shares(count)" : ""}${seededEngagement ? ", seed_likes_count, seed_comments_count" : ""}${seededViews ? ", seed_views_count" : ""}${mediaSelect}`;
+  const promotionSelect = isPromoted && promotedUntil && promotionStatus
+    ? ", is_promoted, promoted_until, promotion_status"
+    : "";
+  return `${select}${seedProfiles ? SEED_AUTHOR_SELECT : ""}${video ? ", media_type" : ""}${videoDuration ? `, ${VIDEO_DURATION_SELECT}` : ""}${videoThumbnail ? ", video_thumbnail_url" : ""}${hidden ? ", is_hidden" : ""}${shares ? ", post_shares(count)" : ""}${seededEngagement ? ", seed_likes_count, seed_comments_count" : ""}${seededViews ? ", seed_views_count" : ""}${promotionSelect}${mediaSelect}`;
 }
 
 export interface RawPost {
@@ -266,6 +299,9 @@ export interface RawPost {
   seed_likes_count?: number;
   seed_comments_count?: number;
   seed_views_count?: number;
+  is_promoted?: boolean;
+  promoted_until?: string | null;
+  promotion_status?: "active" | "expired";
 }
 
 interface RawPostMedia {
@@ -327,6 +363,17 @@ export function mapPost(row: RawPost, liked: boolean): Post {
     spotlightStatus: null,
     spotlightExpiresAt: null,
     spotlightTargetSchoolIds: null,
+    isPromoted: row.is_promoted === true &&
+      row.promotion_status === "active" &&
+      typeof row.promoted_until === "string" &&
+      Date.parse(row.promoted_until) > Date.now(),
+    promotedUntil: row.promoted_until ?? null,
+    promotionStatus: row.is_promoted === true &&
+      row.promotion_status === "active" &&
+      typeof row.promoted_until === "string" &&
+      Date.parse(row.promoted_until) > Date.now()
+      ? "active"
+      : "expired",
     likeCount: countOf(row.likes) + (row.seed_likes_count ?? 0),
     seed_likes_count: row.seed_likes_count ?? 0,
     likedByMe: liked,
@@ -394,6 +441,8 @@ export interface FeedQuery {
 
 export function sortPostsNewestFirst(posts: Post[]): Post[] {
   return [...posts].sort((left, right) => {
+    const promotionDifference = Number(isPostPromoted(right)) - Number(isPostPromoted(left));
+    if (promotionDifference) return promotionDifference;
     const spotlightDifference = Number(right.spotlightStatus === "active") - Number(left.spotlightStatus === "active");
     if (spotlightDifference) return spotlightDifference;
     const verificationDifference = Number(hasActiveVerification({
@@ -423,13 +472,14 @@ async function fetchFeedOnline(query: FeedQuery): Promise<Post[]> {
     currentUserId(),
     supportsPostVisibility(),
   ]);
+  await expirePromotedCampaigns();
   const blocked = new Set(blockedUserIds);
   const select = await selectForGroups();
   const tag = query.tag?.trim().replace(/^#/, "").toLowerCase();
 
   let promotedPosts: Post[] = [];
   let promotedPostIds: string[] = [];
-  if (!query.postIds && !query.authorId && !query.authorIds && !query.groupId && !query.tag && spotlightPromotionsTableAvailable !== false) {
+  if (!query.postIds && !query.authorId && !query.groupId && !query.tag && spotlightPromotionsTableAvailable !== false) {
     let viewerSchoolId = query.schoolId ?? null;
     if (!viewerSchoolId && userId) {
       const { data: viewer, error: viewerError } = await supabase
@@ -461,6 +511,7 @@ async function fetchFeedOnline(query: FeedQuery): Promise<Post[]> {
       spotlightPromotionsTableAvailable = true;
       const eligiblePromotions = (promotionRows ?? []).filter((promotion) => {
         if (blocked.has(promotion.user_id)) return false;
+        if (query.excludePostIds?.includes(promotion.post_id)) return false;
         const targets = promotion.target_school_ids;
         if (!targets || targets.length === 0) return true;
         return viewerSchoolId !== null && targets.includes(viewerSchoolId);
@@ -496,6 +547,9 @@ async function fetchFeedOnline(query: FeedQuery): Promise<Post[]> {
             const promotion = promotionsByPostId.get(post.id);
             return {
               ...post,
+              isPromoted: true,
+              promotedUntil: promotion?.expires_at ?? null,
+              promotionStatus: "active" as const,
               spotlightStatus: "active" as const,
               spotlightExpiresAt: promotion?.expires_at ?? null,
               spotlightTargetSchoolIds: promotion?.target_school_ids ?? null,
@@ -610,13 +664,22 @@ function feedCacheKey(query: FeedQuery, userId: string | null): string {
 
 function refreshCachedSpotlights(posts: Post[]): Post[] {
   const now = Date.now();
-  return posts.map((post) =>
-    post.spotlightStatus === "active" &&
-    post.spotlightExpiresAt &&
-    Date.parse(post.spotlightExpiresAt) <= now
+  return posts.map((post) => {
+    if (post.isPromoted && post.promotedUntil && Date.parse(post.promotedUntil) <= now) {
+      return {
+        ...post,
+        isPromoted: false,
+        promotionStatus: "expired" as const,
+        spotlightStatus: null,
+        spotlightExpiresAt: null,
+      };
+    }
+    return post.spotlightStatus === "active" &&
+      post.spotlightExpiresAt &&
+      Date.parse(post.spotlightExpiresAt) <= now
       ? { ...post, spotlightStatus: null, spotlightExpiresAt: null }
-      : post
-  );
+      : post;
+  });
 }
 
 export async function fetchFeed(query: FeedQuery = {}): Promise<Post[]> {

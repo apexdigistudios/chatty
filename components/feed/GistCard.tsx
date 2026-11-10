@@ -44,6 +44,7 @@ import { SpotlightModal } from "@/components/spotlight/SpotlightModal";
 import { ReportModal } from "@/components/feed/ReportModal";
 import { ProfileHoverCard } from "@/components/profile/ProfileHoverCard";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
+import { PromotedBadge } from "@/components/feed/PromotedBadge";
 import { AnimatedReaction } from "@/components/common/AnimatedReaction";
 import { shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLinks";
 import { formatCompactNumber } from "@/lib/utils";
@@ -324,6 +325,10 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
               verifiedTitle={post.authorVerifiedTitle}
               isAdmin={post.authorIsAdmin}
               role={post.authorRole}
+            />
+            <PromotedBadge
+              isPromoted={post.isPromoted}
+              promotedUntil={post.promotedUntil}
             />
             {post.status !== "active" && (
               <Badge tone={post.status === "flagged" ? "warning" : "danger"} className="px-2 py-0.5 text-[9px]">

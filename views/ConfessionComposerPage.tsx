@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from "react";
+import posthog from "posthog-js";
 import { useNavigate } from "@/lib/router";
 import { ArrowLeft, EyeOff, Loader2, Send, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -55,6 +56,10 @@ export function ConfessionComposerPage() {
         content: text.slice(0, MAX_POST_LENGTH),
         category,
         schoolId: schoolId || null,
+      });
+      posthog.capture("confession_submitted", {
+        category,
+        submission_scope: schoolId ? "school" : "global",
       });
       toast("Confession submitted for moderator review.", "brand");
       navigate("/confessions", { replace: true });

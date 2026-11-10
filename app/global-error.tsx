@@ -1,6 +1,18 @@
 'use client';
 
-export default function GlobalError({ reset }: { reset: () => void }) {
+import posthog from "posthog-js";
+import { useEffect } from "react";
+
+export default function GlobalError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  useEffect(() => {
+    posthog.captureException(error);
+  }, [error]);
   return (
     <html lang="en">
       <body style={{ margin: 0, background: "#111114", color: "#fff", fontFamily: "system-ui, sans-serif" }}>

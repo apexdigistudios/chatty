@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import posthog from "posthog-js";
 import { ArrowLeft, Camera, Check } from "lucide-react";
 import { useNavigate } from "@/lib/router";
 import { Avatar } from "@/components/ui/Avatar";
@@ -124,6 +125,14 @@ export function ProfileEditPage() {
       });
       setProfile(updated);
       setAvatarUrl(updated.avatarUrl);
+      posthog.capture("profile_updated", {
+        username_changed: username !== profile.username,
+        avatar_updated: Boolean(avatarFile),
+        bio_updated: bio !== profile.bio,
+        website_updated: website !== (profile.website ?? ""),
+        full_name_updated: fullName !== (profile.fullName ?? ""),
+        class_form_updated: classForm !== (profile.classForm ?? ""),
+      });
       toast("Profile updated!", "success");
       navigate("/profile", { replace: true });
     } catch (error) {

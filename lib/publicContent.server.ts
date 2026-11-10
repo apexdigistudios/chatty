@@ -20,6 +20,9 @@ type PublicPostRow = {
   seed_likes_count?: number;
   seed_comments_count?: number;
   seed_views_count?: number;
+  is_promoted?: boolean;
+  promoted_until?: string | null;
+  promotion_status?: "active" | "expired";
   created_at: string;
   author: {
     id: string;
@@ -201,6 +204,17 @@ function mapPost(row: PublicPostRow, media?: Array<{
     spotlightStatus: null,
     spotlightExpiresAt: null,
     spotlightTargetSchoolIds: null,
+    isPromoted: row.is_promoted === true &&
+      row.promotion_status === "active" &&
+      typeof row.promoted_until === "string" &&
+      Date.parse(row.promoted_until) > Date.now(),
+    promotedUntil: row.promoted_until ?? null,
+    promotionStatus: row.is_promoted === true &&
+      row.promotion_status === "active" &&
+      typeof row.promoted_until === "string" &&
+      Date.parse(row.promoted_until) > Date.now()
+      ? "active"
+      : "expired",
     likeCount: relationCount(row.likes) + (row.seed_likes_count ?? 0),
     seed_likes_count: row.seed_likes_count ?? 0,
     likedByMe: false,
@@ -347,20 +361,23 @@ async function fetchPublicPostRows(options: {
 }): Promise<PublicPostRow[]> {
   const client = publicSupabase();
   const withSeedAuthors = await supportsPublicSeedAuthors();
-  const [hasMediaType, hasVideoDuration, hasVideoThumbnail, hasSeedLikes, hasSeedComments, hasSeedViews, hasPostMedia, hasPostMediaType, hasPostMediaDuration, hasPostMediaThumbnail] = await Promise.all([
+  const [hasMediaType, hasVideoDuration, hasVideoThumbnail, hasSeedLikes, hasSeedComments, hasSeedViews, hasPromotionFlag, hasPromotedUntil, hasPromotionStatus, hasPostMedia, hasPostMediaType, hasPostMediaDuration, hasPostMediaThumbnail] = await Promise.all([
     supportsPublicColumn("posts", "media_type"),
     supportsPublicColumn("posts", "video_duration_seconds"),
     supportsPublicColumn("posts", "video_thumbnail_url"),
     supportsPublicColumn("posts", "seed_likes_count"),
     supportsPublicColumn("posts", "seed_comments_count"),
     supportsPublicColumn("posts", "seed_views_count"),
+    supportsPublicColumn("posts", "is_promoted"),
+    supportsPublicColumn("posts", "promoted_until"),
+    supportsPublicColumn("posts", "promotion_status"),
     supportsPublicPostMedia(),
     supportsPublicColumn("post_media", "media_type"),
     supportsPublicColumn("post_media", "video_duration_seconds"),
     supportsPublicColumn("post_media", "video_thumbnail_url"),
   ]);
   const select = (withMediaType: boolean, withProfileDetails: boolean, withPostMedia: boolean) =>
-    `id, user_id, ${withSeedAuthors ? `seed_profile_id, seed_author:admin_seed_profiles!posts_seed_profile_id_fkey(id, username, full_name, avatar_url, school_id), ` : ""}school_id, content, media_url, ${withMediaType && hasMediaType ? "media_type, " : ""}${hasVideoDuration ? "video_duration_seconds, " : ""}${hasVideoThumbnail ? "video_thumbnail_url, " : ""}${hasSeedLikes ? "seed_likes_count, " : ""}${hasSeedComments ? "seed_comments_count, " : ""}${hasSeedViews ? "seed_views_count, " : ""}created_at, author:profiles(id, username, ${withProfileDetails ? "full_name, is_verified, verified_title, verified_expires_at, " : ""}avatar_url, school_id), school:schools(id, name, crest_url:logo_url), likes(count), comments(count)${withPostMedia && hasPostMedia ? `, media:post_media(post_id, media_url${withMediaType && hasPostMediaType ? ", media_type" : ""}${hasPostMediaDuration ? ", video_duration_seconds" : ""}${hasPostMediaThumbnail ? ", video_thumbnail_url" : ""}, sort_order)` : ""}`;
+    `id, user_id, ${withSeedAuthors ? `seed_profile_id, seed_author:admin_seed_profiles!posts_seed_profile_id_fkey(id, username, full_name, avatar_url, school_id), ` : ""}school_id, content, media_url, ${withMediaType && hasMediaType ? "media_type, " : ""}${hasVideoDuration ? "video_duration_seconds, " : ""}${hasVideoThumbnail ? "video_thumbnail_url, " : ""}${hasSeedLikes ? "seed_likes_count, " : ""}${hasSeedComments ? "seed_comments_count, " : ""}${hasSeedViews ? "seed_views_count, " : ""}${hasPromotionFlag && hasPromotedUntil && hasPromotionStatus ? "is_promoted, promoted_until, promotion_status, " : ""}created_at, author:profiles(id, username, ${withProfileDetails ? "full_name, is_verified, verified_title, verified_expires_at, " : ""}avatar_url, school_id), school:schools(id, name, crest_url:logo_url), likes(count), comments(count)${withPostMedia && hasPostMedia ? `, media:post_media(post_id, media_url${withMediaType && hasPostMediaType ? ", media_type" : ""}${hasPostMediaDuration ? ", video_duration_seconds" : ""}${hasPostMediaThumbnail ? ", video_thumbnail_url" : ""}, sort_order)` : ""}`;
   const request = (withMediaType: boolean, withProfileDetails: boolean, withPostMedia: boolean) => {
     let query = client
     .from("posts")

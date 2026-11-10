@@ -1,6 +1,7 @@
 import { currentUserId, supabase } from "@/lib/supabase";
 import { fetchFeed } from "@/services/postsService";
 import { fetchBlockedUserIds } from "@/services/blocksService";
+import { isPostPromoted } from "@/lib/promotions";
 import type { Post } from "@/types/models";
 
 const MAX_PAGE_SIZE = 50;
@@ -80,35 +81,51 @@ export async function getSmartFeed({
   const schoolId = await resolveUserSchoolId(actualUserId, userSchoolId);
   const blockedUserIds = await fetchBlockedUserIds();
   const offset = seenIds.size === 0 ? (safePage - 1) * safeLimit : 0;
+  const promotedPosts = (await fetchFeed({
+    schoolId: schoolId ?? undefined,
+    includeSpotlight: true,
+    excludePostIds: [...seenIds],
+    limit: safeLimit,
+  }))
+    .filter((post) => isPostPromoted(post))
+    .slice(0, safeLimit);
+  const promotedIds = promotedPosts.map((post) => post.id);
   if (seenIds.size === 0 && offset + safeLimit + 1 > 1000) {
     throw new Error("Pass seenPostIds to continue paging through the feed.");
   }
 
+  const organicLimit = Math.max(0, safeLimit - promotedPosts.length);
   const schoolFetchLimit = seenIds.size === 0
-    ? offset + safeLimit + 1
-    : safeLimit + 1;
+    ? offset + organicLimit + 1
+    : organicLimit + 1;
   const schoolCandidates = schoolId
     ? await fetchFeed({
         schoolId,
         includeSpotlight: false,
-        excludePostIds: [...seenIds],
+        excludePostIds: [...seenIds, ...promotedIds],
         limit: schoolFetchLimit,
         offset: 0,
       })
     : [];
   const schoolPosts = schoolCandidates
-    .filter((post) => !seenIds.has(post.id))
+    .filter((post) => !seenIds.has(post.id) && !promotedIds.includes(post.id))
     .sort(newestFirst);
-  const selectedSchoolPosts = schoolPosts.slice(offset, offset + safeLimit);
-  const schoolHasMore = schoolPosts.length > offset + safeLimit;
+  const selectedSchoolPosts = schoolPosts.slice(offset, offset + organicLimit);
+  const schoolHasMore = schoolPosts.length > offset + organicLimit;
   const globalOffset = seenIds.size === 0
     ? Math.max(0, offset - schoolPosts.length)
     : 0;
   const globalExclusions = new Set(seenIds);
+  for (const postId of promotedIds) globalExclusions.add(postId);
   for (const post of schoolPosts) globalExclusions.add(post.id);
 
-  if (selectedSchoolPosts.length === safeLimit) {
-    if (schoolHasMore) return { posts: selectedSchoolPosts, hasMore: true };
+  if (selectedSchoolPosts.length === organicLimit) {
+    if (schoolHasMore) {
+      return {
+        posts: [...promotedPosts, ...selectedSchoolPosts],
+        hasMore: true,
+      };
+    }
     const { data, error } = await supabase.rpc("get_smart_global_feed", {
       p_excluded_post_ids: [...globalExclusions],
       p_excluded_user_ids: blockedUserIds,
@@ -117,10 +134,13 @@ export async function getSmartFeed({
     });
     if (error) throw new Error(`Could not check for more global posts: ${error.message}`);
     const ranks = parseGlobalFeedRanks(data);
-    return { posts: selectedSchoolPosts, hasMore: ranks.length > 0 };
+    return {
+      posts: [...promotedPosts, ...selectedSchoolPosts],
+      hasMore: ranks.length > 0,
+    };
   }
 
-  const remaining = safeLimit - selectedSchoolPosts.length;
+  const remaining = safeLimit - promotedPosts.length - selectedSchoolPosts.length;
   const { data: rankedRows, error: rankError } = await supabase.rpc("get_smart_global_feed", {
     p_excluded_post_ids: [...globalExclusions],
     p_excluded_user_ids: blockedUserIds,
@@ -139,7 +159,7 @@ export async function getSmartFeed({
   const selectedGlobalPosts = postIds
     .map((id) => postsById.get(id))
     .filter((post): post is Post => post !== undefined);
-  const posts = [...selectedSchoolPosts, ...selectedGlobalPosts];
+  const posts = [...promotedPosts, ...selectedSchoolPosts, ...selectedGlobalPosts];
   const hasMore = ranks.length > remaining;
 
   return {
