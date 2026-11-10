@@ -32,6 +32,8 @@ export interface ButtonProps extends Omit<HTMLMotionProps<"button">, "children">
   rightIcon?: ReactNode;
   /** Stretch to fill the parent width. */
   fullWidth?: boolean;
+  /** Override the color of the button's animated 3D depth. */
+  depthColor?: string;
 }
 
 /* ————————————————————— Variant + size maps ————————————————————— */
@@ -79,6 +81,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       leftIcon,
       rightIcon,
       fullWidth = false,
+      depthColor,
       disabled = false,
       className,
       children,
@@ -90,7 +93,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ) {
     const blocked = disabled || loading;
     const hasDepth = variant !== "ghost";
-    const depth3d = variantDepths[variant];
+    const depth3d = depthColor ? depthShadow(depthColor) : variantDepths[variant];
 
     return (
       <motion.button

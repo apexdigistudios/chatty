@@ -11,7 +11,7 @@ import { useAuthGateStore } from "@/store/authGateStore";
 import { useGistStore } from "@/store/gistStore";
 import { CONFESSION_CATEGORIES, type Confession, type ConfessionCategory } from "@/types/models";
 import { cn } from "@/utils/cn";
-import { FeedSkeleton } from "@/components/feed/FeedSkeleton";
+import { PageSpinner } from "@/components/ui/PageSpinner";
 
 const filters: Array<ConfessionCategory | "All"> = ["All", ...CONFESSION_CATEGORIES];
 const listVariants = { hidden: { opacity: 1 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } };
@@ -148,7 +148,7 @@ export function ConfessionsPage({
         )}
 
         {confessionsLoading && publicConfessions.length === 0 && !initialConfessionsError ? (
-          <FeedSkeleton count={3} />
+          <PageSpinner label="Loading confessions" className="min-h-48" />
         ) : publicError && initialConfessions == null ? null : (
           <motion.div key={filter} variants={listVariants} initial="hidden" animate="show" className="space-y-4">
             {visible.length > 0 ? (

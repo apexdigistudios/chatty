@@ -15,6 +15,7 @@ import { useGistStore } from "@/store/gistStore";
 import type { Confession, Post } from "@/types/models";
 import { useToast } from "@/components/ui/Toast";
 import { Avatar } from "@/components/ui/Avatar";
+import { PageSpinner } from "@/components/ui/PageSpinner";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { PromotedBadge } from "@/components/feed/PromotedBadge";
 import { rotateBySeed } from "@/lib/feedRotation";
@@ -360,7 +361,7 @@ export function SpotlightPage({
       </header>
 
       {loading ? (
-        <div className="flex h-full items-center justify-center text-sm font-bold text-white/75">Finding your next favorite…</div>
+        <PageSpinner label="Loading Spotlight" className="h-full text-white/75" />
       ) : error ? (
         <div role="alert" className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
           <p className="max-w-sm text-sm font-bold text-white">{error}</p>

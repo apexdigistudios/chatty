@@ -23,7 +23,7 @@ import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
 import { schoolTypeLabel, type Post, type School, type SchoolGroup } from "@/types/models";
 import { cn } from "@/utils/cn";
-import { FeedSkeleton } from "@/components/feed/FeedSkeleton";
+import { PageSpinner } from "@/components/ui/PageSpinner";
 import { formatCompactNumber } from "@/lib/utils";
 
 type Tab = "feed" | "groups" | "manage";
@@ -259,8 +259,7 @@ export function SchoolPage({
   if (!school && loading) {
     return (
       <div className="mx-auto w-full max-w-[760px] min-w-0 px-4 pt-6 sm:px-6">
-        <div className="h-44 animate-pulse rounded-[26px] border-2 border-line bg-card motion-reduce:animate-none" />
-        <div className="mt-5"><FeedSkeleton count={2} /></div>
+        <PageSpinner label="Loading school community" className="min-h-[calc(100dvh-8rem)]" />
       </div>
     );
   }
@@ -525,7 +524,7 @@ export function SchoolPage({
               </div>
             )}
             {postsLoading && posts.length === 0 ? (
-              <FeedSkeleton count={2} />
+              <PageSpinner label="Loading school posts" className="min-h-48" />
             ) : posts.length > 0 ? (
               <div className="space-y-4">
                 {posts.map((post) => (

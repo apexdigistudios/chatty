@@ -21,7 +21,7 @@ import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
 import type { Post } from "@/types/models";
 import { cn } from "@/utils/cn";
-import { FeedSkeleton } from "@/components/feed/FeedSkeleton";
+import { PageSpinner } from "@/components/ui/PageSpinner";
 import { SafeImage } from "@/components/common/SafeImage";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { FollowListModal } from "@/components/profile/FollowListModal";
@@ -360,7 +360,8 @@ export function ProfilePage() {
               type="button"
               size="sm"
               variant="primary"
-              className="rounded-xl bg-blue-700 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-800"
+              depthColor="var(--verification-button-edge)"
+              className="[--verification-button-edge:#0284c7] dark:[--verification-button-edge:#0369a1] rounded-xl bg-sky-400 px-4 py-2 font-medium text-sky-950 transition-colors hover:bg-sky-500 dark:bg-sky-500 dark:text-neutral-950 dark:hover:bg-sky-400"
               leftIcon={<ShieldCheck size={14} strokeWidth={2.6} aria-hidden />}
               onClick={() => navigate("/get-verified")}
             >
@@ -479,7 +480,7 @@ export function ProfilePage() {
                     post.mediaUrls.some(isVideoUrl)
                   )
                 : myPosts;
-              return loadingPosts ? <FeedSkeleton count={2} /> : profilePosts.length > 0 ? profilePosts.map((post) => <GistCard key={post.id} post={post} onRemoved={(postId) => { setMyPosts((prev) => prev.filter((item) => item.id !== postId)); setLiked((prev) => prev.filter((item) => item.id !== postId)); setSaved((prev) => prev.filter((item) => item.id !== postId)); }} />) : (
+              return loadingPosts ? <PageSpinner label="Loading posts" className="min-h-48" /> : profilePosts.length > 0 ? profilePosts.map((post) => <GistCard key={post.id} post={post} onRemoved={(postId) => { setMyPosts((prev) => prev.filter((item) => item.id !== postId)); setLiked((prev) => prev.filter((item) => item.id !== postId)); setSaved((prev) => prev.filter((item) => item.id !== postId)); }} />) : (
                 <Empty title={tab === "Videos" ? "No videos yet" : "You haven't posted a gist yet"} detail={tab === "Videos" ? "Videos you share with your school will appear here." : "Share campus news, NSMQ banter or photos with your community."} action="Create first gist" onAction={() => { setComposerIntent("gist", profile.schoolId); navigate("/create"); }} />
               );
             })()}
@@ -489,7 +490,7 @@ export function ProfilePage() {
         {tab === "Liked" && (
           <div className="space-y-0">
             <h2 className="text-sm font-extrabold text-ink sm:text-base">Gists you liked ({liked.length})</h2>
-            {loadingPosts ? <FeedSkeleton count={2} /> : liked.length > 0 ? liked.map((post) => <GistCard key={post.id} post={post} onRemoved={(postId) => { setMyPosts((prev) => prev.filter((item) => item.id !== postId)); setLiked((prev) => prev.filter((item) => item.id !== postId)); }} />) : (
+            {loadingPosts ? <PageSpinner label="Loading liked posts" className="min-h-48" /> : liked.length > 0 ? liked.map((post) => <GistCard key={post.id} post={post} onRemoved={(postId) => { setMyPosts((prev) => prev.filter((item) => item.id !== postId)); setLiked((prev) => prev.filter((item) => item.id !== postId)); }} />) : (
               <Empty title="No liked gists yet" detail="Tap the heart on any campus gist and it will collect here." action="Browse feed" onAction={() => navigate("/")} />
             )}
           </div>

@@ -6,9 +6,9 @@ import { usePathname } from "next/navigation";
 import { ArrowUpRight, CheckCircle2, Flame, Plus, RefreshCw, Sparkles, TrendingUp, Users, WifiOff, X } from "lucide-react";
 import { Link, useNavigate } from "@/lib/router";
 import { ConfessionCard } from "@/components/feed/ConfessionCard";
-import { FeedSkeleton } from "@/components/feed/FeedSkeleton";
 import { GistCard } from "@/components/feed/GistCard";
 import { Button } from "@/components/ui/Button";
+import { PageSpinner } from "@/components/ui/PageSpinner";
 import { SchoolBadge } from "@/components/ui/SchoolBadge";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -384,8 +384,8 @@ export function HomePage({
 
       <AnimatePresence mode="wait" initial={false}>
         {loading ? (
-          <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <FeedSkeleton count={3} />
+          <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <PageSpinner label="Loading feed" className="min-h-48" />
           </motion.div>
         ) : (
           <motion.div
