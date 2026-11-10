@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { deleteFromR2, uploadToR2 } from "@/lib/r2";
 import { moderateUploadedMedia } from "@/lib/moderation";
 import type { R2UploadFolder } from "@/lib/r2Upload";
-import { cleanupProcessedVideo, processVideo, VideoProcessingError } from "@/lib/videoProcessor";
+import { cleanupProcessedVideo, processVideo } from "@/lib/videoProcessor";
 
 export const runtime = "nodejs";
 
@@ -24,7 +24,7 @@ async function authorize(request: Request) {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
     console.error("Supabase authentication is not configured for R2 uploads.");
-    return { response: errorResponse("Uploads are not available right now.", 500) };
+    return { response: errorResponse("Uploads are not available right now.", 503) };
   }
 
   const client = createClient(url, anonKey, {
@@ -48,12 +48,12 @@ function isValidR2Key(key: unknown): key is string {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const auth = await authorize(request);
-  if (auth.response) return auth.response;
-
   let processedVideo: Awaited<ReturnType<typeof processVideo>> | null = null;
   const uploadedUrls: string[] = [];
   try {
+    const auth = await authorize(request);
+    if (auth.response) return auth.response;
+
     const formData = await request.formData();
     const file = formData.get("file");
     const folder = formData.get("folder");
@@ -96,20 +96,40 @@ export async function POST(request: Request): Promise<Response> {
     if (moderationText !== null && typeof moderationText !== "string") {
       return errorResponse("The caption is invalid.", 400);
     }
-    if (isVideo) processedVideo = await processVideo(file);
-    await moderateUploadedMedia(file, auth.user.id, moderationText ?? "", processedVideo ?? undefined);
+    if (isVideo) {
+      try {
+        processedVideo = await processVideo(file);
+      } catch (error) {
+        console.warn("Video processing failed; continuing with the original upload.", error);
+      }
+    }
+
+    try {
+      await moderateUploadedMedia(file, auth.user.id, moderationText ?? "", processedVideo ?? undefined);
+    } catch (error) {
+      if (error instanceof Error && error.name === "CommunitySafetyViolationError") {
+        return errorResponse(error.message, 422);
+      }
+      console.warn("Automated moderation is unavailable; continuing with the original upload.", error);
+    }
+
     const url = await uploadToR2(file, `${auth.user.id}/${folder}/${name}`, contentType, folder);
     uploadedUrls.push(url);
     let thumbnailUrl: string | null = null;
     if (processedVideo && folder === "posts") {
       const thumbnailName = `${name.replace(/\.[^.]+$/, "")}-thumbnail.jpg`;
-      thumbnailUrl = await uploadToR2(
-        processedVideo.thumbnail,
-        `${auth.user.id}/${folder}/${thumbnailName}`,
-        "image/jpeg",
-        folder
-      );
-      uploadedUrls.push(thumbnailUrl);
+      const thumbnailKey = `${auth.user.id}/${folder}/${thumbnailName}`;
+      try {
+        thumbnailUrl = await uploadToR2(processedVideo.thumbnail, thumbnailKey, "image/jpeg", folder);
+        uploadedUrls.push(thumbnailUrl);
+      } catch (error) {
+        console.warn("Thumbnail upload failed; returning the original video upload.", error);
+        try {
+          await deleteFromR2(thumbnailKey);
+        } catch (cleanupError) {
+          console.error("Could not remove an incomplete video thumbnail upload.", cleanupError);
+        }
+      }
     }
     return Response.json({
       url,
@@ -129,15 +149,6 @@ export async function POST(request: Request): Promise<Response> {
       for (const result of cleanup) {
         if (result.status === "rejected") console.error("Could not remove incomplete R2 upload.", result.reason);
       }
-    }
-    if (error instanceof VideoProcessingError) {
-      return errorResponse(error.message, 422);
-    }
-    if (error instanceof Error && error.name === "CommunitySafetyViolationError") {
-      return errorResponse(error.message, 422);
-    }
-    if (error instanceof Error && error.name === "ModerationUnavailableError") {
-      return errorResponse(error.message, 503);
     }
     console.error("R2 upload failed.", error);
     return errorResponse("Upload failed. Please try again.", 500);
