@@ -20,8 +20,6 @@ import { isUserGlobalAdmin } from "@/lib/adminAccess";
 import { readVideoMetadata } from "@/lib/video";
 import { isVideoFile } from "@/services/storageService";
 import { useGistStore } from "@/store/gistStore";
-import { fetchPostCount } from "@/services/postsService";
-import { trackEvent } from "@/lib/mixpanel";
 import { springs } from "@/theme/tokens";
 import { MAX_POST_LENGTH, type SchoolGroup } from "@/types/models";
 import { cn } from "@/utils/cn";
@@ -68,8 +66,6 @@ export function CreatePage() {
   const textRef = useRef<HTMLTextAreaElement>(null);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const previewUrls = useRef(new Set<string>());
-  const composerTrackedUser = useRef<string | null>(null);
-  const firstGist = useRef<boolean | null>(null);
 
   const isGlobalAdminAuthor = isGlobalAdmin || isUserGlobalAdmin(user?.email);
   const schoolId = isGlobalAdminAuthor ? null : profile?.schoolId ?? null;
@@ -96,23 +92,6 @@ export function CreatePage() {
     [detectedHashtags]
   );
 
-  useEffect(() => {
-    if (authLoading || !user || composerTrackedUser.current === user.id) return;
-    composerTrackedUser.current = user.id;
-    void fetchPostCount(user.id).then((count) => {
-      if (composerTrackedUser.current !== user.id) return;
-      firstGist.current = count === 0;
-      trackEvent("first_gist_composer_opened", {
-        composer_entry_point: searchParams.get("source") || "bottom_nav",
-        content_type_selected: "text",
-        is_first_gist: firstGist.current,
-        timestamp_source: new Date().toISOString(),
-      });
-    }).catch((error: unknown) => {
-      firstGist.current = null;
-      console.warn("Could not determine first-gist status; composer analytics were skipped.", error);
-    });
-  }, [authLoading, searchParams, user]);
   const highlightedCaption = useMemo(
     () => content.split(/(#[A-Za-z0-9_]{1,50})/g).map((part, index) =>
       part.startsWith("#")
@@ -326,32 +305,16 @@ export function CreatePage() {
     }
     setPublishing(true);
     try {
-      const createdPost = await createPost({
+      await createPost({
         content: text.slice(0, MAX_POST_LENGTH),
         schoolId,
         groupId: postGroup?.schoolId === schoolId ? postGroup.id : null,
         files: attachments.map((item) => item.file),
         videoDurations: attachments.map((item) => item.duration ?? null),
       });
-      if (firstGist.current === true) {
-        trackEvent("first_gist_submitted", {
-          gist_id: createdPost.id,
-          content_type: text && attachments.length > 0 ? "mixed" : attachments.length > 0 ? "image" : "text",
-          media_count: attachments.length,
-          submission_result: "published",
-        });
-      }
       toast("Gist published to the feed!", "success");
       navigate("/");
     } catch (error) {
-      if (firstGist.current === true) {
-        trackEvent("first_gist_submitted", {
-          gist_id: null,
-          content_type: text && attachments.length > 0 ? "mixed" : attachments.length > 0 ? "image" : "text",
-          media_count: attachments.length,
-          submission_result: "failed",
-        });
-      }
       toast(describeError(error), "danger");
     } finally {
       setPublishing(false);

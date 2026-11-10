@@ -1,5 +1,4 @@
 import { currentUserId, requireUserId, supabase } from "@/lib/supabase";
-import { trackEvent } from "@/lib/mixpanel";
 import type { Profile } from "@/types/models";
 import type { Shoutout, ShoutoutStatus } from "@/types/models";
 
@@ -129,21 +128,11 @@ export async function createShoutout(input: CreateShoutoutInput): Promise<Shouto
     .select(SHOUTOUT_SELECT)
     .single<RawShoutout>();
   if (error) {
-    trackEvent("confession_shoutout_interaction", {
-      interaction_type: "shoutout_sent",
-      interaction_result: "failed",
-      timestamp_source: new Date().toISOString(),
-    });
     if (error.code === "PGRST205" || error.code === "42P01") {
       throw new Error("Shoutouts need migration-step10.sql to be applied first.");
     }
     throw new Error(error.message);
   }
-  trackEvent("confession_shoutout_interaction", {
-    interaction_type: "shoutout_sent",
-    interaction_result: "submitted",
-    timestamp_source: new Date().toISOString(),
-  });
   return mapShoutout(data);
 }
 

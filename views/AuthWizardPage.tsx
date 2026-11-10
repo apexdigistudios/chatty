@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link, useLocation, useNavigate, useSearchParams } from "@/lib/router";
 import {
@@ -32,13 +32,6 @@ import {
 } from "@/services/profilesService";
 import { createSchoolCommunity } from "@/services/schoolsService";
 import { useGistStore } from "@/store/gistStore";
-import {
-  deferOnboardingCompletion,
-  rememberSignupCompleted,
-  rememberSignupStarted,
-  secondsSinceSignupCompleted,
-  trackEvent,
-} from "@/lib/mixpanel";
 import { springs } from "@/theme/tokens";
 import { cn } from "@/utils/cn";
 import { findOrCreateSchool, normalizeSchoolName } from "@/lib/services/school-resolver";
@@ -48,10 +41,6 @@ type AuthMode = "signup" | "signin";
 type WizardStep = 1 | 2 | 3;
 type SignupMethod = "google" | "email";
 type NicknameStatus = "idle" | "invalid" | "checking" | "available" | "taken";
-
-function hasNotificationsEnabled(): boolean {
-  return typeof Notification !== "undefined" && Notification.permission === "granted";
-}
 
 interface LiveSchoolResult {
   id: string;
@@ -161,10 +150,6 @@ function AuthWizardContent() {
   const [emailConfirmPending, setEmailConfirmPending] = useState(false);
   const [oauthOnboarding, setOauthOnboarding] = useState(initialStep === 2);
   const [reaction, setReaction] = useState<MascotReaction>("idle");
-  const discoveryTracked = useRef(false);
-  const lastTrackedSchoolQuery = useRef("");
-  const signupCompletedUserId = useRef<string | null>(null);
-
   const selectedSchool = useMemo(
     () => schools.find((school) => school.id === selectedSchoolId) ?? null,
     [schools, selectedSchoolId]
@@ -216,28 +201,6 @@ function AuthWizardContent() {
   }, [schools.length, loadSchools]);
 
   useEffect(() => {
-    if (mode !== "signup" || step !== 2 || discoveryTracked.current) return;
-    discoveryTracked.current = true;
-    trackEvent("school_discovery_viewed", {
-      discovery_entry_point: oauthOnboarding ? "onboarding_step" : "signup_step",
-      region_or_province: null,
-      search_mode: "typeahead",
-      timestamp_source: new Date().toISOString(),
-    });
-  }, [mode, oauthOnboarding, step]);
-
-  const beginSignup = (signupMethod: SignupMethod) => {
-    const timestamp = new Date().toISOString();
-    rememberSignupStarted(timestamp);
-    trackEvent("signup_started", {
-      signup_method: signupMethod === "google" ? "social_login" : "email",
-      referrer_source: document.referrer ? new URL(document.referrer).hostname : "direct",
-      utm_campaign: searchParams.get("utm_campaign"),
-      timestamp_source: timestamp,
-    });
-  };
-
-  useEffect(() => {
     const paramMode = searchParams.get("mode");
     if (paramMode === "signin" || paramMode === "signup") setMode(paramMode);
     else if (pathname === "/login") setMode("signin");
@@ -264,19 +227,6 @@ function AuthWizardContent() {
     if (!user || !profile || username) return;
     setUsername(profile.username ?? "");
   }, [user, profile, username]);
-
-  useEffect(() => {
-    if (!user || !oauthOnboarding || mode !== "signup" || signupCompletedUserId.current === user.id) return;
-    signupCompletedUserId.current = user.id;
-    const timestamp = new Date().toISOString();
-    rememberSignupCompleted(timestamp);
-    trackEvent("signup_completed", {
-      account_id: user.id,
-      signup_method: "social_login",
-      is_new_user: true,
-      school_selection_status: profile?.schoolId ? "selected" : "searching",
-    });
-  }, [mode, oauthOnboarding, profile?.schoolId, user]);
 
   useEffect(() => {
     if (!user || !profile?.schoolId || selectedSchoolId) return;
@@ -340,15 +290,6 @@ function AuthWizardContent() {
               throw new Error("The school search returned an invalid result.");
             }
             if (results.length === 0) {
-              if (lastTrackedSchoolQuery.current !== query) {
-                lastTrackedSchoolQuery.current = query;
-                trackEvent("school_search_performed", {
-                  query_length: query.length,
-                  match_count: 0,
-                  search_filter_applied: false,
-                  result_page_number: 1,
-                });
-              }
               if (active) {
                 setSchoolSearchState("error");
                 setSchoolSearchError("No matching schools found. Type to refine.");
@@ -356,15 +297,6 @@ function AuthWizardContent() {
               return;
             }
             if (!active) return;
-            if (lastTrackedSchoolQuery.current !== query) {
-              lastTrackedSchoolQuery.current = query;
-              trackEvent("school_search_performed", {
-                query_length: query.length,
-                match_count: results.length,
-                search_filter_applied: false,
-                result_page_number: 1,
-              });
-            }
             for (const result of results) upsertSchool(result.school);
             setLiveSchoolResults(results);
             setSchoolSearchState("idle");
@@ -372,15 +304,6 @@ function AuthWizardContent() {
           }
 
           if (!active || !school) return;
-          if (lastTrackedSchoolQuery.current !== query) {
-            lastTrackedSchoolQuery.current = query;
-            trackEvent("school_search_performed", {
-              query_length: query.length,
-              match_count: 1,
-              search_filter_applied: false,
-              result_page_number: 1,
-            });
-          }
           upsertSchool(school);
           setSelectedSchoolId(school.id);
           setSchoolQuery(school.name);
@@ -399,19 +322,6 @@ function AuthWizardContent() {
       window.clearTimeout(timer);
     };
   }, [mode, step, schoolQuery, selectedSchoolId, schoolMatches.length, upsertSchool]);
-
-  useEffect(() => {
-    const query = schoolQuery.trim();
-    if (mode !== "signup" || step !== 2 || !query || schoolMatches.length === 0) return;
-    if (lastTrackedSchoolQuery.current === query) return;
-    lastTrackedSchoolQuery.current = query;
-    trackEvent("school_search_performed", {
-      query_length: query.length,
-      match_count: schoolMatches.length,
-      search_filter_applied: false,
-      result_page_number: 1,
-    });
-  }, [mode, schoolMatches.length, schoolQuery, step]);
 
   useEffect(() => {
     if (mode !== "signup" || step !== 2 || !username) {
@@ -495,7 +405,6 @@ function AuthWizardContent() {
 
   const startGoogleAuth = async () => {
     if (mode === "signup" && !ageConfirmed) return;
-    if (mode === "signup") beginSignup("google");
     setBusy(true);
     setErrorMessage(null);
     try {
@@ -566,18 +475,6 @@ function AuthWizardContent() {
         });
         setProfile(updatedProfile);
         await refreshProfile();
-        trackEvent("school_joined", {
-          school_id: schoolId,
-          join_result: "joined",
-          join_context: "onboarding",
-          timestamp_source: new Date().toISOString(),
-        });
-        trackEvent("onboarding_completed", {
-          onboarding_step_count: 3,
-          time_to_complete_seconds: secondsSinceSignupCompleted(),
-          primary_profile_setup: "set_name_only",
-          has_notifications_enabled: hasNotificationsEnabled(),
-        });
         toast("Welcome to Gist me!", "success");
         setOauthOnboarding(false);
         navigate(returnTo, { replace: true });
@@ -591,35 +488,12 @@ function AuthWizardContent() {
         schoolId: selectedSchoolId || null,
         schoolName: customSchoolName || null,
       });
-      rememberSignupCompleted(new Date().toISOString());
-      trackEvent("signup_completed", {
-        account_id: result.accountId,
-        signup_method: "email",
-        is_new_user: true,
-        school_selection_status: result.profile?.schoolId || selectedSchoolId ? "selected" : "searching",
-      });
       if (result.profile) setProfile(result.profile);
-      const joinedSchoolId = result.profile?.schoolId ?? selectedSchoolId ?? null;
-      if (result.hasSession && joinedSchoolId) {
-        trackEvent("school_joined", {
-          school_id: joinedSchoolId,
-          join_result: "joined",
-          join_context: "onboarding",
-          timestamp_source: new Date().toISOString(),
-        });
-        trackEvent("onboarding_completed", {
-          onboarding_step_count: 3,
-          time_to_complete_seconds: secondsSinceSignupCompleted(),
-          primary_profile_setup: "set_name_only",
-          has_notifications_enabled: hasNotificationsEnabled(),
-        });
-      }
       if (result.hasSession) {
         await refreshProfile();
         toast("Welcome to Gist me!", "success");
         navigate(returnTo, { replace: true });
       } else {
-        deferOnboardingCompletion(result.accountId);
         setEmailConfirmPending(true);
       }
     } catch (error) {
@@ -643,7 +517,6 @@ function AuthWizardContent() {
     }
     setErrorMessage(null);
     setHasAttemptedSubmit(false);
-    if (method === "email") beginSignup("email");
     setStep(2);
   };
 
@@ -957,7 +830,6 @@ function AuthWizardContent() {
                           value={schoolQuery}
                           onChange={(event) => {
                             setSchoolQuery(event.target.value);
-                            lastTrackedSchoolQuery.current = "";
                             setCustomSchoolName("");
                             setSelectedSchoolId("");
                             setLiveSchoolResults([]);

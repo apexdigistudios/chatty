@@ -1,152 +1,34 @@
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
 
-let mixpanelClientPromise: Promise<typeof import("mixpanel-browser") | null> | null = null;
-const MIXPANEL_TOKEN =
-  process.env.NEXT_PUBLIC_MIXPANEL_TOKEN || "0663078b0e2dafed3259df60a6bf4356";
+export function initializeMixpanel(): void {}
 
-function getMixpanelClient(): Promise<typeof import("mixpanel-browser") | null> {
-  if (typeof window === "undefined") return Promise.resolve(null);
-  if (!mixpanelClientPromise) {
-    mixpanelClientPromise = import("mixpanel-browser")
-      .then((mixpanel) => {
-        mixpanel.init(MIXPANEL_TOKEN, {
-          autocapture: false,
-          debug: false,
-          track_pageview: false,
-        });
-        return mixpanel;
-      })
-      .catch(() => null);
-  }
-  return mixpanelClientPromise;
-}
+export function trackEvent(_eventName: string, _properties?: AnalyticsProperties): void {}
 
-export function initializeMixpanel(): void {
-  void getMixpanelClient();
-}
-
-export function trackEvent(eventName: string, properties?: AnalyticsProperties): void {
-  void getMixpanelClient().then((mixpanel) => {
-    try {
-      mixpanel?.track(eventName, properties);
-    } catch {
-      // Analytics must not interfere with the user action.
-    }
-  });
-}
-
-export function identifyUser(userId: string, traits?: AnalyticsProperties): void {
-  void getMixpanelClient().then((mixpanel) => {
-    try {
-      if (!mixpanel) return;
-      mixpanel.identify(userId);
-      if (traits) mixpanel.people.set(traits);
-    } catch {
-      // Analytics must not interfere with authentication.
-    }
-  });
-}
+export function identifyUser(_userId: string, _traits?: AnalyticsProperties): void {}
 
 export function trackGistViewed(
-  gistId: string,
-  properties: Omit<AnalyticsProperties, "is_first_time_view">
-): void {
-  let firstTime = false;
-  if (typeof window !== "undefined") {
-    try {
-      const key = "gistme:mixpanel:viewed-gists";
-      const parsed: unknown = JSON.parse(window.localStorage.getItem(key) ?? "[]");
-      const viewed = Array.isArray(parsed)
-        ? parsed.filter((id): id is string => typeof id === "string")
-        : [];
-      firstTime = !viewed.includes(gistId);
-      if (firstTime) {
-        window.localStorage.setItem(key, JSON.stringify([...viewed.slice(-999), gistId]));
-      }
-    } catch {
-      firstTime = false;
-    }
-  }
-  trackEvent("gist_viewed", { ...properties, is_first_time_view: firstTime });
-}
+  _gistId: string,
+  _properties: Omit<AnalyticsProperties, "is_first_time_view">
+): void {}
 
 export function trackGistShare(
-  gistId: string,
-  shareChannel: string,
-  shareResult: string
-): void {
-  trackEvent("gist_shared", {
-    gist_id: gistId,
-    share_channel: shareChannel,
-    share_result: shareResult,
-    timestamp_source: new Date().toISOString(),
-  });
-}
+  _gistId: string,
+  _shareChannel: string,
+  _shareResult: string
+): void {}
 
-export function rememberSignupStarted(timestamp: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem("gistme:mixpanel:signup-started-at", timestamp);
-  } catch {
-    // Analytics state is optional and must not interrupt signup.
-  }
-}
+export function rememberSignupStarted(_timestamp: string): void {}
 
-export function rememberSignupCompleted(timestamp: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem("gistme:mixpanel:signup-completed-at", timestamp);
-  } catch {
-    // Analytics state is optional and must not interrupt signup.
-  }
-  try {
-    window.localStorage.setItem("gistme:mixpanel:signup-completed-at", timestamp);
-  } catch {
-    // Analytics state is optional and must not interrupt signup.
-  }
-}
+export function rememberSignupCompleted(_timestamp: string): void {}
 
-export function deferOnboardingCompletion(userId: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem("gistme:mixpanel:pending-onboarding-user", userId);
-  } catch {
-    // Analytics state is optional and must not interrupt signup.
-  }
-}
+export function deferOnboardingCompletion(_userId: string): void {}
 
-export function consumeDeferredOnboardingCompletion(userId: string): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    const pendingUserId = window.localStorage.getItem("gistme:mixpanel:pending-onboarding-user");
-    if (pendingUserId !== userId) return false;
-    window.localStorage.removeItem("gistme:mixpanel:pending-onboarding-user");
-    return true;
-  } catch {
-    return false;
-  }
+export function consumeDeferredOnboardingCompletion(_userId: string): boolean {
+  return false;
 }
 
 export function secondsSinceSignupCompleted(): number | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const timestamp =
-      window.sessionStorage.getItem("gistme:mixpanel:signup-completed-at") ??
-      window.localStorage.getItem("gistme:mixpanel:signup-completed-at");
-    if (!timestamp) return null;
-    const elapsed = Math.floor((Date.now() - Date.parse(timestamp)) / 1000);
-    return Number.isFinite(elapsed) ? Math.max(0, elapsed) : null;
-  } catch {
-    return null;
-  }
+  return null;
 }
 
-export function resetUser(): void {
-  void getMixpanelClient().then((mixpanel) => {
-    try {
-      mixpanel?.reset();
-    } catch {
-      // Analytics must not interfere with sign-out.
-    }
-  });
-}
+export function resetUser(): void {}

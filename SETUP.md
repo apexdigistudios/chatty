@@ -133,17 +133,12 @@ create or update `posts` and `post_media` policies. It routes post creation
 through the authenticated server API and disables direct client inserts so the
 moderation check cannot be skipped.
 Set the server-only `OPENAI_API_KEY` and `SUPABASE_SERVICE_ROLE_KEY` values.
-Optionally set `VIDEO_MODERATION_ENDPOINT` and `VIDEO_MODERATION_TOKEN` to use an
-external video moderation service. The server sends the raw video bytes as a POST
-body, with the bearer token, video content type, and `X-File-Name` header. The
-service must return JSON with `flagged: boolean`, `safe: boolean`, or a
-`decision` of `safe`, `approved`, `flagged`, or `rejected`; optional `categories`
-must be a map of boolean flags. External-service errors or invalid responses
-block the upload. If the external service is not configured, install FFmpeg and
-FFprobe on the Node.js server or set `FFMPEG_PATH` and `FFPROBE_PATH`. Uploaded
-videos are sampled at 25%, 50%, and 75%; if moderation is unavailable, the upload
-is blocked rather than skipped. Flagged media is rejected before it reaches R2.
-Global admins can review flagged entries in `automated_moderation_audit`.
+Video duration and sample frames are extracted with the locally bundled FFmpeg
+and FFprobe binaries, then checked by OpenAI moderation; no external video
+moderation endpoint or token is used. Uploaded videos are sampled at 25%, 50%,
+and 75%; if moderation is unavailable, the upload is blocked rather than skipped.
+Flagged media is rejected before it reaches R2. Global admins can review flagged
+entries in `automated_moderation_audit`.
 
 ### A13 · Hybrid smart feed
 

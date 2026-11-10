@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, MotionConfig } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
@@ -19,14 +19,6 @@ import { ToastProvider, ToastViewport } from "@/components/ui/Toast";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import {
-  consumeDeferredOnboardingCompletion,
-  identifyUser,
-  initializeMixpanel,
-  resetUser,
-  secondsSinceSignupCompleted,
-  trackEvent,
-} from "@/lib/mixpanel";
 import { useGistStore } from "@/store/gistStore";
 import { SPOTLIGHT_SCROLL_DIRECTION_EVENT, useScrollDirection } from "@/hooks/useScrollDirection";
 
@@ -50,90 +42,6 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
   const loadSchools = useGistStore((state) => state.loadSchools);
   const feedHasLoaded = useGistStore((state) => state.feedHasLoaded);
   const schoolsHasLoaded = useGistStore((state) => state.schoolsHasLoaded);
-  const schools = useGistStore((state) => state.schools);
-  const analyticsUserId = useRef<string | null>(null);
-  const analyticsIdentity = useRef<string | null>(null);
-  const sessionOpened = useRef(false);
-
-  useEffect(() => {
-    initializeMixpanel();
-  }, []);
-
-  useEffect(() => {
-    if (loading || sessionOpened.current) return;
-    sessionOpened.current = true;
-    try {
-      const sequenceKey = `gistme:mixpanel:session-sequence:${user?.id ?? "anonymous"}`;
-      const previous = Number(window.localStorage.getItem(sequenceKey) ?? "0");
-      const sequence = Number.isSafeInteger(previous) && previous > 0 ? previous + 1 : 1;
-      window.localStorage.setItem(sequenceKey, String(sequence));
-      const entryPoint = pathname.startsWith("/schools/")
-        ? "school_feed"
-        : pathname.startsWith("/posts/")
-          ? "gist_detail"
-          : pathname === "/trending"
-            ? "trending"
-            : pathname === "/"
-              ? "home"
-              : pathname.slice(1) || "home";
-      trackEvent("app_session_opened", {
-        session_sequence_number: sequence,
-        entry_point: entryPoint,
-        is_returning_user: sequence > 1,
-        timestamp_source: new Date().toISOString(),
-      });
-    } catch {
-      trackEvent("app_session_opened", {
-        session_sequence_number: 1,
-        entry_point: pathname.slice(1) || "home",
-        is_returning_user: false,
-        timestamp_source: new Date().toISOString(),
-      });
-    }
-  }, [loading, pathname, user?.id]);
-  useEffect(() => {
-    if (!user) {
-      if (analyticsUserId.current) {
-        resetUser();
-        analyticsUserId.current = null;
-        analyticsIdentity.current = null;
-      }
-      return;
-    }
-    if (!profile) return;
-    const schoolName = schools.find((school) => school.id === profile.schoolId)?.name ?? null;
-    const traits = {
-      $name: profile.fullName?.trim() || profile.username,
-      school_name: schoolName,
-      is_verified: profile.isVerified ?? false,
-    };
-    const identity = JSON.stringify([user.id, traits]);
-    if (analyticsIdentity.current === identity) return;
-    identifyUser(user.id, {
-      ...traits,
-    });
-    analyticsUserId.current = user.id;
-    analyticsIdentity.current = identity;
-  }, [profile, schools, user]);
-
-  useEffect(() => {
-    if (!user || !profile?.schoolId || !consumeDeferredOnboardingCompletion(user.id)) return;
-    const timestamp = new Date().toISOString();
-    trackEvent("school_joined", {
-      school_id: profile.schoolId,
-      join_result: "joined",
-      join_context: "onboarding",
-      timestamp_source: timestamp,
-    });
-    trackEvent("onboarding_completed", {
-      onboarding_step_count: 3,
-      time_to_complete_seconds: secondsSinceSignupCompleted(),
-      primary_profile_setup: "set_name_only",
-      has_notifications_enabled:
-        typeof Notification !== "undefined" && Notification.permission === "granted",
-    });
-  }, [profile?.schoolId, user]);
-
   useEffect(() => {
     if (!isSupabaseConfigured || schoolsHasLoaded) return;
     if (pathname === "/schools") return;

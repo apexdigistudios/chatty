@@ -34,7 +34,6 @@ import {
 } from "@/store/notificationStore";
 import { CATEGORY_LABELS } from "@/services/notificationsService";
 import type { AppNotification, NotificationCategory } from "@/services/notificationsService";
-import { trackEvent } from "@/lib/mixpanel";
 import { springs } from "@/theme/tokens";
 import { cn } from "@/utils/cn";
 import { Avatar } from "@/components/ui/Avatar";
@@ -130,29 +129,6 @@ export function NotificationDrawer() {
   }, [open, user?.id]);
 
   const handleAction = (item: AppNotification) => {
-    const destinationSurface = item.kind === "shoutout"
-      ? "shoutouts_inbox"
-      : item.kind === "safety"
-        ? "home"
-        : item.postId
-          ? "gist_detail"
-          : item.schoolId
-            ? "school_feed"
-            : "home";
-    trackEvent("notification_opened", {
-      notification_type: item.kind,
-      notification_campaign_id: null,
-      notification_id: item.id,
-      destination_surface: destinationSurface,
-      timestamp_source: new Date().toISOString(),
-    });
-    trackEvent("notification_interaction", {
-      notification_type: item.kind,
-      notification_id: item.id,
-      interaction_action: "open",
-      interaction_result: "completed",
-      timestamp_source: new Date().toISOString(),
-    });
     if (profile) void markRead(item.id, profile.id);
     closeDrawer();
 
@@ -273,12 +249,6 @@ export function NotificationDrawer() {
                       onClick={() => {
                         if (!profile) return;
                         void markAllRead(profile.id);
-                        trackEvent("notification_interaction", {
-                          notification_type: "all",
-                          interaction_action: "mark_all_read",
-                          interaction_result: "completed",
-                          timestamp_source: new Date().toISOString(),
-                        });
                       }}
                       disabled={totalUnread === 0 || !profile}
                       aria-label="Mark all notifications as read"
