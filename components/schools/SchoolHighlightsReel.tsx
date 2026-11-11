@@ -25,6 +25,9 @@ export function SchoolHighlightsReel({
   className,
   promptOnOpen = false,
   onViewProfile,
+  onAvatarClick,
+  showAddButton = true,
+  openRequest = 0,
 }: {
   schoolId: string | null;
   schoolName?: string;
@@ -33,11 +36,15 @@ export function SchoolHighlightsReel({
   className?: string;
   promptOnOpen?: boolean;
   onViewProfile?: () => void;
+  onAvatarClick?: () => void;
+  showAddButton?: boolean;
+  openRequest?: number;
 }) {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const schools = useGistStore((state) => state.schools);
   const fileInput = useRef<HTMLInputElement>(null);
+  const handledOpenRequest = useRef(0);
   const [highlights, setHighlights] = useState<SchoolHighlight[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -76,6 +83,18 @@ export function SchoolHighlightsReel({
     setSelectedIndex(index);
   };
 
+  useEffect(() => {
+    if (!openRequest || loading || handledOpenRequest.current === openRequest) return;
+    handledOpenRequest.current = openRequest;
+    if (highlights.length > 0) {
+      openStories(highlights);
+    } else if (canShare) {
+      fileInput.current?.click();
+    } else {
+      toast("You need to join this school before sharing a highlight.", "info");
+    }
+  }, [canShare, highlights, loading, openRequest, toast]);
+
   const upload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
@@ -95,6 +114,10 @@ export function SchoolHighlightsReel({
 
   const activeStory = selectedIndex === null ? null : selectedHighlights[selectedIndex] ?? null;
   const openAvatar = () => {
+    if (onAvatarClick) {
+      onAvatarClick();
+      return;
+    }
     if (highlights.length > 0) {
       if (promptOnOpen) setPromptOpen(true);
       else openStories(highlights);
@@ -153,7 +176,7 @@ export function SchoolHighlightsReel({
                           <SchoolBadge schoolId={primarySchoolId} crestUrl={primarySchool?.crestUrl} name={primarySchool?.name ?? "My school"} size="lg" />
                         </span>
                       </button>
-                      {canShare && (
+                      {showAddButton && canShare && (
                         <button
                           type="button"
                           onClick={() => fileInput.current?.click()}
@@ -213,7 +236,7 @@ export function SchoolHighlightsReel({
               <span className="flex rounded-full bg-card p-[2px]">{children}</span>
             </span>
           </button>
-          {canShare && (
+          {showAddButton && canShare && (
             <button
               type="button"
               onClick={() => fileInput.current?.click()}

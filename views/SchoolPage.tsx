@@ -7,7 +7,6 @@ import { Link, useNavigate, useParams, useSearchParams } from "@/lib/router";
 import { ArrowLeft, Hash, Loader2, MapPin, Plus, ShieldCheck, Sparkles, Users, WifiOff, X } from "lucide-react";
 import { GistCard } from "@/components/feed/GistCard";
 import { ManageCommunityPanel } from "@/components/moderation/ManageCommunityPanel";
-import { SchoolCrestUploader } from "@/components/schools/SchoolCrestUploader";
 import { SchoolHighlightsReel } from "@/components/schools/SchoolHighlightsReel";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -66,6 +65,9 @@ export function SchoolPage({
   const [groupsLoading, setGroupsLoading] = useState(true);
   const [error, setError] = useState<string | null>(initialSchoolError ?? null);
   const [claiming, setClaiming] = useState(false);
+  const [schoolAvatarMenuOpen, setSchoolAvatarMenuOpen] = useState(false);
+  const [schoolPictureOpen, setSchoolPictureOpen] = useState(false);
+  const [highlightOpenRequest, setHighlightOpenRequest] = useState(0);
 
   const [membershipBusy, setMembershipBusy] = useState<string | null>(null);
 
@@ -259,20 +261,30 @@ export function SchoolPage({
               className="size-full"
               schoolId={school.id}
               schoolName={school.name}
-              promptOnOpen
-              onViewProfile={() => setSearchParams({})}
+              onAvatarClick={() => setSchoolAvatarMenuOpen(true)}
+              showAddButton={false}
+              openRequest={highlightOpenRequest}
             >
-              <SchoolBadge schoolId={school.id} crestUrl={school.crestUrl} name={school.name} size="2xl" ring={moderator} className="size-full" />
+              <SchoolBadge
+                schoolId={school.id}
+                crestUrl={school.crestUrl}
+                name={school.name}
+                size="2xl"
+                ring={moderator}
+                className="size-full rounded-full"
+              />
             </SchoolHighlightsReel>
-            <SchoolCrestUploader
-              schoolId={school.id}
-              canEdit={moderator}
-              onUploaded={(logoUrl) => {
-                const updatedSchool = { ...school, crestUrl: logoUrl };
-                setSchool(updatedSchool);
-                upsertSchool(updatedSchool);
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setSchoolAvatarMenuOpen(true);
               }}
-            />
+              aria-label="Open school picture and highlights options"
+              className="absolute -bottom-1 -right-1 z-20 flex size-8 items-center justify-center rounded-full border-2 border-card bg-sky-500 text-white shadow-lg transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 sm:size-9"
+            >
+              <Plus size={18} strokeWidth={3} aria-hidden />
+            </button>
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -300,6 +312,76 @@ export function SchoolPage({
           )}
         </div>
       </header>
+
+      {schoolAvatarMenuOpen && (
+        <div
+          className="fixed inset-0 z-[140] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="school-avatar-options-title"
+          onClick={() => setSchoolAvatarMenuOpen(false)}
+        >
+          <div
+            className="w-full max-w-xs rounded-2xl border-2 border-line bg-card p-4 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="school-avatar-options-title" className="text-sm font-extrabold text-ink">
+              {school.name}
+            </h2>
+            <div className="mt-3 grid gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSchoolAvatarMenuOpen(false);
+                  setSchoolPictureOpen(true);
+                }}
+                className="min-h-11 rounded-xl border-2 border-line bg-page px-3 text-left text-sm font-bold text-ink hover:border-brand"
+              >
+                View Profile Picture
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSchoolAvatarMenuOpen(false);
+                  setHighlightOpenRequest((request) => request + 1);
+                }}
+                className="min-h-11 rounded-xl bg-brand-deep px-3 text-left text-sm font-bold text-brand-contrast hover:brightness-110"
+              >
+                Add / View Highlight
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {schoolPictureOpen && (
+        <div
+          className="fixed inset-0 z-[150] flex items-center justify-center bg-black/95 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${school.name} profile picture`}
+          onClick={() => setSchoolPictureOpen(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setSchoolPictureOpen(false)}
+            aria-label="Close profile picture"
+            className="absolute right-4 top-4 flex size-11 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25"
+          >
+            <X size={20} aria-hidden />
+          </button>
+          <div onClick={(event) => event.stopPropagation()} className="flex flex-col items-center gap-3">
+            <SchoolBadge
+              schoolId={school.id}
+              crestUrl={school.crestUrl}
+              name={school.name}
+              size="2xl"
+              className="!size-[min(70vw,420px)] rounded-full"
+            />
+            <p className="text-sm font-bold text-white">{school.name}</p>
+          </div>
+        </div>
+      )}
 
       <div
         className={cn("mt-5 grid gap-1 rounded-2xl border-2 border-line bg-surface-muted p-1", moderator ? "grid-cols-3" : "grid-cols-2")}
