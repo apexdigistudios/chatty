@@ -9,7 +9,6 @@ import { ConfessionCard } from "@/components/feed/ConfessionCard";
 import { GistCard } from "@/components/feed/GistCard";
 import { Button } from "@/components/ui/Button";
 import { PageSpinner } from "@/components/ui/PageSpinner";
-import { SchoolBadge } from "@/components/ui/SchoolBadge";
 import { SchoolHighlightsReel } from "@/components/schools/SchoolHighlightsReel";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -96,8 +95,6 @@ export function HomePage({
   const [rotationSeed, setRotationSeed] = useState(0);
 
   const feedSchool = schools.find((school) => school.id === feedSchoolId) ?? null;
-  const mySchool = schools.find((school) => school.id === profile?.schoolId) ?? null;
-  const headerSchool = feedSchool ?? mySchool;
   useEffect(() => {
     hydrateInitialPublicContent(initialPosts, initialConfessions, initialTrendingPosts, initialTrendingFallback);
   }, [hydrateInitialPublicContent, initialPosts, initialConfessions, initialTrendingFallback, initialTrendingPosts]);
@@ -273,27 +270,15 @@ export function HomePage({
         </div>
       </div>
 
-      <header className="relative mx-4 mt-4 overflow-hidden rounded-[26px] border-2 border-line bg-card p-4 shadow-[0_4px_0_var(--border-color)] sm:mx-0 sm:mt-0 sm:p-5">
+      <section aria-label="School highlights" className="relative mx-4 mt-4 overflow-hidden rounded-[26px] border-2 border-line bg-card p-4 shadow-[0_4px_0_var(--border-color)] sm:mx-0 sm:mt-0 sm:p-5">
         <span className="pointer-events-none absolute -right-12 -top-16 size-48 rounded-full opacity-80" style={{ background: "radial-gradient(circle, var(--brand-wash), transparent 70%)" }} aria-hidden />
-        <div className="relative flex items-start gap-3">
-          <SchoolHighlightsReel
-            variant="avatar"
-            schoolId={feedSchoolId ?? profile?.schoolId ?? null}
-            schoolName={headerSchool?.name}
-          >
-            <SchoolBadge schoolId={headerSchool?.id} crestUrl={headerSchool?.crestUrl} name={headerSchool?.name ?? "Gist me"} size="xl" ring />
-          </SchoolHighlightsReel>
-          <div className="min-w-0 flex-1">
+        <div className="relative flex items-center justify-between gap-3">
+          <div className="min-w-0">
             <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-brand-deep">
               <Sparkles size={12} strokeWidth={2.8} aria-hidden />
-              Ghana SHS community
+              School highlights
             </p>
-            <h1 className="mt-1 truncate text-[24px] font-black leading-tight tracking-tight text-ink sm:text-[28px]">
-              {feedSchool ? feedSchool.shortName : "Your Feed"}
-            </h1>
-            <p className="mt-0.5 truncate text-xs font-semibold text-ink-muted">
-              {headerSchool ? `${headerSchool.name} · ${headerSchool.region}` : "Live gist from every campus"}
-            </p>
+            <p className="mt-1 truncate text-xs font-semibold text-ink-muted">Stories from schools across Ghana</p>
           </div>
           <motion.button
             type="button"
@@ -307,35 +292,10 @@ export function HomePage({
             <RefreshCw size={17} strokeWidth={2.5} className={refreshing ? "animate-spin" : ""} aria-hidden />
           </motion.button>
         </div>
-
-        <div className="relative mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t-2 border-line pt-3.5">
-          {user && profile ? (
-            <>
-              <p className="min-w-0 flex-1 truncate text-xs font-semibold text-ink-muted">
-                Posting as <span className="font-extrabold text-ink">@{profile.username}</span>
-                {mySchool ? ` · ${mySchool.shortName}` : " · no SHS yet"}
-              </p>
-              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
-                {headerSchool ? `${formatCompactNumber(headerSchool.memberCount)} students` : `${formatCompactNumber(schools.length)} communities`}
-              </span>
-            </>
-          ) : (
-            <>
-              <p className="min-w-0 flex-1 text-xs font-bold text-ink-muted">
-                Browsing as guest — join your SHS in 30s to post &amp; reply!
-              </p>
-              <div className="flex min-w-0 flex-wrap shrink-0 items-center gap-1.5">
-                <Link to="/auth?mode=signin" className="inline-flex min-h-11 items-center rounded-xl border-2 border-line bg-page px-2.5 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-ink transition-colors hover:border-brand hover:text-brand-deep">
-                  Log in
-                </Link>
-                <Link to="/auth?mode=signup" className="inline-flex min-h-11 items-center rounded-xl bg-[#8B5CF6] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-white shadow-[0_3px_0_#5B21B6] transition-transform hover:bg-[#7C3AED] active:translate-y-0.5">
-                  Get Started
-                </Link>
-              </div>
-            </>
-          )}
+        <div className="relative mt-3.5 border-t-2 border-line pt-3.5">
+          <SchoolHighlightsReel variant="story-bar" schoolId={null} />
         </div>
-      </header>
+      </section>
 
       <button
         type="button"
