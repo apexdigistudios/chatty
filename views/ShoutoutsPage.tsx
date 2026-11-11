@@ -77,10 +77,13 @@ export function ShoutoutsPage() {
     setOutbox((prev) => prev.map((item) => item.id === letter.id ? { ...item, openedAt: new Date().toISOString(), status: "delivered" } : item));
     try {
       await markShoutoutOpened(letter.id);
-    } catch {
-      // The letter is readable even when the optional read receipt cannot be saved.
+    } catch (error) {
+      toast(describeError(error, "The read receipt could not be saved."), "danger");
     }
+    navigate(`/shoutouts/${letter.id}`);
   };
+
+  const readLetter = (letter: Shoutout) => navigate(`/shoutouts/${letter.id}`);
 
   const replyTo = (letter: Shoutout) => {
     const params = new URLSearchParams();
@@ -170,7 +173,7 @@ export function ShoutoutsPage() {
           inbox.length > 0 ? (
             <div className="space-y-4">
               {inbox.map((letter) => (
-                <ShoutoutCard key={letter.id} shoutout={letter} mode="inbox" school={schoolFor(letter.recipientSchoolId)} senderSchoolName={schoolShortFor(letter.senderSchoolId)} onOpen={openLetter} onReply={replyTo} />
+                <ShoutoutCard key={letter.id} shoutout={letter} mode="inbox" school={schoolFor(letter.recipientSchoolId)} senderSchoolName={schoolShortFor(letter.senderSchoolId)} onOpen={openLetter} onRead={readLetter} onReply={replyTo} />
               ))}
             </div>
           ) : (

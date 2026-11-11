@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, CheckCircle2, Mail, MapPin, PackageCheck, Send, Stamp, Truck } from "lucide-react";
+import { ArrowRight, CheckCircle2, Mail, MapPin, PackageCheck, Stamp, Truck } from "lucide-react";
 import { timeAgo } from "@/lib/time";
 import { springs } from "@/theme/tokens";
 import type { Shoutout } from "@/types/models";
@@ -20,6 +20,7 @@ interface ShoutoutCardProps {
   school: School | null;
   senderSchoolName?: string;
   onOpen?: (shoutout: Shoutout) => void;
+  onRead?: (shoutout: Shoutout) => void;
   onReply?: (shoutout: Shoutout) => void;
 }
 
@@ -36,7 +37,7 @@ export function deliveryCopy(shoutout: Shoutout, recipientSchoolShort: string, s
 }
 
 /** Sealed digital letter for inbox; delivery tracker for outbox. */
-export function ShoutoutCard({ shoutout, mode, school, senderSchoolName, onOpen, onReply }: ShoutoutCardProps) {
+export function ShoutoutCard({ shoutout, mode, school, senderSchoolName, onOpen, onRead, onReply }: ShoutoutCardProps) {
   const [opened, setOpened] = useState(mode === "outbox" || Boolean(shoutout.openedAt));
   const [opening, setOpening] = useState(false);
 
@@ -105,36 +106,56 @@ export function ShoutoutCard({ shoutout, mode, school, senderSchoolName, onOpen,
                   animate={{ opacity: 1, y: 0, rotateX: 0 }}
                   transition={springs.bouncy}
                 >
-                  <p className="flex flex-wrap items-center gap-1 text-[10px] font-black uppercase tracking-[0.14em] text-brand-deep">
-                    From {shoutout.senderName}
-                    <VerifiedBadge
-                      isVerified={shoutout.senderIsVerified}
-                      verifiedExpiresAt={shoutout.senderVerifiedExpiresAt}
-                      verifiedTitle={shoutout.senderVerifiedTitle}
-                      isAdmin={shoutout.senderIsAdmin}
-                      role={shoutout.senderRole}
-                    />
-                  </p>
-                  <p className="mt-1.5 whitespace-pre-wrap wrap-break-word text-sm font-semibold leading-relaxed text-ink-soft">
-                    {shoutout.message}
-                  </p>
-                  <p className="mt-2 text-[11px] font-semibold text-ink-muted">
-                    To {shoutout.recipientName}
-                    {shoutout.recipientUserId && (
-                      <VerifiedBadge
-                        isVerified={shoutout.recipientIsVerified}
-                        verifiedExpiresAt={shoutout.recipientVerifiedExpiresAt}
-                        verifiedTitle={shoutout.recipientVerifiedTitle}
-                        isAdmin={shoutout.recipientIsAdmin}
-                        role={shoutout.recipientRole}
-                      />
-                    )}
-                    {" · "}{shoutout.recipientClass || "SHS student"} · {recipientShort}
-                  </p>
-                  {mode === "inbox" && onReply && (
-                    <Button size="sm" variant="outline" className="mt-3" leftIcon={<Send size={13} strokeWidth={2.6} aria-hidden />} onClick={() => onReply(shoutout)}>
-                      Reply by paper plane
-                    </Button>
+                  {mode === "inbox" ? (
+                    <>
+                      <p className="flex flex-wrap items-center gap-1 text-[10px] font-black uppercase tracking-[0.14em] text-brand-deep">
+                        From {shoutout.senderName}
+                        <VerifiedBadge
+                          isVerified={shoutout.senderIsVerified}
+                          verifiedExpiresAt={shoutout.senderVerifiedExpiresAt}
+                          verifiedTitle={shoutout.senderVerifiedTitle}
+                          isAdmin={shoutout.senderIsAdmin}
+                          role={shoutout.senderRole}
+                        />
+                      </p>
+                      <p className="mt-1.5 text-xs font-semibold text-ink-muted">
+                        This letter has been opened.
+                      </p>
+                      {onRead && (
+                        <Button size="sm" className="mt-3" onClick={() => onRead(shoutout)}>
+                          Read letter
+                        </Button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <p className="flex flex-wrap items-center gap-1 text-[10px] font-black uppercase tracking-[0.14em] text-brand-deep">
+                        From {shoutout.senderName}
+                        <VerifiedBadge
+                          isVerified={shoutout.senderIsVerified}
+                          verifiedExpiresAt={shoutout.senderVerifiedExpiresAt}
+                          verifiedTitle={shoutout.senderVerifiedTitle}
+                          isAdmin={shoutout.senderIsAdmin}
+                          role={shoutout.senderRole}
+                        />
+                      </p>
+                      <p className="mt-1.5 whitespace-pre-wrap wrap-break-word text-sm font-semibold leading-relaxed text-ink-soft">
+                        {shoutout.message}
+                      </p>
+                      <p className="mt-2 text-[11px] font-semibold text-ink-muted">
+                        To {shoutout.recipientName}
+                        {shoutout.recipientUserId && (
+                          <VerifiedBadge
+                            isVerified={shoutout.recipientIsVerified}
+                            verifiedExpiresAt={shoutout.recipientVerifiedExpiresAt}
+                            verifiedTitle={shoutout.recipientVerifiedTitle}
+                            isAdmin={shoutout.recipientIsAdmin}
+                            role={shoutout.recipientRole}
+                          />
+                        )}
+                        {" · "}{shoutout.recipientClass || "SHS student"} · {recipientShort}
+                      </p>
+                    </>
                   )}
                 </motion.div>
               ) : (

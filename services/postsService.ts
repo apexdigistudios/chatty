@@ -362,20 +362,56 @@ export function mapPost(row: RawPost, liked: boolean): Post {
 /** Adds viewer-specific like state to posts with embedded media and school data. */
 export async function hydrateLikes(rows: RawPost[]): Promise<Post[]> {
   if (rows.length === 0) return [];
-  const userId = await currentUserId();
+  const [userId, mediaCapabilities] = await Promise.all([
+    currentUserId(),
+    postMediaCapabilities(),
+  ]);
   let likedIds = new Set<string>();
+  const mediaByPostId = new Map<string, RawPostMedia[]>();
+  const requests: Promise<void>[] = [];
   if (userId) {
-    const { data } = await supabase
+    requests.push((async () => {
+      const { data, error } = await supabase
       .from("likes")
       .select("post_id")
       .eq("user_id", userId)
       .in("post_id", rows.map((row) => row.id));
-    likedIds = new Set((data ?? []).map((like: { post_id: string }) => like.post_id));
+      if (error) throw new Error(error.message);
+      likedIds = new Set((data ?? []).map((like: { post_id: string }) => like.post_id));
+    })());
   }
+  if (mediaCapabilities.available) {
+    requests.push((async () => {
+      const columns = [
+        "post_id",
+        "media_url",
+        "sort_order",
+        ...(mediaCapabilities.supportsMediaType ? ["media_type"] : []),
+        ...(mediaCapabilities.supportsVideoDuration ? ["video_duration_seconds"] : []),
+        ...(mediaCapabilities.supportsVideoThumbnail ? ["video_thumbnail_url"] : []),
+      ];
+      const { data, error } = await supabase
+        .from("post_media")
+        .select(columns.join(", "))
+        .in("post_id", rows.map((row) => row.id))
+        .order("sort_order", { ascending: true })
+        .returns<RawPostMedia[]>();
+      if (error) throw new Error(error.message);
+      for (const media of data ?? []) {
+        const items = mediaByPostId.get(media.post_id) ?? [];
+        items.push(media);
+        mediaByPostId.set(media.post_id, items);
+      }
+    })());
+  }
+  await Promise.all(requests);
+
   return rows.map((row) => {
     const post = mapPost(row, likedIds.has(row.id));
-    const items = row.media?.length
-      ? [...row.media].sort((left, right) => left.sort_order - right.sort_order)
+    const items = mediaByPostId.get(row.id)?.length
+      ? mediaByPostId.get(row.id)!
+      : row.media?.length
+        ? [...row.media].sort((left, right) => left.sort_order - right.sort_order)
       : null;
     if (!items?.length) return post;
     return {

@@ -72,13 +72,19 @@ export function SchoolPage({
 
   const [membershipBusy, setMembershipBusy] = useState<string | null>(null);
 
-  const moderator = canModerate(id);
+  const isAssignedSchool = Boolean(user && profile?.schoolId === id);
+  const moderator = Boolean(isGlobalAdmin || (isAssignedSchool && canModerate(id)));
+  const canViewSchoolSections = Boolean(isGlobalAdmin || isAssignedSchool);
   const canPostToSchool = Boolean(
     school && (isGlobalAdmin || (user && profile?.schoolId === school.id))
   );
   const requestedTab = searchParams.get("tab");
   const tab: Tab =
-    requestedTab === "manage" && moderator ? "manage" : requestedTab === "groups" ? "groups" : "feed";
+    requestedTab === "manage" && moderator
+      ? "manage"
+      : requestedTab === "groups" && canViewSchoolSections
+        ? "groups"
+        : "feed";
 
   const activeGroup = useMemo(
     () => groups.find((group) => group.id === activeGroupId) ?? null,
@@ -152,6 +158,10 @@ export function SchoolPage({
 
   const claim = async () => {
     if (!id) return;
+    if (!isGlobalAdmin && profile?.schoolId !== id) {
+      toast("Only students assigned to this school can claim it.", "danger");
+      return;
+    }
     if (!user) {
       openAuthGate({
         title: `Moderate ${school?.shortName ?? "this SHS"}!`,
@@ -250,7 +260,7 @@ export function SchoolPage({
 
   const tabs: Array<{ id: Tab; label: string; icon: typeof Users }> = [
     { id: "feed", label: "Feed", icon: Sparkles },
-    { id: "groups", label: "Groups & Clubs", icon: Users },
+    ...(canViewSchoolSections ? [{ id: "groups" as Tab, label: "Groups & Clubs", icon: Users }] : []),
     ...(moderator ? [{ id: "manage" as Tab, label: "Manage", icon: ShieldCheck }] : []),
   ];
 
@@ -312,7 +322,7 @@ export function SchoolPage({
               Post to {activeGroup ? activeGroup.name : school.shortName}
             </Button>
           )}
-          {!school.creatorId && (
+          {!school.creatorId && (isGlobalAdmin || isAssignedSchool) && (
             <Button size="sm" variant="outline" disabled={claiming} leftIcon={claiming ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <ShieldCheck size={14} strokeWidth={2.6} aria-hidden />} onClick={claim}>
               Claim &amp; moderate
             </Button>
@@ -401,7 +411,7 @@ export function SchoolPage({
       )}
 
       <div
-        className={cn("mt-5 grid gap-1 rounded-2xl border-2 border-line bg-surface-muted p-1", moderator ? "grid-cols-3" : "grid-cols-2")}
+        className={cn("mt-5 grid gap-1 rounded-2xl border-2 border-line bg-surface-muted p-1", tabs.length === 3 ? "grid-cols-3" : tabs.length === 2 ? "grid-cols-2" : "grid-cols-1")}
         role="tablist"
         aria-label="Community sections"
       >
