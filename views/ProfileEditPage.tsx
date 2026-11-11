@@ -103,7 +103,7 @@ export function ProfileEditPage() {
     event.preventDefault();
     if (!profile) return;
     if (!isValidUsername(username)) {
-      toast("Usernames must be between 3 and 24 characters. Any characters are allowed.", "danger");
+      toast("Enter a username.", "danger");
       return;
     }
 
@@ -210,7 +210,6 @@ export function ProfileEditPage() {
               <input
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
-                maxLength={24}
                 className="h-11 w-full rounded-xl border-2 border-line bg-page px-3 text-sm font-extrabold text-ink outline-none focus:border-brand"
               />
               {availability !== "idle" && (
@@ -226,7 +225,7 @@ export function ProfileEditPage() {
                   {availability === "checking" && "Checking nickname…"}
                   {availability === "available" && "Nickname is available."}
                   {availability === "taken" && "That nickname is already taken."}
-                  {availability === "invalid" && "Use 3–24 characters. Any characters are allowed."}
+                  {availability === "invalid" && "Enter a username."}
                   {availability === "error" && "Could not check nickname availability."}
                 </span>
               )}
@@ -237,8 +236,7 @@ export function ProfileEditPage() {
                 <span className="mb-1.5 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Full official name (optional)</span>
                 <input
                   value={fullName}
-                  onChange={(event) => setFullName(event.target.value.slice(0, 80))}
-                  maxLength={80}
+                  onChange={(event) => setFullName(event.target.value)}
                   placeholder="e.g. Kwame Mensah"
                   className="h-11 w-full rounded-xl border-2 border-line bg-page px-3 text-sm font-bold text-ink outline-none focus:border-brand"
                 />

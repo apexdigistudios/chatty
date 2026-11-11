@@ -325,7 +325,7 @@ function AuthWizardContent() {
   }, [mode, step, schoolQuery, selectedSchoolId, schoolMatches.length, upsertSchool]);
 
   useEffect(() => {
-    if (mode !== "signup" || step !== 2 || !username) {
+    if (mode !== "signup" || step !== 2) {
       setNicknameStatus("idle");
       return;
     }
@@ -450,7 +450,7 @@ function AuthWizardContent() {
       return;
     }
     if (!isValidUsername(username) || nicknameStatus !== "available") {
-      setErrorMessage("Choose an available username with 3 to 24 characters.");
+      setErrorMessage("Enter an available username.");
       return;
     }
     setBusy(true);
@@ -534,7 +534,7 @@ function AuthWizardContent() {
       !isValidUsername(username) ||
       nicknameStatus !== "available"
     ) {
-      setErrorMessage("Choose a username with 3 to 24 characters.");
+      setErrorMessage("Enter an available username.");
       return;
     }
     setErrorMessage(null);
@@ -772,8 +772,6 @@ function AuthWizardContent() {
                       setUsername(event.target.value);
                       setErrorMessage(null);
                     }}
-                    minLength={3}
-                    maxLength={24}
                     autoComplete="nickname"
                     placeholder="Type any name you like"
                     className={cn(
@@ -934,7 +932,7 @@ function AuthWizardContent() {
                   <p className="text-sm font-semibold text-danger">That username is taken. Try another one.</p>
                 )}
                 {hasAttemptedSubmit && nicknameStatus === "invalid" && (
-                  <p className="text-sm font-semibold text-danger">Use 3 to 24 characters.</p>
+                  <p className="text-sm font-semibold text-danger">Enter a username.</p>
                 )}
                 {nicknameStatus === "available" && (
                   <p className="flex items-center gap-1.5 text-sm font-semibold text-success">

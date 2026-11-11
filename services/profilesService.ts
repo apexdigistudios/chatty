@@ -19,8 +19,7 @@ const IDENTITY_COVER_SELECT = `${IDENTITY_SELECT}, cover_url`;
 const VERIFICATION_SELECT = ", is_verified, verified_title, verified_expires_at, is_admin, role";
 
 export function isValidUsername(username: string): boolean {
-  const length = Array.from(username).length;
-  return length >= 3 && length <= 24;
+  return username.trim().length > 0;
 }
 
 /** Step 10 profile identity columns are optional until migration-step10.sql runs. */
@@ -189,11 +188,7 @@ export async function ensureProfile(): Promise<Profile> {
     school_id?: string;
     avatar_url?: string;
   };
-  const base =
-    (meta.username ?? user.email?.split("@")[0] ?? "student")
-      .replace(/[^A-Za-z0-9_]/g, "")
-      .slice(0, 20) || "student";
-  const candidate = base.length >= 3 ? base : `${base}_${user.id.replace(/-/g, "").slice(0, 4)}`;
+  const candidate = meta.username?.trim() || user.email?.split("@")[0] || "student";
 
   const { data, error } = await supabase
     .from("profiles")
@@ -357,23 +352,21 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 
 export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
   const userId = await requireUserId();
+  const { data: current, error: currentError } = await supabase
+    .from("profiles")
+    .select("id, username, school_id, avatar_url, bio")
+    .eq("id", userId)
+    .maybeSingle<Pick<ProfileRow, "id" | "username" | "school_id" | "avatar_url" | "bio">>();
+  if (currentError) throw new Error(currentError.message);
+
   const update: ProfileUpdatePayload = {};
   if (patch.username !== undefined) {
     const username = patch.username;
     if (!isValidUsername(username)) {
-      throw new Error("Usernames must be between 3 and 24 characters.");
+      throw new Error("Enter a username.");
     }
-    const { data: current, error: currentError } = await supabase
-      .from("profiles")
-      .select("username")
-      .eq("id", userId)
-      .maybeSingle<{ username: string }>();
-    if (currentError) {
-      throw new Error(currentError.message);
-    }
-    if (!current) throw new Error("Your profile could not be found.");
 
-    if (username !== current.username) {
+    if (current && username !== current.username) {
       const { data: usernameRules, error: usernameRulesError } = await supabase
         .from("profiles")
         .select("username_last_changed_at")
@@ -385,15 +378,16 @@ export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
         }
         throw new Error(usernameRulesError.message);
       }
-      if (!usernameRules) throw new Error("Your profile could not be found.");
 
-      const lastChangedAt = usernameRules.username_last_changed_at
+      const lastChangedAt = usernameRules?.username_last_changed_at
         ? Date.parse(usernameRules.username_last_changed_at)
         : null;
       const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
       if (lastChangedAt !== null && Date.now() - lastChangedAt < sevenDaysMs) {
         throw new Error("You can only change your username once every 7 days.");
       }
+      update.username = username;
+    } else if (!current) {
       update.username = username;
     }
   }
@@ -429,8 +423,8 @@ export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
       throw new Error("Profile identity fields need migration-step10.sql to be applied first.");
     }
     if (supportsIdentity) {
-      if (patch.fullName !== undefined) update.full_name = patch.fullName?.trim() || null;
-      if (patch.classForm !== undefined) update.class_form = patch.classForm?.trim() || null;
+      if (patch.fullName !== undefined) update.full_name = patch.fullName || null;
+      if (patch.classForm !== undefined) update.class_form = patch.classForm || null;
     }
   }
 
@@ -440,10 +434,32 @@ export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
     return profile;
   }
 
+  let newProfileDefaults: Partial<ProfileRow> = {};
+  if (!current) {
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError) throw new Error(authError.message);
+    const metadataUsername = authData.user?.user_metadata?.username;
+    const username =
+      typeof metadataUsername === "string" && isValidUsername(metadataUsername)
+        ? metadataUsername
+        : authData.user?.email?.split("@")[0] || "student";
+    newProfileDefaults = {
+      username,
+      school_id: null,
+      avatar_url: defaultAvatarUrl(username),
+      bio: "",
+    };
+  }
+
+  const payload = {
+    ...newProfileDefaults,
+    id: userId,
+    ...(current ? { username: current.username } : {}),
+    ...update,
+  };
   const { error } = await supabase
     .from("profiles")
-    .update(update)
-    .eq("id", userId);
+    .upsert(payload, { onConflict: "id" });
   if (error) {
     if (error.code === "23505") throw new Error("That nickname is already taken.");
     if (error.message.includes("You can only change your username once every 7 days.")) {
@@ -602,7 +618,7 @@ export interface SignUpResult {
 export async function signUpWithEmail(input: SignUpInput): Promise<SignUpResult> {
   const username = input.username;
   if (!isValidUsername(username)) {
-    throw new Error("Usernames must be between 3 and 24 characters.");
+    throw new Error("Enter a username.");
   }
   const fallbackAvatar = input.avatarUrl || defaultAvatarUrl(username);
   let schoolId = input.schoolId ?? null;

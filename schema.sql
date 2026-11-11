@@ -39,8 +39,7 @@ create table if not exists public.profiles (
   cover_url   text,
   bio         text not null default '' check (char_length(bio) <= 160),
   created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now(),
-  constraint profiles_username_length_check check (char_length(username) between 3 and 24)
+  updated_at  timestamptz not null default now()
 );
 
 alter table public.schools
