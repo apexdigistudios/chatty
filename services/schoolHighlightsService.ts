@@ -47,14 +47,15 @@ export interface SchoolHighlight {
   };
 }
 
-export async function fetchSchoolHighlights(schoolId: string): Promise<SchoolHighlight[]> {
-  const { data, error } = await supabase
+export async function fetchSchoolHighlights(schoolId: string | null): Promise<SchoolHighlight[]> {
+  let query = supabase
     .from("school_highlights")
     .select("id, user_id, school_id, media_url, thumbnail_url, media_type, created_at, expires_at, author:profiles(id, username, avatar_url, is_verified, verified_expires_at, verified_title, is_admin, role)")
-    .eq("school_id", schoolId)
     .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: true })
-    .returns<SchoolHighlightRow[]>();
+    .limit(100);
+  if (schoolId) query = query.eq("school_id", schoolId);
+  const { data, error } = await query.returns<SchoolHighlightRow[]>();
   if (error) throw new Error(error.message);
 
   return (data ?? []).flatMap((row) => {

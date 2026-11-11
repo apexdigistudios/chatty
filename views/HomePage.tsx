@@ -10,6 +10,7 @@ import { GistCard } from "@/components/feed/GistCard";
 import { Button } from "@/components/ui/Button";
 import { PageSpinner } from "@/components/ui/PageSpinner";
 import { SchoolBadge } from "@/components/ui/SchoolBadge";
+import { SchoolHighlightsReel } from "@/components/schools/SchoolHighlightsReel";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useAuthGateStore } from "@/store/authGateStore";
@@ -329,6 +330,13 @@ export function HomePage({
           )}
         </div>
       </header>
+
+      <div className="mx-4 mt-3 sm:mx-0">
+        <SchoolHighlightsReel
+          schoolId={feedSchoolId ?? profile?.schoolId ?? null}
+          schoolName={headerSchool?.name}
+        />
+      </div>
 
       <button
         type="button"

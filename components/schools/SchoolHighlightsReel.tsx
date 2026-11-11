@@ -19,8 +19,8 @@ export function SchoolHighlightsReel({
   schoolId,
   schoolName,
 }: {
-  schoolId: string;
-  schoolName: string;
+  schoolId: string | null;
+  schoolName?: string;
 }) {
   const { user, profile } = useAuth();
   const { toast } = useToast();
@@ -45,7 +45,7 @@ export function SchoolHighlightsReel({
   }, [load]);
 
   const ownHighlight = highlights.some((highlight) => highlight.userId === user?.id);
-  const canShare = Boolean(!loading && user && profile?.schoolId === schoolId && !ownHighlight);
+  const canShare = Boolean(!loading && schoolId && user && profile?.schoolId === schoolId && !ownHighlight);
 
   const moveStory = useCallback((step: number) => {
     setSelectedIndex((current) => {
@@ -61,6 +61,7 @@ export function SchoolHighlightsReel({
     if (!file) return;
     setUploading(true);
     try {
+      if (!schoolId) throw new Error("Choose your school before sharing a highlight.");
       await createSchoolHighlight(schoolId, file);
       await load();
       toast("Your highlight is live for 24 hours.", "success");
@@ -91,7 +92,7 @@ export function SchoolHighlightsReel({
 
   return (
     <>
-      <section aria-label={`${schoolName} highlights`} className="my-4 rounded-2xl border-2 border-line bg-card px-3 py-3 shadow-[0_3px_0_var(--border-color)]">
+      <section aria-label={`${schoolName ?? "School"} highlights`} className="my-4 rounded-2xl border-2 border-line bg-card px-3 py-3 shadow-[0_3px_0_var(--border-color)]">
         <div className="flex items-start gap-3 overflow-x-auto pb-1 [scrollbar-width:none]">
           {canShare && (
             <button
