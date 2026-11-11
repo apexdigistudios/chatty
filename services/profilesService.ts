@@ -339,6 +339,8 @@ export interface ProfilePatch {
   website?: string | null;
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
   const userId = await requireUserId();
   const update: Partial<ProfileRow> = {};
@@ -399,7 +401,13 @@ export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
     }
     update.cover_url = patch.coverUrl ? cloudflareMediaUrl(patch.coverUrl) : null;
   }
-  if (patch.schoolId !== undefined) update.school_id = patch.schoolId;
+  if (patch.schoolId !== undefined) {
+    const schoolId = patch.schoolId?.trim() ?? "";
+    if (schoolId && !UUID_PATTERN.test(schoolId)) {
+      throw new Error("Choose a valid school before saving your profile.");
+    }
+    update.school_id = schoolId || null;
+  }
   if (patch.fullName !== undefined || patch.classForm !== undefined) {
     const hasIdentityValues = Boolean(patch.fullName?.trim() || patch.classForm?.trim());
     const supportsIdentity = await supportsProfileIdentity();
@@ -410,6 +418,12 @@ export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
       if (patch.fullName !== undefined) update.full_name = patch.fullName?.trim() || null;
       if (patch.classForm !== undefined) update.class_form = patch.classForm?.trim() || null;
     }
+  }
+
+  if (Object.keys(update).length === 0) {
+    const profile = await fetchProfile(userId);
+    if (!profile) throw new Error("Your profile could not be reloaded.");
+    return profile;
   }
 
   const { error } = await supabase

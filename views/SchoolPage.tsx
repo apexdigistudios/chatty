@@ -46,7 +46,7 @@ export function SchoolPage({
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, profile } = useAuth();
+  const { user, profile, isGlobalAdmin } = useAuth();
   const canModerate = useCanModerate();
   const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
 
@@ -73,6 +73,9 @@ export function SchoolPage({
   const [membershipBusy, setMembershipBusy] = useState<string | null>(null);
 
   const moderator = canModerate(id);
+  const canPostToSchool = Boolean(
+    school && (isGlobalAdmin || (user && profile?.schoolId === school.id))
+  );
   const requestedTab = searchParams.get("tab");
   const tab: Tab =
     requestedTab === "manage" && moderator ? "manage" : requestedTab === "groups" ? "groups" : "feed";
@@ -173,6 +176,7 @@ export function SchoolPage({
   };
 
   const compose = (groupId?: string | null) => {
+    if (!school || !canPostToSchool) return;
     if (!user) {
       setComposerIntent("gist", id ?? null);
       openAuthGate({
@@ -303,9 +307,11 @@ export function SchoolPage({
         </div>
 
         <div className="relative mt-4 flex flex-wrap gap-2 border-t-2 border-line pt-4">
-          <Button size="sm" leftIcon={<Plus size={14} strokeWidth={2.8} aria-hidden />} onClick={() => compose(activeGroupId)}>
-            Post to {activeGroup ? activeGroup.name : school.shortName}
-          </Button>
+          {canPostToSchool && (
+            <Button size="sm" leftIcon={<Plus size={14} strokeWidth={2.8} aria-hidden />} onClick={() => compose(activeGroupId)}>
+              Post to {activeGroup ? activeGroup.name : school.shortName}
+            </Button>
+          )}
           {!school.creatorId && (
             <Button size="sm" variant="outline" disabled={claiming} leftIcon={claiming ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <ShieldCheck size={14} strokeWidth={2.6} aria-hidden />} onClick={claim}>
               Claim &amp; moderate
@@ -543,7 +549,9 @@ export function SchoolPage({
                   {activeGroup ? `No gists in ${activeGroup.name} yet` : `No gists from ${school.shortName} yet`}
                 </p>
                 <p className="mx-auto mt-1 max-w-[30ch] text-xs font-semibold leading-relaxed text-ink-muted">Be the first student to put this campus on the map.</p>
-                <Button size="sm" variant="outline" className="mt-4" onClick={() => compose(activeGroupId)}>Write the first gist</Button>
+                {canPostToSchool && (
+                  <Button size="sm" variant="outline" className="mt-4" onClick={() => compose(activeGroupId)}>Write the first gist</Button>
+                )}
               </div>
             )}
           </>
