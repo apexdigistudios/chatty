@@ -95,6 +95,8 @@ export function HomePage({
   const [rotationSeed, setRotationSeed] = useState(0);
 
   const feedSchool = schools.find((school) => school.id === feedSchoolId) ?? null;
+  const mySchool = schools.find((school) => school.id === profile?.schoolId) ?? null;
+  const headerSchool = feedSchool ?? mySchool;
   useEffect(() => {
     hydrateInitialPublicContent(initialPosts, initialConfessions, initialTrendingPosts, initialTrendingFallback);
   }, [hydrateInitialPublicContent, initialPosts, initialConfessions, initialTrendingFallback, initialTrendingPosts]);
@@ -270,15 +272,20 @@ export function HomePage({
         </div>
       </div>
 
-      <section aria-label="School highlights" className="relative mx-4 mt-4 overflow-hidden rounded-[26px] border-2 border-line bg-card p-4 shadow-[0_4px_0_var(--border-color)] sm:mx-0 sm:mt-0 sm:p-5">
+      <section aria-label="Your feed and school highlights" className="relative mx-4 mt-4 overflow-hidden rounded-[26px] border-2 border-line bg-card p-4 shadow-[0_4px_0_var(--border-color)] sm:mx-0 sm:mt-0 sm:p-5">
         <span className="pointer-events-none absolute -right-12 -top-16 size-48 rounded-full opacity-80" style={{ background: "radial-gradient(circle, var(--brand-wash), transparent 70%)" }} aria-hidden />
         <div className="relative flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-brand-deep">
               <Sparkles size={12} strokeWidth={2.8} aria-hidden />
-              School highlights
+              Ghana SHS community
             </p>
-            <p className="mt-1 truncate text-xs font-semibold text-ink-muted">Stories from schools across Ghana</p>
+            <h1 className="mt-1 truncate text-xl font-black leading-tight tracking-tight text-ink">
+              {feedSchool ? feedSchool.shortName : "Your Feed"}
+            </h1>
+            <p className="mt-0.5 truncate text-xs font-semibold text-ink-muted">
+              {headerSchool ? `${headerSchool.name} · ${headerSchool.region}` : "Live gist from every campus"}
+            </p>
           </div>
           <motion.button
             type="button"
@@ -293,6 +300,7 @@ export function HomePage({
           </motion.button>
         </div>
         <div className="relative mt-3.5 border-t-2 border-line pt-3.5">
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.14em] text-ink-muted">Campus stories</p>
           <SchoolHighlightsReel variant="story-bar" schoolId={null} />
         </div>
       </section>
