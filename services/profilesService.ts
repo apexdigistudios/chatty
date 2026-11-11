@@ -339,11 +339,25 @@ export interface ProfilePatch {
   website?: string | null;
 }
 
+type ProfileUpdatePayload = Partial<
+  Pick<
+    ProfileRow,
+    | "username"
+    | "bio"
+    | "website"
+    | "avatar_url"
+    | "cover_url"
+    | "school_id"
+    | "full_name"
+    | "class_form"
+  >
+>;
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function updateMyProfile(patch: ProfilePatch): Promise<Profile> {
   const userId = await requireUserId();
-  const update: Partial<ProfileRow> = {};
+  const update: ProfileUpdatePayload = {};
   if (patch.username !== undefined) {
     const username = patch.username;
     if (!isValidUsername(username)) {
