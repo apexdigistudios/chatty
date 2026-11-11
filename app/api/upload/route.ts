@@ -144,24 +144,28 @@ export async function POST(request: Request): Promise<Response> {
     });
   } catch (error) {
     if (uploadedUrls.length > 0) {
-      const keys = uploadedUrls.map((url) => new URL(url).pathname.slice(1).split("/").map(decodeURIComponent).join("/"));
-      const cleanup = await Promise.allSettled(keys.map((key) => deleteFromR2(key)));
-      for (const result of cleanup) {
-        if (result.status === "rejected") console.error("Could not remove incomplete R2 upload.", result.reason);
+      try {
+        const keys = uploadedUrls.map((url) => new URL(url).pathname.slice(1).split("/").map(decodeURIComponent).join("/"));
+        const cleanup = await Promise.allSettled(keys.map((key) => deleteFromR2(key)));
+        for (const result of cleanup) {
+          if (result.status === "rejected") console.error("Could not remove incomplete R2 upload.", result.reason);
+        }
+      } catch (cleanupError) {
+        console.error("Could not clean up incomplete R2 uploads.", cleanupError);
       }
     }
-    console.error("R2 upload failed.", error);
-    return errorResponse("Upload failed. Please try again.", 500);
+    console.error("Upload request could not be completed.", error);
+    return errorResponse("Uploads are temporarily unavailable. Please try again.", 503);
   } finally {
     if (processedVideo) await cleanupProcessedVideo(processedVideo);
   }
 }
 
 export async function DELETE(request: Request): Promise<Response> {
-  const auth = await authorize(request);
-  if (auth.response) return auth.response;
-
   try {
+    const auth = await authorize(request);
+    if (auth.response) return auth.response;
+
     if (!(await isGlobalAdmin(auth.client))) {
       return errorResponse("You are not authorized to delete seed media.", 403);
     }
@@ -175,6 +179,6 @@ export async function DELETE(request: Request): Promise<Response> {
     return Response.json({ success: true });
   } catch (error) {
     console.error("R2 media deletion failed.", error);
-    return errorResponse("Media could not be removed. Please try again.", 500);
+    return errorResponse("Media storage is temporarily unavailable. Please try again.", 503);
   }
 }
