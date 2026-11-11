@@ -251,12 +251,19 @@ export function SchoolPage({
     <div className="mx-auto w-full max-w-[760px] min-w-0 px-4 pt-5 sm:px-6 sm:pt-7">
       <Link to="/schools" className="inline-flex items-center gap-1 text-xs font-extrabold text-ink-muted hover:text-brand-deep"><ArrowLeft size={14} strokeWidth={2.6} aria-hidden />All communities</Link>
 
-      <SchoolHighlightsReel schoolId={school.id} schoolName={school.name} />
-
       <header className="mt-3">
         <div className="relative flex items-start gap-3 sm:gap-4">
           <div className="relative size-16 shrink-0 sm:size-24">
-            <SchoolBadge schoolId={school.id} crestUrl={school.crestUrl} name={school.name} size="2xl" ring={moderator} className="size-full" />
+            <SchoolHighlightsReel
+              variant="avatar"
+              className="size-full"
+              schoolId={school.id}
+              schoolName={school.name}
+              promptOnOpen
+              onViewProfile={() => setSearchParams({})}
+            >
+              <SchoolBadge schoolId={school.id} crestUrl={school.crestUrl} name={school.name} size="2xl" ring={moderator} className="size-full" />
+            </SchoolHighlightsReel>
             <SchoolCrestUploader
               schoolId={school.id}
               canEdit={moderator}

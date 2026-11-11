@@ -276,7 +276,13 @@ export function HomePage({
       <header className="relative mx-4 mt-4 overflow-hidden rounded-[26px] border-2 border-line bg-card p-4 shadow-[0_4px_0_var(--border-color)] sm:mx-0 sm:mt-0 sm:p-5">
         <span className="pointer-events-none absolute -right-12 -top-16 size-48 rounded-full opacity-80" style={{ background: "radial-gradient(circle, var(--brand-wash), transparent 70%)" }} aria-hidden />
         <div className="relative flex items-start gap-3">
-          <SchoolBadge schoolId={headerSchool?.id} crestUrl={headerSchool?.crestUrl} name={headerSchool?.name ?? "Gist me"} size="xl" ring />
+          <SchoolHighlightsReel
+            variant="avatar"
+            schoolId={feedSchoolId ?? profile?.schoolId ?? null}
+            schoolName={headerSchool?.name}
+          >
+            <SchoolBadge schoolId={headerSchool?.id} crestUrl={headerSchool?.crestUrl} name={headerSchool?.name ?? "Gist me"} size="xl" ring />
+          </SchoolHighlightsReel>
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-brand-deep">
               <Sparkles size={12} strokeWidth={2.8} aria-hidden />
@@ -330,13 +336,6 @@ export function HomePage({
           )}
         </div>
       </header>
-
-      <div className="mx-4 mt-3 sm:mx-0">
-        <SchoolHighlightsReel
-          schoolId={feedSchoolId ?? profile?.schoolId ?? null}
-          schoolName={headerSchool?.name}
-        />
-      </div>
 
       <button
         type="button"

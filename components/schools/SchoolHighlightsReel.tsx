@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
@@ -18,9 +18,19 @@ const IMAGE_STORY_MS = 5_000;
 export function SchoolHighlightsReel({
   schoolId,
   schoolName,
+  variant = "reel",
+  children,
+  className,
+  promptOnOpen = false,
+  onViewProfile,
 }: {
   schoolId: string | null;
   schoolName?: string;
+  variant?: "reel" | "avatar";
+  children?: ReactNode;
+  className?: string;
+  promptOnOpen?: boolean;
+  onViewProfile?: () => void;
 }) {
   const { user, profile } = useAuth();
   const { toast } = useToast();
@@ -29,6 +39,7 @@ export function SchoolHighlightsReel({
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [promptOpen, setPromptOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -73,6 +84,16 @@ export function SchoolHighlightsReel({
   };
 
   const activeStory = selectedIndex === null ? null : highlights[selectedIndex] ?? null;
+  const openAvatar = () => {
+    if (highlights.length > 0) {
+      if (promptOnOpen) setPromptOpen(true);
+      else setSelectedIndex(0);
+    } else if (canShare) {
+      fileInput.current?.click();
+    } else {
+      onViewProfile?.();
+    }
+  };
   useEffect(() => {
     if (!activeStory || activeStory.mediaType === "video") return;
     const timeout = setTimeout(() => moveStory(1), IMAGE_STORY_MS);
@@ -92,6 +113,31 @@ export function SchoolHighlightsReel({
 
   return (
     <>
+      {variant === "avatar" ? (
+        <div className={`relative inline-flex shrink-0 ${className ?? ""}`}>
+          <button
+            type="button"
+            onClick={openAvatar}
+            aria-label={highlights.length ? `Open ${schoolName ?? "school"} highlights` : canShare ? "Add a school highlight" : `View ${schoolName ?? "school"} profile`}
+            className="size-full rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+          >
+            <span className={`flex rounded-full p-[3px] transition-shadow ${highlights.length ? "bg-gradient-to-br from-fuchsia-500 via-rose-500 to-amber-400 shadow-[0_0_18px_rgba(236,72,153,0.5)]" : "bg-transparent"}`}>
+              <span className="flex rounded-full bg-card p-[2px]">{children}</span>
+            </span>
+          </button>
+          {canShare && (
+            <button
+              type="button"
+              onClick={() => fileInput.current?.click()}
+              disabled={uploading}
+              aria-label="Add a highlight"
+              className="absolute -bottom-1 -right-1 z-10 flex size-8 items-center justify-center rounded-full border-2 border-card bg-sky-500 text-white shadow-lg"
+            >
+              {uploading ? <Loader2 size={15} className="animate-spin" aria-hidden /> : <ImagePlus size={15} aria-hidden />}
+            </button>
+          )}
+        </div>
+      ) : (
       <section aria-label={`${schoolName ?? "School"} highlights`} className="my-4 rounded-2xl border-2 border-line bg-card px-3 py-3 shadow-[0_3px_0_var(--border-color)]">
         <div className="flex items-start gap-3 overflow-x-auto pb-1 [scrollbar-width:none]">
           {canShare && (
@@ -139,16 +185,52 @@ export function SchoolHighlightsReel({
           {loading && <Loader2 size={16} className="m-5 animate-spin text-brand-deep" aria-label="Loading highlights" />}
         </div>
         {canShare && <p className="mt-1 text-[10px] font-semibold text-ink-muted">One photo or short video. It stays for 24 hours.</p>}
-        <input
-          ref={fileInput}
-          type="file"
-          accept="image/*,video/mp4,video/webm,video/quicktime,video/ogg"
-          onChange={(event) => void upload(event)}
-          className="sr-only"
-          aria-label="Choose a photo or short video"
-        />
       </section>
+      )}
 
+      <input
+        ref={fileInput}
+        type="file"
+        accept="image/*,video/mp4,video/webm,video/quicktime,video/ogg"
+        onChange={(event) => void upload(event)}
+        className="sr-only"
+        aria-label="Choose a photo or short video"
+      />
+
+      {promptOpen && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/65 p-4" role="dialog" aria-modal="true" aria-labelledby="highlight-choice-title">
+          <div className="w-full max-w-xs rounded-2xl border border-line bg-card p-4 shadow-2xl">
+            <div className="flex items-center justify-between gap-3">
+              <h2 id="highlight-choice-title" className="text-sm font-extrabold text-ink">{schoolName ?? "School"}</h2>
+              <button type="button" onClick={() => setPromptOpen(false)} aria-label="Close choices" className="flex size-9 items-center justify-center rounded-xl text-ink-muted hover:bg-page">
+                <X size={17} aria-hidden />
+              </button>
+            </div>
+            <div className="mt-3 grid gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPromptOpen(false);
+                  onViewProfile?.();
+                }}
+                className="min-h-11 rounded-xl border-2 border-line bg-page px-3 text-left text-sm font-bold text-ink hover:border-brand"
+              >
+                View Profile
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPromptOpen(false);
+                  setSelectedIndex(0);
+                }}
+                className="min-h-11 rounded-xl bg-brand-deep px-3 text-left text-sm font-bold text-brand-contrast hover:brightness-110"
+              >
+                View the Highlight
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {activeStory && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/95 p-3 text-white" role="dialog" aria-modal="true" aria-label={`${activeStory.author.username}'s highlight`}>
           <div className="relative flex h-[min(90dvh,780px)] w-full max-w-[430px] flex-col overflow-hidden rounded-3xl bg-neutral-950">
