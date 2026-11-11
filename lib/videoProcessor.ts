@@ -2,8 +2,6 @@ import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rmdir, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
-import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 
 export interface ProcessedVideo {
   durationSeconds: number;
@@ -72,6 +70,10 @@ export async function processVideo(file: File): Promise<ProcessedVideo> {
   const tempDirectory = await mkdtemp(path.join(os.tmpdir(), "chatty-video-"));
   const tempFiles = [path.join(tempDirectory, "source"), path.join(tempDirectory, "thumbnail.jpg")];
   try {
+    const [{ default: ffmpegInstaller }, { default: ffprobeInstaller }] = await Promise.all([
+      import("@ffmpeg-installer/ffmpeg"),
+      import("@ffprobe-installer/ffprobe"),
+    ]);
     const [sourcePath, thumbnailPath] = tempFiles as [string, string];
     await writeFile(sourcePath, Buffer.from(await file.arrayBuffer()));
     const probeOutput = await runCommand(
