@@ -151,7 +151,7 @@ async function runOpenAIModeration(
   input: OpenAI.ModerationCreateParams["input"],
   userId: string
 ): Promise<ModerationResult | null> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY?.trim().split(/\s+/)[0];
   if (!apiKey) {
     if (process.env.NODE_ENV !== "production") {
       console.warn("OpenAI moderation is not configured; bypassing automated moderation in this environment.");
