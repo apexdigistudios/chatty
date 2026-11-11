@@ -161,7 +161,7 @@ export function ExplorePage({
                         {post.schoolShort}
                         <span className="size-1 rounded-full bg-ink-faint" aria-hidden />@{post.authorName}
                         <VerifiedBadge
-                          isVerified={post.authorIsVerified}
+                          isVerified={post.authorIsVerified === true}
                           verifiedExpiresAt={post.authorVerifiedExpiresAt}
                           verifiedTitle={post.authorVerifiedTitle}
                           isAdmin={post.authorIsAdmin}
@@ -194,7 +194,7 @@ export function ExplorePage({
                         <p className="flex min-w-0 items-center gap-1.5 truncate text-[13px] font-extrabold text-ink">
                           <span className="truncate">@{student.username}</span>
                           <VerifiedBadge
-                            isVerified={student.isVerified}
+                            isVerified={student.isVerified === true}
                             verifiedExpiresAt={student.verifiedExpiresAt}
                             verifiedTitle={student.verifiedTitle}
                             isAdmin={student.isAdmin}

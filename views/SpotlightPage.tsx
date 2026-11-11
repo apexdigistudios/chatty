@@ -763,7 +763,7 @@ function SpotlightSlide({
           <span className="text-sm font-black">{author}</span>
           {post && (
             <VerifiedBadge
-              isVerified={post.authorIsVerified}
+              isVerified={post.authorIsVerified === true}
               verifiedExpiresAt={post.authorVerifiedExpiresAt}
               verifiedTitle={post.authorVerifiedTitle}
               isAdmin={post.authorIsAdmin}
@@ -778,7 +778,7 @@ function SpotlightSlide({
           )}
           {confession?.seedUsername && (
             <VerifiedBadge
-              isVerified={confession.seedIsVerified}
+              isVerified={confession.seedIsVerified === true}
               verifiedExpiresAt={confession.seedVerifiedExpiresAt}
               verifiedTitle={confession.seedVerifiedTitle}
               isAdmin={confession.seedIsAdmin}

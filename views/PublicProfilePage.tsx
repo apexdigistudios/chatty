@@ -206,7 +206,7 @@ export function PublicProfilePage({
             <h1 className="flex max-w-full flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-xl font-black tracking-tight text-ink sm:justify-start sm:text-2xl">
               <span className="truncate">@{profile.username}</span>
               <VerifiedBadge
-                isVerified={profile.isVerified}
+                isVerified={profile.isVerified === true}
                 verifiedExpiresAt={profile.verifiedExpiresAt}
                 verifiedTitle={profile.verifiedTitle}
                 isAdmin={profile.isAdmin}

@@ -167,7 +167,7 @@ export function CommentDrawer() {
                 @{comment.authorName}
               </Link>
               <VerifiedBadge
-                isVerified={comment.authorIsVerified}
+                isVerified={comment.authorIsVerified === true}
                 verifiedExpiresAt={comment.authorVerifiedExpiresAt}
                 verifiedTitle={comment.authorVerifiedTitle}
                 isAdmin={comment.authorIsAdmin}
@@ -293,7 +293,7 @@ export function CommentDrawer() {
                         @{activePost.authorName}
                       </Link>
                       <VerifiedBadge
-                        isVerified={activePost.authorIsVerified}
+                        isVerified={activePost.authorIsVerified === true}
                         verifiedExpiresAt={activePost.authorVerifiedExpiresAt}
                         verifiedTitle={activePost.authorVerifiedTitle}
                         isAdmin={activePost.authorIsAdmin}

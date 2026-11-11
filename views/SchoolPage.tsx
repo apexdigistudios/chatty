@@ -7,6 +7,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "@/lib/router";
 import { ArrowLeft, Hash, Loader2, MapPin, Plus, ShieldCheck, Sparkles, Users, WifiOff, X } from "lucide-react";
 import { GistCard } from "@/components/feed/GistCard";
 import { ManageCommunityPanel } from "@/components/moderation/ManageCommunityPanel";
+import { SchoolCrestUploader } from "@/components/schools/SchoolCrestUploader";
 import { SchoolHighlightsReel } from "@/components/schools/SchoolHighlightsReel";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -379,6 +380,16 @@ export function SchoolPage({
               className="!size-[min(70vw,420px)] rounded-full"
             />
             <p className="text-sm font-bold text-white">{school.name}</p>
+            <SchoolCrestUploader
+              schoolId={school.id}
+              canEdit={moderator}
+              buttonMode
+              onUploaded={(logoUrl) => {
+                const updatedSchool = { ...school, crestUrl: logoUrl };
+                setSchool(updatedSchool);
+                upsertSchool(updatedSchool);
+              }}
+            />
           </div>
         </div>
       )}

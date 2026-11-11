@@ -46,7 +46,7 @@ export function ProfileHeader({
       <p className="mt-0.5 flex max-w-full flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-sm font-bold text-ink-muted sm:mt-1 sm:justify-start">
         <span className="truncate">@{username}</span>
         <VerifiedBadge
-          isVerified={isVerified}
+          isVerified={isVerified === true}
           verifiedExpiresAt={verifiedExpiresAt}
           verifiedTitle={verifiedTitle}
           isAdmin={isAdmin}

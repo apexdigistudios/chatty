@@ -1,14 +1,13 @@
 'use client';
 
 import { BadgeCheck } from "lucide-react";
-import {
-  hasActiveVerification,
-  verificationTitle,
-  type VerificationStatus,
-} from "@/lib/verification";
 import { cn } from "@/utils/cn";
 
-interface VerifiedBadgeProps extends VerificationStatus {
+interface VerifiedBadgeProps {
+  isVerified?: boolean | null;
+  verifiedExpiresAt?: string | null;
+  isAdmin?: boolean | null;
+  role?: string | null;
   verifiedTitle?: string | null;
   showTitle?: boolean;
   className?: string;
@@ -16,17 +15,16 @@ interface VerifiedBadgeProps extends VerificationStatus {
 
 export function VerifiedBadge({
   isVerified,
-  verifiedExpiresAt,
   isAdmin,
   role,
   verifiedTitle,
   showTitle = false,
   className,
 }: VerifiedBadgeProps) {
-  const identity = { isVerified, verifiedExpiresAt, isAdmin, role, verifiedTitle };
-  if (!hasActiveVerification(identity)) return null;
+  const isGlobalAdmin = isAdmin === true || role?.toLowerCase() === "admin" || role?.toLowerCase() === "global_admin";
+  if (isVerified !== true && !isGlobalAdmin) return null;
 
-  const title = verificationTitle(identity);
+  const title = verifiedTitle?.trim() || (isGlobalAdmin ? "Global Admin" : "Verified");
 
   return (
     <span

@@ -117,7 +117,7 @@ export function mapProfile(row: ProfileRow): Profile {
     fullName: row.full_name ?? null,
     classForm: row.class_form ?? null,
     website: row.website ?? null,
-    isVerified: row.is_verified ?? false,
+    isVerified: row.is_verified === true,
     verifiedTitle: row.verified_title ?? null,
     verifiedExpiresAt: row.verified_expires_at ?? null,
     isAdmin: row.is_admin ?? false,
@@ -242,7 +242,7 @@ function mapPublicProfile(data: RawPublicProfile): PublicProfile {
     fullName: data.full_name ?? null,
     classForm: data.class_form ?? null,
     website: data.website ?? null,
-    isVerified: data.is_verified ?? false,
+    isVerified: data.is_verified === true,
     verifiedTitle: data.verified_title ?? null,
     verifiedExpiresAt: data.verified_expires_at ?? null,
     isAdmin: data.is_admin ?? false,
@@ -479,7 +479,7 @@ export async function searchStudentsBySchool(
   const clean = query.trim().replace(/[%,()]/g, "");
   if (!schoolId) return [];
   const supportsIdentity = await supportsProfileIdentity();
-  const select = supportsIdentity ? IDENTITY_SELECT : PROFILE_SELECT;
+  const select = await profileSelect();
   const { data, error } = await supabase
     .from("profiles")
     .select(`${select}, school:schools!school_id(name, crest_url:logo_url)`)

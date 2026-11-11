@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
-import { Camera, Loader2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { describeError } from "@/lib/supabase";
 import { uploadSchoolLogo, type SchoolLogoUploadStage } from "@/lib/images/imageUpload";
@@ -11,6 +11,7 @@ interface SchoolCrestUploaderProps {
   schoolId: string;
   canEdit: boolean;
   onUploaded: (logoUrl: string) => void;
+  buttonMode?: boolean;
 }
 
 const stageLabel: Record<SchoolLogoUploadStage, string> = {
@@ -23,6 +24,7 @@ export function SchoolCrestUploader({
   schoolId,
   canEdit,
   onUploaded,
+  buttonMode = false,
 }: SchoolCrestUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -65,6 +67,31 @@ export function SchoolCrestUploader({
 
   const busy = stage !== null;
 
+  if (buttonMode) {
+    return (
+      <div className="flex flex-col items-start gap-2">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => inputRef.current?.click()}
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-sky-500 px-4 text-sm font-bold text-white shadow-sm transition-colors hover:bg-sky-600 disabled:cursor-wait disabled:opacity-70"
+        >
+          {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Plus size={16} strokeWidth={2.8} aria-hidden />}
+          {busy ? stageLabel[stage] : "Update school crest"}
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          aria-label="Choose a new school crest"
+          onChange={onFileChange}
+          disabled={busy}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className="absolute inset-0 z-10 rounded-full"
@@ -94,7 +121,7 @@ export function SchoolCrestUploader({
         {busy ? (
           <Loader2 size={18} className="animate-spin" aria-hidden />
         ) : (
-          <Camera size={18} strokeWidth={2.6} aria-hidden />
+          <Plus size={18} strokeWidth={2.8} aria-hidden />
         )}
       </button>
       {busy && (

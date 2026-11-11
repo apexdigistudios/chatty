@@ -294,7 +294,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
         <ProfileHoverCard
           userId={post.authorId}
           username={post.authorName}
-          isVerified={post.authorIsVerified}
+          isVerified={post.authorIsVerified === true}
           verifiedExpiresAt={post.authorVerifiedExpiresAt}
           verifiedTitle={post.authorVerifiedTitle}
           isAdmin={post.authorIsAdmin}
@@ -320,7 +320,7 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
               @{post.authorName}
             </Link>
             <VerifiedBadge
-              isVerified={post.authorIsVerified}
+              isVerified={post.authorIsVerified === true}
               verifiedExpiresAt={post.authorVerifiedExpiresAt}
               verifiedTitle={post.authorVerifiedTitle}
               isAdmin={post.authorIsAdmin}
