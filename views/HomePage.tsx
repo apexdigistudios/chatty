@@ -300,7 +300,7 @@ export function HomePage({
           </motion.button>
         </div>
         <div className="relative mt-3.5 border-t-2 border-line pt-3.5">
-          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.14em] text-ink-muted">Campus stories</p>
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.14em] text-ink-muted">Campus Highlights</p>
           <SchoolHighlightsReel variant="story-bar" schoolId={null} />
         </div>
       </section>
