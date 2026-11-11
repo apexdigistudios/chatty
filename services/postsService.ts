@@ -72,32 +72,6 @@ function supportsColumn(table: "posts" | "profiles", column: string): Promise<bo
 }
 
 const columnSupportPromises = new Map<string, Promise<boolean>>();
-let expirePromotedCampaignsAvailable: boolean | null = null;
-let expirePromotedCampaignsPromise: Promise<void> | null = null;
-
-async function expirePromotedCampaigns(): Promise<void> {
-  const [isPromoted, promotedUntil, promotionStatus] = await Promise.all([
-    supportsColumn("posts", "is_promoted"),
-    supportsColumn("posts", "promoted_until"),
-    supportsColumn("posts", "promotion_status"),
-  ]);
-  if (!isPromoted || !promotedUntil || !promotionStatus) return;
-  if (expirePromotedCampaignsAvailable === false) return;
-  if (!expirePromotedCampaignsPromise) {
-    expirePromotedCampaignsPromise = (async () => {
-      const { error } = await supabase.rpc("expire_promoted_campaigns");
-      if (error && (error.code === "PGRST202" || error.code === "42883")) {
-        expirePromotedCampaignsAvailable = false;
-        return;
-      }
-      if (error) throw new Error(`Could not expire completed promotion campaigns: ${error.message}`);
-      expirePromotedCampaignsAvailable = true;
-    })().finally(() => {
-      expirePromotedCampaignsPromise = null;
-    });
-  }
-  await expirePromotedCampaignsPromise;
-}
 
 /**
  * Step 9 adds `posts.group_id` + `school_groups`. Until migration-step9.sql is
@@ -472,7 +446,6 @@ async function fetchFeedOnline(query: FeedQuery): Promise<Post[]> {
     currentUserId(),
     supportsPostVisibility(),
   ]);
-  await expirePromotedCampaigns();
   const blocked = new Set(blockedUserIds);
   const select = await selectForGroups();
   const tag = query.tag?.trim().replace(/^#/, "").toLowerCase();

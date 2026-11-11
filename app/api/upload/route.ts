@@ -54,7 +54,13 @@ export async function POST(request: Request): Promise<Response> {
     const auth = await authorize(request);
     if (auth.response) return auth.response;
 
-    const formData = await request.formData();
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch (error) {
+      console.warn("Could not parse upload form data.", error);
+      return errorResponse("The upload request is invalid or incomplete.", 400);
+    }
     const file = formData.get("file");
     const folder = formData.get("folder");
     const contentType = formData.get("contentType");
@@ -154,8 +160,12 @@ export async function POST(request: Request): Promise<Response> {
         console.error("Could not clean up incomplete R2 uploads.", cleanupError);
       }
     }
+    if (error instanceof Error && error.message === "Cloudflare R2 is not fully configured.") {
+      console.error("R2 storage is not configured.", error);
+      return errorResponse("Media storage is not configured. Please contact support.", 503);
+    }
     console.error("Upload request could not be completed.", error);
-    return errorResponse("Uploads are temporarily unavailable. Please try again.", 503);
+    return errorResponse("Media storage is temporarily unavailable. Please try again.", 503);
   } finally {
     if (processedVideo) await cleanupProcessedVideo(processedVideo);
   }
