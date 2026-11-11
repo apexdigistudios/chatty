@@ -13,6 +13,7 @@ import { SchoolBadge } from "@/components/ui/SchoolBadge";
 import { describeError } from "@/lib/supabase";
 import { timeAgo } from "@/lib/time";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
+import { PromotedBadge } from "@/components/feed/PromotedBadge";
 import { fetchPopularProfiles, searchProfiles, type ProfileSearchHit } from "@/services/profilesService";
 import { fetchFeed, fetchPopularGists } from "@/services/postsService";
 import { useGistStore } from "@/store/gistStore";
@@ -166,6 +167,7 @@ export function ExplorePage({
                           isAdmin={post.authorIsAdmin}
                           role={post.authorRole}
                         />
+                        <PromotedBadge isPromoted={post.isPromoted} promotedUntil={post.promotedUntil} />
                         <span className="size-1 rounded-full bg-ink-faint" aria-hidden />{formatCompactNumber(post.likeCount)} likes
                         <span className="size-1 rounded-full bg-ink-faint" aria-hidden />{timeAgo(post.createdAt)}
                       </p>

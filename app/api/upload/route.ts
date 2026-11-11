@@ -10,7 +10,7 @@ const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif
 const VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime", "video/ogg"]);
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024;
-const VALID_FOLDERS = new Set<R2UploadFolder>(["posts", "seed-posts", "avatars", "covers", "crests"]);
+const VALID_FOLDERS = new Set<R2UploadFolder>(["posts", "seed-posts", "avatars", "covers", "crests", "highlights"]);
 
 function errorResponse(message: string, status: number): Response {
   return Response.json({ error: message }, { status });
@@ -83,16 +83,38 @@ export async function POST(request: Request): Promise<Response> {
       if (error) throw new Error(`Could not verify school permissions: ${error.message}`);
       if (isModerator !== true) return errorResponse("You are not authorized to update this school crest.", 403);
     }
+    if (folder === "highlights") {
+      const schoolId = formData.get("resourceId");
+      if (typeof schoolId !== "string" || !/^[0-9a-f-]{36}$/i.test(schoolId)) {
+        return errorResponse("A valid school is required for a highlight.", 400);
+      }
+      const { data: membership, error } = await auth.client
+        .from("profiles")
+        .select("school_id")
+        .eq("id", auth.user.id)
+        .maybeSingle();
+      if (error) throw new Error(`Could not verify school membership: ${error.message}`);
+      if (membership?.school_id !== schoolId) {
+        return errorResponse("Join this school before sharing a highlight.", 403);
+      }
+    }
 
     if (typeof contentType !== "string" || (!IMAGE_TYPES.has(contentType) && !VIDEO_TYPES.has(contentType))) {
       return errorResponse("This file type is not supported.", 400);
     }
     const isVideo = VIDEO_TYPES.has(contentType);
-    const maxBytes = isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
+    const maxBytes = isVideo
+      ? folder === "highlights" ? 30 * 1024 * 1024 : MAX_VIDEO_BYTES
+      : MAX_IMAGE_BYTES;
     if (file.size === 0 || file.size > maxBytes) {
-      return errorResponse(isVideo ? "Videos must be 80MB or smaller." : "Images must be 20MB or smaller.", 400);
+      return errorResponse(
+        isVideo
+          ? folder === "highlights" ? "Highlight videos must be 30MB or smaller." : "Videos must be 80MB or smaller."
+          : "Images must be 20MB or smaller.",
+        400
+      );
     }
-    if (folder !== "posts" && folder !== "seed-posts" && isVideo) {
+    if (folder !== "posts" && folder !== "seed-posts" && folder !== "highlights" && isVideo) {
       return errorResponse("Video uploads are only supported for posts.", 400);
     }
 
@@ -107,6 +129,12 @@ export async function POST(request: Request): Promise<Response> {
         processedVideo = await processVideo(file);
       } catch (error) {
         console.warn("Video processing failed; continuing with the original upload.", error);
+        if (folder === "highlights") {
+          return errorResponse("We couldn't check this video's length. Please try another video.", 422);
+        }
+      }
+      if (folder === "highlights" && processedVideo && processedVideo.durationSeconds > 15) {
+        return errorResponse("Highlight videos must be 15 seconds or shorter.", 400);
       }
     }
 
@@ -122,7 +150,7 @@ export async function POST(request: Request): Promise<Response> {
     const url = await uploadToR2(file, `${auth.user.id}/${folder}/${name}`, contentType, folder);
     uploadedUrls.push(url);
     let thumbnailUrl: string | null = null;
-    if (processedVideo && folder === "posts") {
+    if (processedVideo && (folder === "posts" || folder === "highlights")) {
       const thumbnailName = `${name.replace(/\.[^.]+$/, "")}-thumbnail.jpg`;
       const thumbnailKey = `${auth.user.id}/${folder}/${thumbnailName}`;
       try {

@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 
-export type R2UploadFolder = "posts" | "seed-posts" | "avatars" | "covers" | "crests";
+export type R2UploadFolder = "posts" | "seed-posts" | "avatars" | "covers" | "crests" | "highlights";
 
 export interface UploadedR2File {
   url: string;

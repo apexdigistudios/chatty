@@ -13,6 +13,7 @@ import { cloudflareMediaUrl } from "@/lib/mediaUrl";
 import { useToast } from "@/components/ui/Toast";
 import { Avatar } from "@/components/ui/Avatar";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
+import { PromotedBadge } from "@/components/feed/PromotedBadge";
 import { SchoolTag } from "@/components/ui/SchoolBadge";
 
 interface PostMediaViewerProps {
@@ -183,6 +184,7 @@ export function PostMediaViewer({
                         @{post.authorName}
                       </Link>
                       <VerifiedBadge isVerified={post.authorIsVerified} verifiedExpiresAt={post.authorVerifiedExpiresAt} verifiedTitle={post.authorVerifiedTitle} isAdmin={post.authorIsAdmin} role={post.authorRole} />
+                      <PromotedBadge isPromoted={post.isPromoted} promotedUntil={post.promotedUntil} />
                     </div>
                   </div>
                 </div>

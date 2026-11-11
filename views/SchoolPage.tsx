@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import posthog from "posthog-js";
 import { motion } from "framer-motion";
 import { Link, useNavigate, useParams, useSearchParams } from "@/lib/router";
@@ -8,6 +8,7 @@ import { ArrowLeft, Hash, Loader2, MapPin, Plus, ShieldCheck, Sparkles, Users, W
 import { GistCard } from "@/components/feed/GistCard";
 import { ManageCommunityPanel } from "@/components/moderation/ManageCommunityPanel";
 import { SchoolCrestUploader } from "@/components/schools/SchoolCrestUploader";
+import { SchoolHighlightsReel } from "@/components/schools/SchoolHighlightsReel";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { SchoolBadge } from "@/components/ui/SchoolBadge";
@@ -15,7 +16,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/context/AuthContext";
 import { useCanModerate } from "@/hooks/useModeration";
 import { describeError } from "@/lib/supabase";
-import { createGroup, fetchSchoolGroups, joinGroup, leaveGroup } from "@/services/groupsService";
+import { fetchSchoolGroups, joinGroup, leaveGroup } from "@/services/groupsService";
 import { fetchFeed } from "@/services/postsService";
 import { fetchSchool } from "@/services/schoolsService";
 import { useAuthGateStore } from "@/store/authGateStore";
@@ -33,8 +34,6 @@ type SchoolPageProps = {
   initialPosts?: Post[] | null;
   initialPostsError?: string | null;
 };
-
-const GROUP_EMOJIS = ["👥", "🧠", "📚", "🍛", "⚽", "🎤", "🎨", "🔬", "📰", "🏆"] as const;
 
 /** /schools/:id — campus feed, sub-communities (clubs/squads), founder moderation. */
 export function SchoolPage({
@@ -68,12 +67,6 @@ export function SchoolPage({
   const [error, setError] = useState<string | null>(initialSchoolError ?? null);
   const [claiming, setClaiming] = useState(false);
 
-  // Club creation form
-  const [creatingGroup, setCreatingGroup] = useState(false);
-  const [groupName, setGroupName] = useState("");
-  const [groupEmoji, setGroupEmoji] = useState<string>(GROUP_EMOJIS[0]);
-  const [groupDescription, setGroupDescription] = useState("");
-  const [savingGroup, setSavingGroup] = useState(false);
   const [membershipBusy, setMembershipBusy] = useState<string | null>(null);
 
   const moderator = canModerate(id);
@@ -197,34 +190,6 @@ export function SchoolPage({
     return false;
   };
 
-  const submitGroup = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!id || groupName.trim().length < 2) return;
-    if (!requireStudent("Start a Campus Club!", "Create your student pass to start a squad, club or geng for your SHS.")) return;
-    setSavingGroup(true);
-    try {
-      const group = await createGroup({
-        schoolId: id,
-        name: groupName,
-        description: groupDescription,
-        emoji: groupEmoji,
-      });
-      posthog.capture("group_created", {
-        has_description: Boolean(groupDescription.trim()),
-      });
-      setGroups((prev) => [group, ...prev]);
-      setGroupName("");
-      setGroupDescription("");
-      setGroupEmoji(GROUP_EMOJIS[0]);
-      setCreatingGroup(false);
-      toast(`${group.emoji} ${group.name} is live!`, "success");
-    } catch (err) {
-      toast(describeError(err), "danger");
-    } finally {
-      setSavingGroup(false);
-    }
-  };
-
   const toggleMembership = async (group: SchoolGroup) => {
     if (!requireStudent("Join this Campus Club!", "Create your student pass to join squads and clubs across your SHS.")) return;
     setMembershipBusy(group.id);
@@ -286,8 +251,9 @@ export function SchoolPage({
     <div className="mx-auto w-full max-w-[760px] min-w-0 px-4 pt-5 sm:px-6 sm:pt-7">
       <Link to="/schools" className="inline-flex items-center gap-1 text-xs font-extrabold text-ink-muted hover:text-brand-deep"><ArrowLeft size={14} strokeWidth={2.6} aria-hidden />All communities</Link>
 
-      <header className="relative mt-3 overflow-hidden rounded-[26px] border-2 border-line bg-card p-4 shadow-[0_4px_0_var(--border-color)] sm:p-5">
-        <span className="pointer-events-none absolute -right-12 -top-16 size-48 rounded-full opacity-80" style={{ background: "radial-gradient(circle, var(--brand-wash), transparent 70%)" }} aria-hidden />
+      <SchoolHighlightsReel schoolId={school.id} schoolName={school.name} />
+
+      <header className="mt-3">
         <div className="relative flex items-start gap-3 sm:gap-4">
           <div className="relative size-16 shrink-0 sm:size-24">
             <SchoolBadge schoolId={school.id} crestUrl={school.crestUrl} name={school.name} size="2xl" ring={moderator} className="size-full" />
@@ -365,71 +331,11 @@ export function SchoolPage({
               <Button
                 size="sm"
                 leftIcon={<Plus size={14} strokeWidth={2.8} aria-hidden />}
-                onClick={() => {
-                  if (!requireStudent("Start a Campus Club!", "Create your student pass to start a squad, club or geng for your SHS.")) return;
-                  setCreatingGroup((open) => !open);
-                }}
+                onClick={() => navigate(`/schools/${id}/groups/new`)}
               >
                 New club
               </Button>
             </div>
-
-            <motion.form
-              onSubmit={submitGroup}
-              initial={false}
-              animate={{ height: creatingGroup ? "auto" : 0, opacity: creatingGroup ? 1 : 0 }}
-              transition={springs.gentle}
-              className="overflow-hidden"
-            >
-              <div className="rounded-3xl border-2 border-brand bg-card p-4 shadow-[0_4px_0_var(--brand-edge)]">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-brand-deep">Create a sub-community</p>
-                  <button type="button" onClick={() => setCreatingGroup(false)} aria-label="Close" className="rounded-lg p-1 text-ink-muted hover:bg-page"><X size={15} aria-hidden /></button>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Club emoji">
-                  {GROUP_EMOJIS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => setGroupEmoji(emoji)}
-                      aria-pressed={groupEmoji === emoji}
-                      aria-label={`Use ${emoji}`}
-                      className={cn("flex size-11 items-center justify-center rounded-xl border-2 text-base transition-colors", groupEmoji === emoji ? "border-brand bg-brand-wash" : "border-line bg-page hover:border-line-deep")}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-                <label className="mt-3 block">
-                  <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Club name</span>
-                  <input
-                    value={groupName}
-                    onChange={(event) => setGroupName(event.target.value.slice(0, 48))}
-                    placeholder="e.g. NSMQ Squad"
-                    maxLength={48}
-                    required
-                    minLength={2}
-                    className="h-10 w-full rounded-xl border-2 border-line bg-page px-3 text-xs font-bold text-ink outline-none focus:border-brand"
-                  />
-                </label>
-                <label className="mt-2 block">
-                  <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Description (optional)</span>
-                  <input
-                    value={groupDescription}
-                    onChange={(event) => setGroupDescription(event.target.value.slice(0, 160))}
-                    placeholder="What is this club about?"
-                    maxLength={160}
-                    className="h-10 w-full rounded-xl border-2 border-line bg-page px-3 text-xs font-bold text-ink outline-none focus:border-brand"
-                  />
-                </label>
-                <div className="mt-3 flex items-center gap-2">
-                  <Button type="submit" size="sm" disabled={savingGroup || groupName.trim().length < 2} leftIcon={savingGroup ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Plus size={14} strokeWidth={2.8} aria-hidden />}>
-                    {savingGroup ? "Creating" : "Create club"}
-                  </Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setCreatingGroup(false)}>Cancel</Button>
-                </div>
-              </div>
-            </motion.form>
 
             {groupsLoading && groups.length === 0 ? (
               <div className="flex flex-col gap-2">
@@ -493,7 +399,7 @@ export function SchoolPage({
                 <p className="mx-auto mt-1 max-w-[34ch] text-xs font-semibold leading-relaxed text-ink-muted">
                   Start the first squad — NSMQ Squad, Editorial Club, Dining Hall Crew or Sports Team.
                 </p>
-                <Button size="sm" className="mt-4" onClick={() => requireStudent("Start a Campus Club!", "Create your student pass to start the first club at your school.") && setCreatingGroup(true)}>
+                <Button size="sm" className="mt-4" onClick={() => navigate(`/schools/${id}/groups/new`)}>
                   Create the first club
                 </Button>
               </div>

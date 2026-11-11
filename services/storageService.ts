@@ -28,7 +28,9 @@ export async function uploadImage(
     throw new Error("Only image files can be uploaded.");
   }
 
-  const preset = folder === "seed-posts" ? COMPRESSION_PRESETS.posts : COMPRESSION_PRESETS[folder];
+  const preset = folder === "seed-posts" || folder === "highlights"
+    ? COMPRESSION_PRESETS.posts
+    : COMPRESSION_PRESETS[folder];
   const optimized = await compressImageFile(file, preset);
   return uploadPreparedImage(optimized, folder, moderationText);
 }

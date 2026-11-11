@@ -1,23 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@/lib/router";
-import { ImagePlus, List, Loader2, MapPin, Plus, Search, ShieldCheck, Users, WifiOff, X } from "lucide-react";
+import { List, MapPin, Plus, Search, Users, WifiOff, X } from "lucide-react";
 import { PageHeading } from "@/components/layout/PageHeading";
 import { formatCompactNumber } from "@/lib/utils";
 import { SchoolCard } from "@/components/schools/SchoolCard";
 import { Button } from "@/components/ui/Button";
-import { useToast } from "@/components/ui/Toast";
-import { useAuth } from "@/context/AuthContext";
-import { formatBytes } from "@/lib/imageCompression";
-import { describeError } from "@/lib/supabase";
-import { useAuthGateStore } from "@/store/authGateStore";
-import { springs } from "@/theme/tokens";
 import { useGistStore } from "@/store/gistStore";
 import { SCHOOL_TYPES, schoolTypeLabel, type SchoolType } from "@/types/models";
 import { cn } from "@/utils/cn";
-import { GHANA_REGIONS } from "@/services/schoolsService";
 import type { School } from "@/types/models";
 
 /** SHS directory + "create a community" flow (the creator becomes its moderator). */
@@ -29,9 +21,6 @@ export function SchoolsPage({
   initialSchoolsError?: string | null;
 }) {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const { user } = useAuth();
-  const openAuthGate = useAuthGateStore((state) => state.openAuthGate);
   const storeSchools = useGistStore((state) => state.schools);
   const schoolsHasLoaded = useGistStore((state) => state.schoolsHasLoaded);
   const schools = storeSchools.length > 0 ? storeSchools : initialSchools ?? [];
@@ -39,19 +28,10 @@ export function SchoolsPage({
   const schoolsError = useGistStore((state) => state.schoolsError);
   const loadSchools = useGistStore((state) => state.loadSchools);
   const hydrateInitialSchools = useGistStore((state) => state.hydrateInitialSchools);
-  const createSchool = useGistStore((state) => state.createSchool);
 
   const [query, setQuery] = useState("");
   const [region, setRegion] = useState("All regions");
   const [typeFilter, setTypeFilter] = useState<SchoolType | "All">("All");
-  const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState<{ name: string; region: string; schoolType: SchoolType }>({
-    name: "",
-    region: GHANA_REGIONS[0],
-    schoolType: "public",
-  });
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [saving, setSaving] = useState(false);
   const directoryError = schoolsError ?? (!schoolsHasLoaded ? initialSchoolsError : null);
 
   useEffect(() => {
@@ -74,119 +54,16 @@ export function SchoolsPage({
     });
   }, [query, region, schools, typeFilter]);
 
-  const openCreate = () => {
-    if (!user) {
-      openAuthGate({
-        title: "Found Your SHS Community!",
-        speech:
-          "Create your student pass first — whoever registers a new SHS community becomes its primary campus moderator!",
-        returnTo: "/schools",
-      });
-      return;
-    }
-    setCreating(true);
-  };
-
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (form.name.trim().length < 3) return;
-    setSaving(true);
-    try {
-      const school = await createSchool({ ...form, logoFile });
-      toast(`${school.shortName} is live — you are its moderator.`, "success");
-      setCreating(false);
-      setForm({ name: "", region: GHANA_REGIONS[0], schoolType: "public" });
-      setLogoFile(null);
-      navigate(`/schools/${school.id}?tab=manage`);
-    } catch (error) {
-      toast(describeError(error), "danger");
-    } finally {
-      setSaving(false);
-    }
-  };
+  const openCreate = () => navigate("/schools/new");
 
   return (
     <div className="mx-auto w-full max-w-[860px] min-w-0 px-4 pt-5 sm:px-6 sm:pt-7">
       <PageHeading
         eyebrow="Find your people"
         title="School Communities"
-        description="A scannable directory of Ghanaian SHS communities. Open a feed, join a campus, or found a new one."
-        action={<Button size="sm" leftIcon={<Plus size={14} strokeWidth={2.8} aria-hidden />} onClick={openCreate}>Create</Button>}
+        description="Find a school community or start one for your school."
+        action={<Button size="sm" leftIcon={<Plus size={14} strokeWidth={2.8} aria-hidden />} onClick={openCreate}>Create school</Button>}
       />
-
-      <AnimatePresence initial={false}>
-        {creating && (
-          <motion.form
-            onSubmit={submit}
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={springs.gentle}
-            className="mb-5 overflow-hidden"
-          >
-            <div className="rounded-3xl border-2 border-brand bg-card p-4 shadow-[0_4px_0_var(--brand-edge)] sm:p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-brand-deep"><ShieldCheck size={12} strokeWidth={2.8} aria-hidden />Found a community</p>
-                  <h2 className="mt-1 text-lg font-black tracking-tight text-ink">Register your SHS</h2>
-                  <p className="text-xs font-semibold text-ink-muted">You become the primary moderator for every gist tagged to this school.</p>
-                </div>
-                <button type="button" onClick={() => setCreating(false)} aria-label="Close" className="flex size-11 items-center justify-center rounded-xl border-2 border-line text-ink-muted hover:text-ink"><X size={16} strokeWidth={2.6} aria-hidden /></button>
-              </div>
-
-              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Input label="Full school name" value={form.name} onChange={(name) => setForm({ ...form, name })} placeholder="e.g. Ghana National College" maxLength={80} required />
-                <label className="block">
-                  <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Region</span>
-                  <select value={form.region} onChange={(event) => setForm({ ...form, region: event.target.value })} className="h-10 w-full rounded-xl border-2 border-line bg-page px-3 text-xs font-bold text-ink outline-none focus:border-brand">
-                    {GHANA_REGIONS.map((item) => <option key={item} value={item}>{item}</option>)}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">School type</span>
-                  <select value={form.schoolType} onChange={(event) => setForm({ ...form, schoolType: event.target.value as SchoolType })} className="h-10 w-full rounded-xl border-2 border-line bg-page px-3 text-xs font-bold text-ink outline-none focus:border-brand">
-                    {SCHOOL_TYPES.map((item) => <option key={item} value={item}>{schoolTypeLabel(item)}</option>)}
-                  </select>
-                </label>
-                <label className="block cursor-pointer">
-                  <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">Crest (optional)</span>
-                  <span className="flex h-11 items-center gap-2 rounded-xl border-2 border-dashed border-line bg-page px-3 text-xs font-bold text-ink-muted transition-colors hover:border-brand">
-                    <ImagePlus size={15} strokeWidth={2.5} className="shrink-0 text-brand-deep" aria-hidden />
-                    <span className="truncate">
-                      {logoFile
-                        ? `${logoFile.name} (${formatBytes(logoFile.size)})`
-                        : "Upload logo (auto WebP)"}
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      onChange={async (event) => {
-                        const raw = event.target.files?.[0];
-                        event.target.value = "";
-                        if (!raw) return;
-                        if (!raw.type.startsWith("image/")) {
-                          toast("Choose an image file for the school logo.", "danger");
-                          return;
-                        }
-                        setLogoFile(raw);
-                        toast("Logo selected. It will be compressed and uploaded when the community is created.", "brand");
-                      }}
-                    />
-                  </span>
-                </label>
-              </div>
-
-              <div className="mt-4 flex items-center gap-2">
-                <Button type="submit" size="sm" disabled={saving || form.name.trim().length < 3} leftIcon={saving ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Plus size={14} strokeWidth={2.8} aria-hidden />}>
-                  {saving ? "Creating" : "Create community"}
-                </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={() => setCreating(false)}>Cancel</Button>
-              </div>
-            </div>
-          </motion.form>
-        )}
-      </AnimatePresence>
 
       <label className="flex h-12 items-center gap-3 rounded-2xl border-2 border-line bg-card px-3.5 transition-colors focus-within:border-brand focus-within:ring-4 focus-within:ring-brand-soft">
         <Search size={19} strokeWidth={2.5} className="shrink-0 text-ink-muted" aria-hidden />
@@ -251,14 +128,5 @@ export function SchoolsPage({
         Cross-school interaction stays open — you can comment on gists from every SHS while your own founder keeps your campus feed clean.
       </p>
     </div>
-  );
-}
-
-function Input({ label, value, onChange, placeholder, maxLength, required }: { label: string; value: string; onChange: (value: string) => void; placeholder: string; maxLength: number; required?: boolean }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-ink-muted">{label}</span>
-      <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} maxLength={maxLength} required={required} className="h-10 w-full rounded-xl border-2 border-line bg-page px-3 text-xs font-bold text-ink outline-none placeholder:text-ink-faint focus:border-brand" />
-    </label>
   );
 }

@@ -190,6 +190,12 @@ the post's promotion metadata synchronized with the verified Spotlight payment.
 The feed expires campaigns against their timestamp and the expiry-aware badge
 disappears automatically; expired rows are retained.
 
+### A19 · School highlights
+
+Run `supabase/migrations/school_highlights.sql` in the SQL Editor. It creates
+the table and secure RPC used for one active highlight per student. Photos and
+videos expire after 24 hours; highlight videos are limited to 15 seconds.
+
 Example verification query:
 
 ```sql
