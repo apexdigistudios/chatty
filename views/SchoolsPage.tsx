@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@/lib/router";
-import { List, MapPin, Plus, Search, Users, WifiOff, X } from "lucide-react";
+import { ChevronDown, Filter, List, MapPin, Plus, Search, Users, WifiOff, X } from "lucide-react";
 import { PageHeading } from "@/components/layout/PageHeading";
 import { formatCompactNumber } from "@/lib/utils";
 import { SchoolCard } from "@/components/schools/SchoolCard";
 import { Button } from "@/components/ui/Button";
+import { useAuth } from "@/context/AuthContext";
 import { useGistStore } from "@/store/gistStore";
 import { SCHOOL_TYPES, schoolTypeLabel, type SchoolType } from "@/types/models";
 import { cn } from "@/utils/cn";
@@ -21,6 +22,7 @@ export function SchoolsPage({
   initialSchoolsError?: string | null;
 }) {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const storeSchools = useGistStore((state) => state.schools);
   const schoolsHasLoaded = useGistStore((state) => state.schoolsHasLoaded);
   const schools = storeSchools.length > 0 ? storeSchools : initialSchools ?? [];
@@ -32,6 +34,7 @@ export function SchoolsPage({
   const [query, setQuery] = useState("");
   const [region, setRegion] = useState("All regions");
   const [typeFilter, setTypeFilter] = useState<SchoolType | "All">("All");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const directoryError = schoolsError ?? (!schoolsHasLoaded ? initialSchoolsError : null);
 
   useEffect(() => {
@@ -44,7 +47,9 @@ export function SchoolsPage({
 
   const regions = useMemo(() => ["All regions", ...Array.from(new Set(schools.map((school) => school.region))).sort()], [schools]);
 
-  const results = useMemo(() => {
+  const homeSchool = schools.find((school) => school.id === profile?.schoolId) ?? null;
+
+  const filteredSchools = useMemo(() => {
     const q = query.trim().toLowerCase();
     return schools.filter((school) => {
       const matchesQuery = !q || `${school.name} ${school.shortName} ${school.region} ${school.schoolType}`.toLowerCase().includes(q);
@@ -53,6 +58,7 @@ export function SchoolsPage({
       return matchesQuery && matchesRegion && matchesType;
     });
   }, [query, region, schools, typeFilter]);
+  const results = filteredSchools.filter((school) => school.id !== profile?.schoolId);
 
   const openCreate = () => navigate("/schools/new");
 
@@ -71,28 +77,57 @@ export function SchoolsPage({
         {query && <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-muted hover:bg-page hover:text-ink"><X size={15} strokeWidth={2.6} aria-hidden /></button>}
       </label>
 
-      <div className="mt-4 flex flex-wrap gap-2" aria-label="Filter by region">
-        {regions.map((item) => (
-          <button key={item} type="button" onClick={() => setRegion(item)} aria-pressed={region === item} className={cn("min-h-11 rounded-full border-2 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-colors", region === item ? "border-ink bg-ink text-card dark:border-brand-deep dark:bg-brand-deep dark:text-brand-contrast" : "border-line bg-card text-ink-muted hover:border-line-deep hover:text-ink")}>
-            {item}
-          </button>
-        ))}
-      </div>
+      {homeSchool && (
+        <section className="mt-4 rounded-3xl border-2 border-brand/30 bg-brand-wash/40 p-3 sm:p-4" aria-labelledby="home-school-heading">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h2 id="home-school-heading" className="text-xs font-black uppercase tracking-wider text-brand-deep">Your school</h2>
+            <span className="text-[10px] font-bold text-ink-muted">Pinned for quick access</span>
+          </div>
+          <SchoolCard school={homeSchool} view="list" />
+        </section>
+      )}
 
-      <div className="mt-3">
-        <div className="flex flex-wrap gap-2" aria-label="Filter by type">
-          {(["All", ...SCHOOL_TYPES] as Array<SchoolType | "All">).map((item) => (
-            <button key={item} type="button" onClick={() => setTypeFilter(item)} aria-pressed={typeFilter === item} className={cn("min-h-11 rounded-full border-2 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-colors", typeFilter === item ? "border-brand-deep bg-brand-wash text-brand-deep" : "border-line bg-card text-ink-muted hover:border-line-deep hover:text-ink")}>
-              {item === "All" ? "All" : schoolTypeLabel(item)}
-            </button>
-          ))}
-        </div>
+      <div className="relative mt-4">
+        <button
+          type="button"
+          aria-expanded={filtersOpen}
+          aria-controls="school-directory-filters"
+          onClick={() => setFiltersOpen((open) => !open)}
+          className="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border-2 border-line bg-card px-3.5 text-left text-xs font-extrabold text-ink transition-colors hover:border-line-deep"
+        >
+          <span className="inline-flex items-center gap-2"><Filter size={15} aria-hidden />Filters <span className="font-semibold text-ink-muted">{region} · {typeFilter === "All" ? "All types" : schoolTypeLabel(typeFilter)}</span></span>
+          <ChevronDown size={16} className={cn("shrink-0 transition-transform", filtersOpen && "rotate-180")} aria-hidden />
+        </button>
+        {filtersOpen && (
+          <div id="school-directory-filters" className="mt-2 grid gap-4 rounded-2xl border-2 border-line bg-card p-3 shadow-lg sm:grid-cols-2">
+            <fieldset>
+              <legend className="mb-2 text-[10px] font-black uppercase tracking-wider text-ink-muted">Region</legend>
+              <div className="flex flex-wrap gap-2">
+                {regions.map((item) => (
+                  <button key={item} type="button" onClick={() => setRegion(item)} aria-pressed={region === item} className={cn("min-h-9 rounded-full border-2 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-colors", region === item ? "border-ink bg-ink text-card dark:border-brand-deep dark:bg-brand-deep dark:text-brand-contrast" : "border-line bg-card text-ink-muted hover:border-line-deep hover:text-ink")}>
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend className="mb-2 text-[10px] font-black uppercase tracking-wider text-ink-muted">School type</legend>
+              <div className="flex flex-wrap gap-2">
+                {(["All", ...SCHOOL_TYPES] as Array<SchoolType | "All">).map((item) => (
+                  <button key={item} type="button" onClick={() => setTypeFilter(item)} aria-pressed={typeFilter === item} className={cn("min-h-9 rounded-full border-2 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-colors", typeFilter === item ? "border-brand-deep bg-brand-wash text-brand-deep" : "border-line bg-card text-ink-muted hover:border-line-deep hover:text-ink")}>
+                    {item === "All" ? "All" : schoolTypeLabel(item)}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          </div>
+        )}
       </div>
 
       <div className="mb-3 mt-6 flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-1.5 text-sm font-extrabold text-ink sm:text-base" aria-live="polite">
           <List size={15} strokeWidth={2.7} className="text-brand-deep" aria-hidden />
-          {directoryError && initialSchools == null ? "Communities unavailable" : `${results.length} communities`}
+          {directoryError && initialSchools == null ? "Communities unavailable" : `${results.length} other communities`}
         </h2>
         {!(directoryError && initialSchools == null) && <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
           <span className="inline-flex items-center gap-1"><Users size={12} strokeWidth={2.5} aria-hidden />{formatCompactNumber(results.reduce((sum, school) => sum + school.memberCount, 0))} students</span>

@@ -45,10 +45,7 @@ import {
   searchStudentsBySchool,
   type ProfileSearchHit,
 } from "@/services/profilesService";
-import {
-  advanceShoutoutDelivery,
-  createShoutout,
-} from "@/services/shoutoutsService";
+import { createShoutout } from "@/services/shoutoutsService";
 import { useAuthGateStore } from "@/store/authGateStore";
 import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
@@ -89,7 +86,6 @@ export function ShoutoutCreatePage() {
   const [sending, setSending] = useState(false);
   const [dispatch, setDispatch] = useState<Shoutout | null>(null);
   const [dispatchStage, setDispatchStage] = useState<ShoutoutStatus>("in_transit");
-  const timers = useRef<number[]>([]);
 
   // Step 1
   const [schoolId, setSchoolId] = useState("");
@@ -124,8 +120,6 @@ export function ShoutoutCreatePage() {
   useEffect(() => {
     if (schools.length === 0) void loadSchools();
   }, [schools.length, loadSchools]);
-
-  useEffect(() => () => timers.current.forEach(window.clearTimeout), []);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -284,24 +278,6 @@ export function ShoutoutCreatePage() {
       setDispatch(sent);
       setDispatchStage("in_transit");
       setDrawerOpen(false);
-
-      const arrive = window.setTimeout(async () => {
-        try {
-          const next = await advanceShoutoutDelivery(sent.id, "in_transit");
-          setDispatchStage(next);
-        } catch {
-          // Sorting continues visually even if the optional progress write fails.
-        }
-      }, 1300);
-      const delivered = window.setTimeout(async () => {
-        try {
-          const next = await advanceShoutoutDelivery(sent.id, "arrived");
-          setDispatchStage(next);
-        } catch {
-          // Delivery confirmation stays pending; the letter was already saved.
-        }
-      }, 2900);
-      timers.current.push(arrive, delivered);
     } catch (error) {
       toast(describeError(error, "Could not send that shoutout."), "danger");
     } finally {

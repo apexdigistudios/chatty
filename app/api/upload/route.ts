@@ -76,12 +76,21 @@ export async function POST(request: Request): Promise<Response> {
       if (typeof schoolId !== "string" || !/^[0-9a-f-]{36}$/i.test(schoolId)) {
         return errorResponse("A valid school is required for a crest upload.", 400);
       }
+      const { data: membership, error: membershipError } = await auth.client
+        .from("profiles")
+        .select("school_id")
+        .eq("id", auth.user.id)
+        .maybeSingle();
+      if (membershipError) throw new Error(`Could not verify school membership: ${membershipError.message}`);
       const { data: isModerator, error } = await auth.client.rpc("is_school_moderator", {
         target_school: schoolId,
         uid: auth.user.id,
       });
       if (error) throw new Error(`Could not verify school permissions: ${error.message}`);
-      if (isModerator !== true) return errorResponse("You are not authorized to update this school crest.", 403);
+      const admin = await isGlobalAdmin(auth.client);
+      if (!admin && (membership?.school_id !== schoolId || isModerator !== true)) {
+        return errorResponse("Only this school's assigned moderator can update its crest.", 403);
+      }
     }
     if (folder === "highlights") {
       const schoolId = formData.get("resourceId");
@@ -149,6 +158,22 @@ export async function POST(request: Request): Promise<Response> {
 
     const url = await uploadToR2(file, `${auth.user.id}/${folder}/${name}`, contentType, folder);
     uploadedUrls.push(url);
+    if (folder === "crests") {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!supabaseUrl || !serviceRoleKey) {
+        throw new Error("Supabase server-side crest updates are not configured.");
+      }
+      const schoolId = formData.get("resourceId") as string;
+      const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+      });
+      const { error } = await adminClient
+        .from("schools")
+        .update({ logo_url: url })
+        .eq("id", schoolId);
+      if (error) throw new Error(`Could not save school crest: ${error.message}`);
+    }
     let thumbnailUrl: string | null = null;
     if (processedVideo && (folder === "posts" || folder === "highlights")) {
       const thumbnailName = `${name.replace(/\.[^.]+$/, "")}-thumbnail.jpg`;

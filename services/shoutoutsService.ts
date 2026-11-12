@@ -139,6 +139,7 @@ export async function createShoutout(input: CreateShoutoutInput): Promise<Shouto
 /** Inbox: direct account mail plus exact open-postal matches for this student. */
 export async function fetchInbox(profile: Profile | null): Promise<Shoutout[]> {
   const userId = await requireUserId();
+  await releaseDueShoutouts();
   const requests = [
     supabase
       .from("shoutouts")
@@ -182,6 +183,7 @@ export async function fetchInbox(profile: Profile | null): Promise<Shoutout[]> {
 /** Outbox: every letter this student has dispatched, with its delivery stage. */
 export async function fetchOutbox(): Promise<Shoutout[]> {
   const userId = await requireUserId();
+  await releaseDueShoutouts();
   const { data, error } = await supabase
     .from("shoutouts")
     .select(SHOUTOUT_SELECT)
@@ -207,27 +209,20 @@ export async function fetchSentShoutoutCount(userId: string): Promise<number> {
   return count ?? 0;
 }
 
-/** Moves a letter forward one delivery stage and persists timestamps in Supabase. */
-export async function advanceShoutoutDelivery(id: string, current: ShoutoutStatus): Promise<ShoutoutStatus> {
-  const next: ShoutoutStatus = current === "in_transit" ? "arrived" : "delivered";
-  if (current === "delivered") return "delivered";
-  const now = new Date().toISOString();
-  const { error } = await supabase
-    .from("shoutouts")
-    .update({
-      status: next,
-      ...(next === "arrived" ? { arrived_at: now } : { delivered_at: now }),
-    })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
-  return next;
+/** Performs a database-time-based transition for every letter whose transit has elapsed. */
+async function releaseDueShoutouts(): Promise<void> {
+  const { error } = await supabase.rpc("release_due_shoutouts");
+  if (error) {
+    throw new Error(`Could not check shoutout delivery status: ${error.message}`);
+  }
 }
 
 /** Wax-seal opening is also recorded so a sender can see the letter was opened. */
 export async function markShoutoutOpened(id: string): Promise<void> {
+  await releaseDueShoutouts();
   const { error } = await supabase
     .from("shoutouts")
-    .update({ opened_at: new Date().toISOString(), status: "delivered", delivered_at: new Date().toISOString() })
+    .update({ opened_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw new Error(error.message);
 }

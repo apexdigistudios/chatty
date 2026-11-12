@@ -1,5 +1,5 @@
 import { COMPRESSION_PRESETS, compressImageWithStats } from "@/lib/imageCompression";
-import { requireUserId, supabase } from "@/lib/supabase";
+import { requireUserId } from "@/lib/supabase";
 import { uploadFileToR2 } from "@/lib/r2Upload";
 
 export type SchoolLogoUploadStage = "compressing" | "uploading" | "saving";
@@ -28,13 +28,5 @@ export async function uploadSchoolLogo(
   onStage?.("uploading");
   const logoUrl = await uploadFileToR2(optimized.file, "crests", "image/webp", schoolId);
   onStage?.("saving");
-  const { error: updateError } = await supabase
-    .from("schools")
-    .update({ logo_url: logoUrl })
-    .eq("id", schoolId)
-    .select("id")
-    .single();
-  if (updateError) throw new Error(updateError.message);
-
   return logoUrl;
 }

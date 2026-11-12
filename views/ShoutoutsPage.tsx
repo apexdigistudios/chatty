@@ -54,9 +54,9 @@ export function ShoutoutsPage() {
     if (to) navigate(`/shoutouts/create?to=${encodeURIComponent(to)}`, { replace: true });
   }, [searchParams, navigate]);
 
-  const loadMail = useCallback(async () => {
+  const loadMail = useCallback(async (showLoading = true) => {
     if (!user) return;
-    setLoadingMail(true);
+    if (showLoading) setLoadingMail(true);
     try {
       const [received, sent] = await Promise.all([fetchInbox(profile), fetchOutbox()]);
       setInbox(received);
@@ -64,13 +64,21 @@ export function ShoutoutsPage() {
     } catch (error) {
       toast(describeError(error, "Could not load your campus mail."), "danger");
     } finally {
-      setLoadingMail(false);
+      if (showLoading) setLoadingMail(false);
     }
   }, [user, profile, toast]);
 
   useEffect(() => {
     void loadMail();
   }, [loadMail]);
+
+  useEffect(() => {
+    if (!user) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadMail(false);
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [loadMail, user]);
 
   const openLetter = async (letter: Shoutout) => {
     setInbox((prev) => prev.map((item) => item.id === letter.id ? { ...item, openedAt: new Date().toISOString(), status: "delivered" } : item));
