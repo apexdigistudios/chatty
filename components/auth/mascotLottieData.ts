@@ -641,11 +641,6 @@ function buildShsWelcomeLottie() {
         ]),
         shapes: [
           grp(
-            "EyeSparkles",
-            [el("LGlint", 75, 72.5, 4.6, 4.6), el("RGlint", 109, 72.5, 4.6, 4.6)],
-            { fill: C.white }
-          ),
-          grp(
             "Pupils",
             [el("LEye", 73, 75, 13, 13), el("REye", 107, 75, 13, 13)],
             { fill: C.outline }
@@ -714,10 +709,10 @@ function buildShsWelcomeLottie() {
         shapes: shsUniformTorsoShapes(),
       }),
 
-      // Ambient Floating Campus Sparkles (background)
+      // Subtle campus detail in the background
       shapeLayer({
         ind: 90,
-        nm: "AmbientSparkles",
+        nm: "CampusDetails",
         anchor: [90, 90],
         rot: kf1D([
           [0, -4],
@@ -730,9 +725,7 @@ function buildShsWelcomeLottie() {
           [180, 96, 96],
         ]),
         shapes: [
-          grp("LeftStar", [el("S1", 28, 56, 7, 7)], { fill: C.purpleLight }),
-          grp("RightGoldStar", [el("S2", 152, 46, 6, 6)], { fill: C.amber }),
-          grp("LowDot", [el("S3", 25, 116, 5, 5)], { fill: C.amber }),
+          grp("CampusDot", [el("S3", 25, 116, 5, 5)], { fill: C.amber }),
         ],
       }),
     ],
@@ -1527,9 +1520,6 @@ function buildCelebrationLottie() {
           [150, 100, 100],
         ]),
         shapes: [
-          grp("Sparkles", [el("LG", 75, 71.5, 4.8, 4.8), el("RG", 109, 71.5, 4.8, 4.8)], {
-            fill: C.white,
-          }),
           grp("Pupils", [el("LE", 73, 74, 13, 13), el("RE", 107, 74, 13, 13)], {
             fill: C.outline,
           }),

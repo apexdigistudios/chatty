@@ -19,7 +19,6 @@ import {
   Mailbox,
   Search,
   Send,
-  Sparkles,
   Underline,
   UserRound,
   X,
@@ -487,7 +486,7 @@ export function ShoutoutCreatePage() {
             {step === 2 && (
               <>
                 <StepHeading
-                  icon={<Sparkles size={18} strokeWidth={2.6} aria-hidden />}
+                  icon={<Mailbox size={18} strokeWidth={2.6} aria-hidden />}
                   eyebrow="Digital envelope designer"
                   title="Pick your school envelope"
                   description="Choose a colour and a wax-seal stamp. Your recipient's SHS crest sits on every envelope."
@@ -549,7 +548,7 @@ export function ShoutoutCreatePage() {
                         )}
                       >
                         <span className="flex size-8 shrink-0 items-center justify-center rounded-full border-2 border-black/20" style={{ backgroundColor: item.seal }} aria-hidden>
-                          <Sparkles size={14} className="text-white" strokeWidth={2.7} />
+                          <Check size={14} className="text-white" strokeWidth={2.7} />
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[11px] font-extrabold text-ink">{item.label}</span>

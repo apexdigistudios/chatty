@@ -535,27 +535,70 @@ export async function fetchPublicConfession(id: string): Promise<Confession | nu
   return confession ?? null;
 }
 
-export async function fetchPublicProfileData(userId: string): Promise<PublicProfile | null> {
+export async function fetchPublicProfileData(identifier: string): Promise<PublicProfile | null> {
   const client = publicSupabase();
+  const cleanIdentifier = identifier.trim();
   const select =
     "id, username, school_id, avatar_url, cover_url, bio, created_at, full_name, class_form, website, is_verified, verified_title, verified_expires_at, school:schools!school_id(name, crest_url:logo_url)";
-  let { data, error } = await client
-    .from("profiles")
-    .select(select)
-    .eq("id", userId)
-    .maybeSingle<PublicProfileRow>();
-
-  if (error && (error.code === "42703" || error.code === "PGRST204")) {
-    const fallback = await client
+  const escapeIlike = (value: string) => value.replace(/[\\%_]/g, "\\$&");
+  const fetchBy = async (column: "id" | "username", value: string) => {
+    const query = () => client
       .from("profiles")
-      .select("id, username, school_id, avatar_url, cover_url, bio, created_at, school:schools!school_id(name, crest_url:logo_url)")
-      .eq("id", userId)
-      .maybeSingle<PublicProfileRow>();
-    data = fallback.data;
-    error = fallback.error;
+      .select(select);
+    let result = column === "username"
+      ? await query().ilike("username", escapeIlike(value)).maybeSingle<PublicProfileRow>()
+      : await query().eq("id", value).maybeSingle<PublicProfileRow>();
+    if (result.error && (result.error.code === "42703" || result.error.code === "PGRST204")) {
+      const fallbackQuery = () => client
+        .from("profiles")
+        .select("id, username, school_id, avatar_url, cover_url, bio, created_at, school:schools!school_id(name, crest_url:logo_url)");
+      result = column === "username"
+        ? await fallbackQuery().ilike("username", escapeIlike(value)).maybeSingle<PublicProfileRow>()
+        : await fallbackQuery().eq("id", value).maybeSingle<PublicProfileRow>();
+    }
+    return result;
+  };
+  const identifierIsUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cleanIdentifier);
+  let { data, error } = await fetchBy(identifierIsUuid ? "id" : "username", cleanIdentifier);
+  if (identifierIsUuid && !error && !data) {
+    ({ data, error } = await fetchBy("username", cleanIdentifier));
   }
   if (error) throw new Error(error.message);
-  if (!data) return null;
+  if (!data) {
+    const seedQuery = () => client
+      .from("admin_seed_profiles")
+      .select("id, username, full_name, avatar_url, school_id, created_at, school:schools!school_id(name, crest_url:logo_url)");
+    type RawSeedProfile = {
+        id: string;
+        username: string;
+        full_name: string;
+        avatar_url: string | null;
+        school_id: string;
+        created_at: string;
+        school: { name: string; crest_url: string | null } | null;
+      };
+    let seedResult = identifierIsUuid
+      ? await seedQuery().eq("id", cleanIdentifier).maybeSingle<RawSeedProfile>()
+      : await seedQuery().ilike("username", escapeIlike(cleanIdentifier)).maybeSingle<RawSeedProfile>();
+    if (seedResult.error && seedResult.error.code !== "42P01" && seedResult.error.code !== "PGRST205") {
+      throw new Error(seedResult.error.message);
+    }
+    if (!seedResult.data) return null;
+    return {
+      id: seedResult.data.id,
+      username: seedResult.data.username,
+      avatarUrl: seedResult.data.avatar_url,
+      coverUrl: null,
+      bio: "",
+      fullName: seedResult.data.full_name,
+      schoolId: seedResult.data.school_id,
+      schoolName: seedResult.data.school?.name ?? null,
+      schoolShort: seedResult.data.school ? shortNameOf(seedResult.data.school.name) : null,
+      schoolCrest: seedResult.data.school?.crest_url ?? null,
+      createdAt: seedResult.data.created_at,
+      isSeed: true,
+    };
+  }
 
   return {
     id: data.id,

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Loader2, ShieldCheck, Sparkles, Zap } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Loader2, ShieldCheck, Zap } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useGistStore } from "@/store/gistStore";
@@ -482,7 +482,7 @@ export function SpotlightModal({ post, onClose }: SpotlightModalProps) {
             )}
             {step === 4 && checkoutState !== "success" && checkoutState !== "hold" && (
               checkout && (checkoutState === "ready" || checkoutState === "error") ? (
-                <Button size="sm" onClick={openPaystackCheckout} leftIcon={<Sparkles size={14} aria-hidden />}>
+                <Button size="sm" onClick={openPaystackCheckout} leftIcon={<Zap size={14} aria-hidden />}>
                   {paymentVerified ? "Retry safety screening" : "Pay with Paystack"}
                 </Button>
               ) : (
@@ -491,7 +491,7 @@ export function SpotlightModal({ post, onClose }: SpotlightModalProps) {
                   onClick={() => void initializeCheckout()}
                   disabled={paymentBusy}
                   loading={checkoutState === "initializing"}
-                  leftIcon={<Sparkles size={14} aria-hidden />}
+                  leftIcon={<Zap size={14} aria-hidden />}
                 >
                   {checkoutState === "error" ? "Try again" : "Continue to payment"}
                 </Button>

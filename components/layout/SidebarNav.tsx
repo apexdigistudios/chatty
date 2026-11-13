@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
-import { EyeOff, GraduationCap, Home, LogOut, Mailbox, PlusCircle, Search, ShieldAlert, ShieldCheck, Sparkles, User, Zap, type LucideIcon } from "lucide-react";
+import { EyeOff, GraduationCap, Home, LogOut, Mailbox, PlusCircle, Search, ShieldAlert, ShieldCheck, User, Zap, type LucideIcon } from "lucide-react";
 import { useNavigate } from "@/lib/router";
 import { useAuth } from "@/context/AuthContext";
 import { useAuthGateStore } from "@/store/authGateStore";
@@ -142,7 +142,7 @@ export function SidebarNav() {
                 <SidebarLink key={schoolId} to={`/schools/${schoolId}?tab=manage`} icon={ShieldCheck} label={`Manage ${school?.shortName ?? "community"}`} />
               );
             })}
-            {isGlobalAdmin && <SidebarLink to="/admin" icon={Sparkles} label="Global admin" badge="Admin" />}
+            {isGlobalAdmin && <SidebarLink to="/admin" icon={ShieldCheck} label="Global admin" badge="Admin" />}
             {isGlobalAdmin && <SidebarLink to="/admin/safety" icon={ShieldAlert} label="Safety management" />}
           </div>
         </>

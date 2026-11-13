@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePathname } from "next/navigation";
-import { ArrowUpRight, CheckCircle2, Flame, Plus, RefreshCw, Sparkles, TrendingUp, Users, WifiOff, X } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, Flame, Plus, RefreshCw, TrendingUp, Users, WifiOff, X } from "lucide-react";
 import { Link, useNavigate } from "@/lib/router";
 import { ConfessionCard } from "@/components/feed/ConfessionCard";
 import { GistCard } from "@/components/feed/GistCard";
@@ -277,7 +277,7 @@ export function HomePage({
         <div className="relative flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-brand-deep">
-              <Sparkles size={12} strokeWidth={2.8} aria-hidden />
+              <Users size={12} strokeWidth={2.8} aria-hidden />
               Ghana SHS community
             </p>
             <h1 className="mt-1 truncate text-xl font-black leading-tight tracking-tight text-ink">

@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from "framer-motion";
-import { Mail, ShieldCheck, Sparkles } from "lucide-react";
+import { CheckCircle2, Mail, ShieldCheck } from "lucide-react";
 import { crestColorsFor } from "@/lib/media";
 import { ENVELOPE_THEME_BY_ID, STAMP_BY_ID } from "@/components/shoutouts/postalThemes";
 import { springs } from "@/theme/tokens";
@@ -81,7 +81,7 @@ export function PostalEnvelope({
 
       {/* Stamp sticker */}
       <div className="absolute right-3 top-3 rotate-6 rounded-md border-2 border-dashed border-[#18181B]/55 bg-[#FFFBEB] px-2 py-1 text-center shadow-[0_2px_0_rgba(24,24,27,0.25)]">
-        <Sparkles size={11} className="mx-auto text-[#7C3AED]" aria-hidden />
+        <CheckCircle2 size={11} className="mx-auto text-[#7C3AED]" aria-hidden />
         <span className="mt-0.5 block max-w-[5.5rem] text-[7px] font-black uppercase leading-tight tracking-wider text-[#18181B]">
           {stampLabel}
         </span>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "@/lib/router";
-import { AlertTriangle, CheckCircle2, EyeOff, Flag, Loader2, ShieldCheck, Sparkles, Trash2, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, EyeOff, Flag, Loader2, ShieldCheck, Trash2, XCircle } from "lucide-react";
 import { PageHeading } from "@/components/layout/PageHeading";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -126,7 +126,7 @@ export function AdminPage() {
                       <Button size="sm" variant="danger" disabled={busy !== null} leftIcon={<XCircle size={14} strokeWidth={2.6} aria-hidden />} onClick={() => run(`reject-${confession.id}`, () => rejectConfession(confession.id), "Confession rejected.")}>
                         Reject
                       </Button>
-                      <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-ink-muted"><Sparkles size={11} aria-hidden />Author stays anonymous</span>
+                      <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-ink-muted"><EyeOff size={11} aria-hidden />Author stays anonymous</span>
                     </div>
                   </CardBody>
                 </Card>

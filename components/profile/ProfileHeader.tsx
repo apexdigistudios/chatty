@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from "react";
-import { Pencil, Settings } from "lucide-react";
+import { Pencil, Settings, Share2 } from "lucide-react";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { Button } from "@/components/ui/Button";
 
@@ -21,6 +21,7 @@ interface ProfileHeaderProps {
   onEdit: () => void;
   onSettings: () => void;
   onShoutouts: () => void;
+  onShare: () => void;
 }
 
 export function ProfileHeader({
@@ -39,6 +40,7 @@ export function ProfileHeader({
   onEdit,
   onSettings,
   onShoutouts,
+  onShare,
 }: ProfileHeaderProps) {
   return (
     <div className="flex min-w-0 flex-col items-center text-center sm:items-start sm:text-left">
@@ -76,6 +78,14 @@ export function ProfileHeader({
         >
           Edit Profile
         </Button>
+        <button
+          type="button"
+          onClick={onShare}
+          className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border-2 border-line bg-card px-3 text-[10px] font-extrabold text-ink shadow-[0_3px_0_var(--border-color)] transition-[transform,border-color,box-shadow,color] hover:-translate-y-0.5 hover:border-brand hover:text-brand-deep hover:shadow-[0_4px_0_var(--brand-edge)] active:translate-y-0.5 active:shadow-[0_1px_0_var(--brand-edge)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:min-h-11 sm:px-4 sm:text-xs"
+        >
+          <Share2 size={14} strokeWidth={2.5} aria-hidden />
+          Share Profile
+        </button>
         <button
           type="button"
           onClick={onShoutouts}

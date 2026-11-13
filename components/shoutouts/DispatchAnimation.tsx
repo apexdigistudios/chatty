@@ -2,7 +2,7 @@
 
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { CheckCircle2, Mailbox, Send, Sparkles } from "lucide-react";
+import { CheckCircle2, Mailbox, Send } from "lucide-react";
 import { springs } from "@/theme/tokens";
 import { Button } from "@/components/ui/Button";
 import { PostalEnvelope } from "@/components/shoutouts/PostalEnvelope";
@@ -108,7 +108,7 @@ export function DispatchAnimation({
             </div>
 
             <p className="mt-4 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-brand-deep">
-              <Sparkles size={12} aria-hidden />
+              <Send size={12} aria-hidden />
               {stage === "delivered" ? "Letter delivered" : "Paper plane in flight"}
             </p>
             <h2 className="mt-1.5 text-xl font-black tracking-tight text-ink">{statusCopy}</h2>

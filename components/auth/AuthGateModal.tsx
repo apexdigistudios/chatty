@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "@/lib/router";
-import { EyeOff, GraduationCap, LogIn, Sparkles, X } from "lucide-react";
+import { ArrowRight, CheckCircle2, EyeOff, GraduationCap, LogIn, X } from "lucide-react";
 import { useAuthGateStore } from "@/store/authGateStore";
 import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
@@ -95,7 +95,7 @@ export function AuthGateModal() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <span className="inline-flex items-center gap-1 rounded-full bg-brand-wash px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-brand-deep">
-                  <Sparkles size={11} strokeWidth={2.8} aria-hidden />
+                  <GraduationCap size={11} strokeWidth={2.8} aria-hidden />
                   Student Pass Required
                 </span>
                 <h2
@@ -139,7 +139,7 @@ export function AuthGateModal() {
                 Official SHS Crest
               </span>
               <span className="inline-flex items-center gap-1 rounded-full border border-line bg-page px-2.5 py-1 text-[10px] font-extrabold text-ink-soft">
-                <Sparkles size={11} strokeWidth={2.6} className="text-brand-deep" aria-hidden />
+                <CheckCircle2 size={11} strokeWidth={2.6} className="text-brand-deep" aria-hidden />
                 Takes 30 Seconds
               </span>
             </div>
@@ -150,7 +150,7 @@ export function AuthGateModal() {
                 fullWidth
                 size="lg"
                 onClick={() => goToAuth("signup")}
-                leftIcon={<Sparkles size={17} strokeWidth={2.7} aria-hidden />}
+                leftIcon={<ArrowRight size={17} strokeWidth={2.7} aria-hidden />}
               >
                 Get Started — Free
               </Button>

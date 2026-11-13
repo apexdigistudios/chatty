@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "@/lib/router";
-import { EyeOff, Lock, Plus, ShieldCheck, Sparkles, WifiOff } from "lucide-react";
+import { EyeOff, Lock, MessageCircle, Plus, ShieldCheck, WifiOff } from "lucide-react";
 import { ConfessionCard } from "@/components/feed/ConfessionCard";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/context/AuthContext";
@@ -159,7 +159,7 @@ export function ConfessionsPage({
               ))
             ) : (
               <div className="rounded-2xl border-2 border-dashed border-line px-5 py-12 text-center">
-                <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-brand-wash text-brand-deep"><Sparkles size={22} strokeWidth={2.4} aria-hidden /></span>
+                <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-brand-wash text-brand-deep"><MessageCircle size={22} strokeWidth={2.4} aria-hidden /></span>
                 <p className="mt-3 text-sm font-extrabold text-ink">No confessions in this category yet</p>
                 <p className="mx-auto mt-1 max-w-[30ch] text-xs font-semibold leading-relaxed text-ink-muted">Yours could be the first one students relate to.</p>
                 <Button size="sm" variant="outline" className="mt-4" onClick={startConfession}>Write one</Button>

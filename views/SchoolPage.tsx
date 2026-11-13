@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import posthog from "posthog-js";
 import { motion } from "framer-motion";
 import { Link, useNavigate, useParams, useSearchParams } from "@/lib/router";
-import { ArrowLeft, Hash, Loader2, MapPin, Plus, ShieldCheck, Sparkles, Users, WifiOff, X } from "lucide-react";
+import { ArrowLeft, Hash, Loader2, MapPin, Newspaper, Plus, ShieldCheck, Users, WifiOff, X } from "lucide-react";
 import { GistCard } from "@/components/feed/GistCard";
 import { ManageCommunityPanel } from "@/components/moderation/ManageCommunityPanel";
 import { SchoolCrestUploader } from "@/components/schools/SchoolCrestUploader";
@@ -259,7 +259,7 @@ export function SchoolPage({
   }
 
   const tabs: Array<{ id: Tab; label: string; icon: typeof Users }> = [
-    { id: "feed", label: "Feed", icon: Sparkles },
+    { id: "feed", label: "Feed", icon: Newspaper },
     ...(canViewSchoolSections ? [{ id: "groups" as Tab, label: "Groups & Clubs", icon: Users }] : []),
     ...(moderator ? [{ id: "manage" as Tab, label: "Manage", icon: ShieldCheck }] : []),
   ];

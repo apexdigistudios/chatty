@@ -47,7 +47,7 @@ async function emptyBuckets() {
     } while (continuationToken);
   }
 
-  console.log('✨ All targeted Supabase buckets emptied successfully!');
+  console.log('All targeted Supabase buckets emptied successfully!');
 }
 
 emptyBuckets().catch((err) => {

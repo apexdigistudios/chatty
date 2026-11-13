@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate, useParams } from "@/lib/router";
-import { ArrowLeft, CalendarDays, Send, Share2, Sparkles, WifiOff } from "lucide-react";
+import { ArrowLeft, CalendarDays, MessageCircle, Send, Share2, WifiOff } from "lucide-react";
 import { BentoPostGrid } from "@/components/feed/BentoPostGrid";
 import { FollowButton } from "@/components/profile/FollowButton";
 import { Avatar } from "@/components/ui/Avatar";
@@ -54,25 +54,23 @@ export function PublicProfilePage({
 
   // A student viewing their own public URL lands on the editable profile page.
   useEffect(() => {
-    if (user && userId === user.id) navigate("/profile", { replace: true });
-  }, [user, userId, navigate]);
+    if (user && profile?.id === user.id) navigate("/profile", { replace: true });
+  }, [user, userId, profile?.id, navigate]);
 
   const load = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
     setError(null);
     try {
-      const [nextProfile, nextPosts] = await Promise.all([
-        fetchPublicProfile(userId),
-        fetchFeed({ authorId: userId, limit: 30 }),
-      ]);
+      const nextProfile = await fetchPublicProfile(userId);
+      const nextPosts = nextProfile ? await fetchFeed({ authorId: nextProfile.id, limit: 30 }) : [];
       setProfile(nextProfile);
       setPosts(nextPosts);
       if (nextProfile?.isSeed) {
         setFollowSummary({ followerCount: 0, followingCount: 0, isFollowing: false });
       } else {
         try {
-          setFollowSummary(await fetchFollowSummary(userId, user?.id));
+          if (nextProfile) setFollowSummary(await fetchFollowSummary(nextProfile.id, user?.id));
         } catch (followError) {
           toast(describeError(followError, "Could not load follow counts."), "danger");
         }
@@ -93,7 +91,7 @@ export function PublicProfilePage({
   useEffect(() => {
     if (initialUserId !== userId || !initialProfile || initialProfile.isSeed) return;
     let active = true;
-    void fetchFollowSummary(userId, user?.id)
+    void fetchFollowSummary(initialProfile.id, user?.id)
       .then((summary) => active && setFollowSummary(summary))
       .catch((cause) => active && toast(describeError(cause, "Could not load follow counts."), "danger"));
     return () => {
@@ -103,15 +101,9 @@ export function PublicProfilePage({
 
   const retryProfile = () => void load();
 
-  const shareProfile = async () => {
+  const shareProfile = () => {
     if (!profile) return;
-    const url = `${window.location.origin}/profile/${profile.id}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast("Profile link copied.", "info");
-    } catch {
-      toast("Could not copy the profile link.", "danger");
-    }
+    navigate(`/share/${encodeURIComponent(profile.username)}`);
   };
 
   const toggleFollow = async () => {
@@ -323,7 +315,7 @@ export function PublicProfilePage({
           <BentoPostGrid posts={posts} emptyMessage={`When @${profile.username} shares a campus gist it will appear here.`} />
         ) : (
           <div className="rounded-2xl border-2 border-dashed border-line px-5 py-12 text-center">
-            <Sparkles size={20} className="mx-auto text-brand-deep" aria-hidden />
+            <MessageCircle size={20} className="mx-auto text-brand-deep" aria-hidden />
             <p className="mt-2 text-sm font-extrabold text-ink">No public gists yet</p>
             <p className="mx-auto mt-1 max-w-[32ch] text-xs font-semibold leading-relaxed text-ink-muted">
               When @{profile.username} shares a campus gist it will appear here.

@@ -230,8 +230,8 @@ interface RawSeedPublicProfile {
 function mapPublicProfile(data: RawPublicProfile): PublicProfile {
   return {
     id: data.id,
-    username: data.username,
-    avatarUrl: data.avatar_url,
+    username: data.username || "student",
+    avatarUrl: data.avatar_url ?? null,
     coverUrl: data.cover_url ?? null,
     bio: data.bio ?? "",
     fullName: data.full_name ?? null,
@@ -269,10 +269,35 @@ function mapSeedPublicProfile(data: RawSeedPublicProfile): PublicProfile {
   };
 }
 
-/** Read-only public profile for `/profile/:userId` (no email or private fields). */
-export async function fetchPublicProfile(userId: string): Promise<PublicProfile | null> {
-  const profiles = await fetchPublicProfiles([userId]);
-  return profiles.get(userId) ?? null;
+/** Read-only public profile for `/profile/:userId` and shareable username URLs. */
+export async function fetchPublicProfile(identifier: string): Promise<PublicProfile | null> {
+  const cleanIdentifier = identifier.trim();
+  const identifierIsUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cleanIdentifier);
+  if (identifierIsUuid) {
+    const profiles = await fetchPublicProfiles([cleanIdentifier]);
+    const byId = profiles.get(cleanIdentifier);
+    if (byId) return byId;
+  }
+  if (isBrowserOffline()) return null;
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(`${await profileSelect()}, school:schools!school_id(name, crest_url:logo_url)`)
+    .ilike("username", cleanIdentifier.replace(/[\\%_]/g, "\\$&"))
+    .maybeSingle<RawPublicProfile>();
+  if (error) throw new Error(error.message);
+  if (data) return mapPublicProfile(data);
+
+  const { data: seedProfile, error: seedError } = await supabase
+    .from("admin_seed_profiles")
+    .select("id, username, full_name, avatar_url, school_id, created_at, school:schools!school_id(name, crest_url:logo_url)")
+    .ilike("username", cleanIdentifier.replace(/[\\%_]/g, "\\$&"))
+    .maybeSingle<RawSeedPublicProfile>();
+  if (seedError) {
+    if (seedError.code !== "42P01" && seedError.code !== "PGRST205") throw new Error(seedError.message);
+    return null;
+  }
+  return seedProfile ? mapSeedPublicProfile(seedProfile) : null;
 }
 
 /** Fetches regular and seed profiles in batches, preserving input IDs in the result map. */

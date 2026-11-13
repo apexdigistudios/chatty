@@ -8,7 +8,7 @@ import {
   useAnimationControls,
   useReducedMotion,
 } from "framer-motion";
-import { AlertCircle, CheckCircle2, Sparkles } from "lucide-react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { springs } from "@/theme/tokens";
 import { cn } from "@/utils/cn";
 import { MASCOT_LOTTIE_DATA } from "@/components/auth/mascotLottieData";
@@ -185,7 +185,7 @@ export function MascotCharacter({
                 ) : isValid ? (
                   <CheckCircle2 size={16} strokeWidth={2.8} />
                 ) : (
-                  <Sparkles size={15} strokeWidth={2.8} />
+                  <AlertCircle size={15} strokeWidth={2.8} />
                 )}
               </motion.span>
             )}

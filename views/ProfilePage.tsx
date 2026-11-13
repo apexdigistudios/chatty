@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link, useNavigate } from "@/lib/router";
-import { ArrowUpRight, BookOpen, Bookmark, BriefcaseBusiness, Check, ChevronDown, EyeOff, Heart, LayoutGrid, Loader2, Lock, LogIn, LogOut, Mailbox, MessageCircle, Monitor, Moon, Plus, ShieldCheck, Sparkles, Sun, Video, X } from "lucide-react";
+import { ArrowUpRight, BookOpen, Bookmark, BriefcaseBusiness, Check, ChevronDown, EyeOff, Heart, LayoutGrid, Loader2, Lock, LogIn, LogOut, Mailbox, MessageCircle, Monitor, Moon, Plus, ShieldCheck, Sun, Video, X } from "lucide-react";
 import { MascotCharacter } from "@/components/auth/MascotCharacter";
 import { GistCard } from "@/components/feed/GistCard";
 import { BentoPostGrid } from "@/components/feed/BentoPostGrid";
@@ -158,7 +158,7 @@ export function ProfilePage() {
               <Button
                 size="lg"
                 fullWidth
-                leftIcon={<Sparkles size={17} strokeWidth={2.7} aria-hidden />}
+                leftIcon={<ArrowUpRight size={17} strokeWidth={2.7} aria-hidden />}
                 onClick={() => navigate("/auth?mode=signup&returnTo=%2Fprofile")}
               >
                 Create Student Pass
@@ -334,6 +334,7 @@ export function ProfilePage() {
               onEdit={() => navigate("/profile/edit")}
               onSettings={() => setSettingsOpen(true)}
               onShoutouts={() => navigate("/shoutouts")}
+              onShare={() => navigate(`/share/${encodeURIComponent(profile.username)}`)}
             />
             <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:mt-3 sm:justify-start">
               {profile.classForm && (
@@ -658,7 +659,7 @@ function safeExternalUrl(value: string): string | null {
 function Empty({ title, detail, action, onAction }: { title: string; detail: string; action: string; onAction: () => void }) {
   return (
     <div className="rounded-3xl border-2 border-dashed border-line bg-card px-5 py-12 text-center">
-      <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-brand-wash text-brand-deep"><Sparkles size={22} strokeWidth={2.5} aria-hidden /></span>
+      <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-brand-wash text-brand-deep"><MessageCircle size={22} strokeWidth={2.5} aria-hidden /></span>
       <p className="mt-3 text-sm font-extrabold text-ink">{title}</p>
       <p className="mx-auto mt-1 max-w-[34ch] text-xs font-semibold leading-relaxed text-ink-muted">{detail}</p>
       <Button size="sm" className="mt-4" onClick={onAction}>{action}</Button>

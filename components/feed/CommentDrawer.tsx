@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { Link } from "@/lib/router";
-import { CornerDownRight, EyeOff, Heart, Loader2, MessageCircle, Send, Sparkles, Trash2, X } from "lucide-react";
+import { CornerDownRight, EyeOff, Heart, Loader2, MessageCircle, Send, Trash2, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useCanModerate } from "@/hooks/useModeration";
 import { describeError } from "@/lib/supabase";
@@ -331,7 +331,7 @@ export function CommentDrawer() {
               ) : (
                 <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-line px-4 py-10 text-center">
                   <span className="flex size-12 items-center justify-center rounded-2xl bg-brand-wash text-brand-deep">
-                    <Sparkles size={22} strokeWidth={2.5} aria-hidden />
+                    <MessageCircle size={22} strokeWidth={2.5} aria-hidden />
                   </span>
                   <p className="mt-3 text-sm font-extrabold text-ink">No comments yet</p>
                   <p className="mt-1 max-w-[28ch] text-xs font-semibold text-ink-muted">Be the first student to join the conversation.</p>

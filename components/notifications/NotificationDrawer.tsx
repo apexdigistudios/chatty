@@ -15,7 +15,7 @@ import {
   MessageCircle,
   Newspaper,
   ShieldAlert,
-  Sparkles,
+  Flame,
   Wifi,
   X,
   type LucideIcon,
@@ -486,7 +486,7 @@ function NotificationRow({
             )}
             {item.highlight && (
               <span className="inline-flex items-center gap-1 rounded-full bg-warning-wash px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-warning-deep">
-                <Sparkles size={9} strokeWidth={3} aria-hidden />
+                <Flame size={9} strokeWidth={3} aria-hidden />
                 Hot
               </span>
             )}

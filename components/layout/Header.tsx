@@ -1,6 +1,6 @@
 'use client';
 
-import { Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import NextLink from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -49,7 +49,7 @@ export function Header({ hidden = false, spotlight = false }: { hidden?: boolean
               href="/auth?mode=signup"
               className="hidden h-11 items-center gap-1.5 rounded-2xl bg-[#8B5CF6] px-3.5 text-xs font-extrabold uppercase tracking-wider text-white shadow-[0_3px_0_#5B21B6] transition-transform hover:bg-[#7C3AED] active:translate-y-0.5 sm:inline-flex"
             >
-              <Sparkles size={14} strokeWidth={2.7} aria-hidden />
+              <ArrowRight size={14} strokeWidth={2.7} aria-hidden />
               <span>Get Started</span>
             </NextLink>
           )}
