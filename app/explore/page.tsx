@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 
 export default async function ExploreRoute() {
   try {
-    return <ExplorePage initialGists={await fetchPopularPublicPosts(8)} />;
+    return <ExplorePage initialGists={await fetchPopularPublicPosts(5)} />;
   } catch (error) {
     console.error("Could not preload public Explore gists.", error);
     return <ExplorePage initialGists={null} initialGistsError="Public gists could not be loaded right now." />;

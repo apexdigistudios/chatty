@@ -6,6 +6,7 @@ import { Link, useNavigate } from "@/lib/router";
 import { ArrowUpRight, BookOpen, Bookmark, BriefcaseBusiness, Check, ChevronDown, EyeOff, Heart, LayoutGrid, Loader2, Lock, LogIn, LogOut, Mailbox, MessageCircle, Monitor, Moon, Plus, ShieldCheck, Sparkles, Sun, Video, X } from "lucide-react";
 import { MascotCharacter } from "@/components/auth/MascotCharacter";
 import { GistCard } from "@/components/feed/GistCard";
+import { BentoPostGrid } from "@/components/feed/BentoPostGrid";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -480,7 +481,7 @@ export function ProfilePage() {
                     post.mediaUrls.some(isVideoUrl)
                   )
                 : myPosts;
-              return loadingPosts ? <PageSpinner label="Loading posts" className="min-h-48" /> : profilePosts.length > 0 ? profilePosts.map((post) => <GistCard key={post.id} post={post} onRemoved={(postId) => { setMyPosts((prev) => prev.filter((item) => item.id !== postId)); setLiked((prev) => prev.filter((item) => item.id !== postId)); setSaved((prev) => prev.filter((item) => item.id !== postId)); }} />) : (
+              return loadingPosts ? <PageSpinner label="Loading posts" className="min-h-48" /> : profilePosts.length > 0 ? <BentoPostGrid posts={profilePosts} /> : (
                 <Empty title={tab === "Videos" ? "No videos yet" : "You haven't posted a gist yet"} detail={tab === "Videos" ? "Videos you share with your school will appear here." : "Share campus news, NSMQ banter or photos with your community."} action="Create first gist" onAction={() => { setComposerIntent("gist", profile.schoolId); navigate("/create"); }} />
               );
             })()}

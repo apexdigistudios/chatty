@@ -1,21 +1,21 @@
 'use client';
 
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "@/lib/router";
-import { ArrowUpRight, Hash, Loader2, MapPin, Search, Users, X } from "lucide-react";
+import { Link, useSearchParams } from "@/lib/router";
+import { Hash, Loader2, MapPin, Search, Users, X } from "lucide-react";
 import { PageHeading } from "@/components/layout/PageHeading";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardBody } from "@/components/ui/Card";
+import { BentoPostGrid } from "@/components/feed/BentoPostGrid";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { ProgressiveImage } from "@/components/ui/ProgressiveImage";
-import { SchoolBadge } from "@/components/ui/SchoolBadge";
 import { describeError } from "@/lib/supabase";
 import { timeAgo } from "@/lib/time";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { PromotedBadge } from "@/components/feed/PromotedBadge";
 import { fetchPopularProfiles, searchProfiles, type ProfileSearchHit } from "@/services/profilesService";
-import { fetchFeed, fetchPopularGists } from "@/services/postsService";
+import { fetchFeed, fetchTrendingPosts } from "@/services/postsService";
 import { useGistStore } from "@/store/gistStore";
 import type { Post } from "@/types/models";
 import { cn } from "@/utils/cn";
@@ -32,12 +32,10 @@ export function ExplorePage({
   initialGists?: Post[] | null;
   initialGistsError?: string | null;
 }) {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tag = (searchParams.get("tag") ?? "").replace(/^#/, "").trim().toLowerCase();
   const schools = useGistStore((state) => state.schools);
   const loadSchools = useGistStore((state) => state.loadSchools);
-  const setFeedSchool = useGistStore((state) => state.setFeedSchool);
 
   const [query, setQuery] = useState(() => tag ? `#${tag}` : "");
   const [debounced, setDebounced] = useState("");
@@ -71,13 +69,28 @@ export function ExplorePage({
         ? Promise.resolve(initialGists ?? [])
         : tag
         ? fetchFeed({ tag, limit: 30 })
-        : debounced ? fetchFeed({ search: debounced, limit: 20 }) : fetchPopularGists(),
+        : debounced ? fetchFeed({ search: debounced, limit: 20 }) : fetchTrendingPosts(1000, 5),
       debounced && !tag ? searchProfiles(debounced) : fetchPopularProfiles(),
     ])
       .then(([nextGists, nextPeople]) => {
         if (!active) return;
-        if (!showServerResults || initialGists !== null) setGists(nextGists);
-        setPeople(nextPeople);
+        if (!showServerResults || initialGists !== null) {
+          setGists(debounced && !tag
+            ? [...nextGists].sort((a, b) =>
+                a.content.localeCompare(b.content, undefined, { sensitivity: "base" }) ||
+                a.authorName.localeCompare(b.authorName, undefined, { sensitivity: "base" })
+              )
+            : nextGists);
+        }
+        setPeople(debounced && !tag
+          ? [...nextPeople].sort((a, b) =>
+              (a.fullName?.trim() || a.username).localeCompare(
+                b.fullName?.trim() || b.username,
+                undefined,
+                { sensitivity: "base" }
+              )
+            )
+          : nextPeople);
       })
       .catch((err) => active && setError(describeError(err, "Search failed.")))
       .finally(() => active && setLoading(!showServerResults));
@@ -88,18 +101,16 @@ export function ExplorePage({
 
   const schoolHits = useMemo(() => {
     const q = debounced.toLowerCase();
-    return schools.filter((school) => !q || `${school.name} ${school.shortName} ${school.region}`.toLowerCase().includes(q)).slice(0, 8);
+    return schools
+      .filter((school) => !q || `${school.name} ${school.shortName} ${school.region}`.toLowerCase().includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
+      .slice(0, 8);
   }, [debounced, schools]);
 
   const showGists = filter === "All" || filter === "Gists";
   const showPeople = filter === "All" || filter === "People";
   const showSchools = filter === "All" || filter === "Schools";
   const empty = !loading && !error && (showGists ? gists.length === 0 : true) && (showPeople ? people.length === 0 : true) && (showSchools ? schoolHits.length === 0 : true);
-
-  const openSchoolFeed = (schoolId: string) => {
-    setFeedSchool(schoolId);
-    navigate("/");
-  };
 
   return (
     <div className="mx-auto w-full max-w-[860px] min-w-0 px-4 pt-5 sm:px-6 sm:pt-7">
@@ -136,9 +147,12 @@ export function ExplorePage({
           {showGists && gists.length > 0 && (
             <section aria-labelledby="gists-heading">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 id="gists-heading" className="text-sm font-extrabold text-ink sm:text-base">{tag ? `Gists tagged #${tag}` : debounced ? "Gists matching your search" : "Popular gists (100+ likes)"}</h2>
+                <h2 id="gists-heading" className="text-sm font-extrabold text-ink sm:text-base">{tag ? `Gists tagged #${tag}` : debounced ? "Gists matching your search" : "Top gists (1,000+ likes)"}</h2>
                 <Badge tone="brand">{gists.length}</Badge>
               </div>
+              {!tag && !debounced ? (
+                <BentoPostGrid posts={gists.slice(0, 5)} />
+              ) : (
               <div className="divide-y-2 divide-line overflow-hidden rounded-2xl border-2 border-line bg-card">
                 {gists.map((post) => (
                   <div key={post.id} className="flex items-start gap-3 px-3.5 py-3.5">
@@ -157,9 +171,7 @@ export function ExplorePage({
                     <div className="min-w-0 flex-1">
                       <p className="line-clamp-2 text-[13px] font-bold leading-snug text-ink">{post.content}</p>
                       <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold text-ink-muted">
-                        <SchoolBadge schoolId={post.schoolId} crestUrl={post.schoolCrest} name={post.schoolShort} size="xs" />
-                        {post.schoolShort}
-                        <span className="size-1 rounded-full bg-ink-faint" aria-hidden />@{post.authorName}
+                        @{post.authorName}
                         <VerifiedBadge
                           isVerified={post.authorIsVerified === true}
                           verifiedExpiresAt={post.authorVerifiedExpiresAt}
@@ -172,10 +184,11 @@ export function ExplorePage({
                         <span className="size-1 rounded-full bg-ink-faint" aria-hidden />{timeAgo(post.createdAt)}
                       </p>
                     </div>
-                    <Link to={post.schoolId ? `/schools/${post.schoolId}` : "/"} aria-label={post.schoolId ? `Open ${post.schoolShort} community` : "Open feed"} className="shrink-0 rounded-lg p-1.5 text-ink-faint hover:bg-page hover:text-brand-deep"><ArrowUpRight size={16} strokeWidth={2.5} aria-hidden /></Link>
+                    <Link to={`/posts/${post.id}`} aria-label="View gist" className="shrink-0 rounded-xl bg-brand-deep px-3 py-2 text-[10px] font-extrabold uppercase tracking-wider text-brand-contrast shadow-[0_3px_0_var(--brand-edge)] active:translate-y-0.5">View</Link>
                   </div>
                 ))}
               </div>
+              )}
             </section>
           )}
 
@@ -192,7 +205,9 @@ export function ExplorePage({
                       <Avatar name={student.username} src={student.avatarUrl} size="lg" />
                       <div className="min-w-0 flex-1">
                         <p className="flex min-w-0 items-center gap-1.5 truncate text-[13px] font-extrabold text-ink">
-                          <span className="truncate">@{student.username}</span>
+                          <Link to={`/profile/${student.id}`} className="truncate hover:text-brand-deep hover:underline">
+                            @{student.username}
+                          </Link>
                           <VerifiedBadge
                             isVerified={student.isVerified === true}
                             verifiedExpiresAt={student.verifiedExpiresAt}
@@ -201,13 +216,16 @@ export function ExplorePage({
                             role={student.role}
                           />
                         </p>
-                        <p className="truncate text-[11px] font-semibold text-ink-muted">{student.schoolShort ?? "No school yet"}</p>
                         {student.bio && <p className="mt-0.5 line-clamp-1 text-[10px] font-semibold text-ink-muted">{student.bio}</p>}
                         {!debounced && student.followersCount !== undefined && <p className="mt-0.5 text-[10px] font-bold text-brand-deep">{formatCompactNumber(student.followersCount)} followers</p>}
                       </div>
-                      {student.schoolId && (
-                        <button type="button" onClick={() => openSchoolFeed(student.schoolId as string)} className="shrink-0 rounded-xl border-2 border-line px-2.5 py-1.5 text-[10px] font-extrabold text-ink hover:border-brand hover:text-brand-deep">School</button>
-                      )}
+                      <Link
+                        to={`/profile/${student.id}`}
+                        aria-label={`View @${student.username}'s profile`}
+                        className="shrink-0 rounded-xl bg-brand-deep px-3 py-2 text-[10px] font-extrabold uppercase tracking-wider text-brand-contrast shadow-[0_3px_0_var(--brand-edge)] active:translate-y-0.5"
+                      >
+                        View
+                      </Link>
                     </CardBody>
                   </Card>
                 ))}
@@ -224,7 +242,6 @@ export function ExplorePage({
               <div className="divide-y-2 divide-line overflow-hidden rounded-2xl border-2 border-line bg-card">
                 {schoolHits.map((school) => (
                   <div key={school.id} className="flex items-center gap-3 px-3.5 py-3">
-                    <SchoolBadge schoolId={school.id} crestUrl={school.crestUrl} name={school.name} size="lg" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-extrabold text-ink">{school.name}</p>
                       <p className="mt-0.5 flex items-center gap-1 truncate text-[10px] font-semibold text-ink-muted">
@@ -233,7 +250,7 @@ export function ExplorePage({
                         <Users size={11} strokeWidth={2.5} aria-hidden />{formatCompactNumber(school.memberCount)}
                       </p>
                     </div>
-                    <button type="button" onClick={() => navigate(`/schools/${school.id}`)} className="shrink-0 rounded-xl bg-brand-deep px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-brand-contrast shadow-[0_3px_0_var(--brand-edge)] active:translate-y-0.5">Feed</button>
+                    <Link to={`/schools/${school.id}`} className="shrink-0 rounded-xl bg-brand-deep px-3 py-2 text-[10px] font-extrabold uppercase tracking-wider text-brand-contrast shadow-[0_3px_0_var(--brand-edge)] active:translate-y-0.5">View</Link>
                   </div>
                 ))}
               </div>

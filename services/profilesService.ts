@@ -544,21 +544,26 @@ interface RawProfileSearch extends ProfileRow {
 }
 
 export async function searchProfiles(query: string, limit = 8): Promise<ProfileSearchHit[]> {
-  const q = query.trim();
+  const q = query.trim().replace(/[%,()]/g, "");
   if (!q) return [];
+  const supportsIdentity = await supportsProfileIdentity();
   const select = await profileSelect();
   const { data, error } = await supabase
     .from("profiles")
     .select(`${select}, school:schools!school_id(name)`)
-    .ilike("username", `%${q}%`)
-    .order("created_at", { ascending: false })
+    .or(supportsIdentity
+      ? `username.ilike.%${q}%,full_name.ilike.%${q}%`
+      : `username.ilike.%${q}%`)
+    .order("username", { ascending: true })
     .limit(limit)
     .returns<RawProfileSearch[]>();
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => ({
-    ...mapProfile(row),
-    schoolShort: row.school ? shortNameOf(row.school.name) : null,
-  }));
+  return (data ?? [])
+    .map((row) => ({
+      ...mapProfile(row),
+      schoolShort: row.school ? shortNameOf(row.school.name) : null,
+    }))
+    .sort((a, b) => a.username.localeCompare(b.username, undefined, { sensitivity: "base" }));
 }
 
 export async function fetchPopularProfiles(limit = 8): Promise<ProfileSearchHit[]> {
@@ -587,7 +592,7 @@ export async function fetchPopularProfiles(limit = 8): Promise<ProfileSearchHit[
       schoolShort: row.school ? shortNameOf(row.school.name) : null,
       followersCount: countById.get(row.id) ?? 0,
     }))
-    .sort((a, b) => (b.followersCount ?? 0) - (a.followersCount ?? 0));
+    .sort((a, b) => a.username.localeCompare(b.username, undefined, { sensitivity: "base" }));
 }
 
 /* ───────────── Auth ───────────── */

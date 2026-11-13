@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate, useParams } from "@/lib/router";
 import { ArrowLeft, CalendarDays, Send, Share2, Sparkles, WifiOff } from "lucide-react";
-import { GistCard } from "@/components/feed/GistCard";
+import { BentoPostGrid } from "@/components/feed/BentoPostGrid";
 import { FollowButton } from "@/components/profile/FollowButton";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
@@ -320,11 +320,7 @@ export function PublicProfilePage({
         )}
 
         {posts.length > 0 ? (
-          <div className="space-y-0">
-            {posts.map((post) => (
-              <GistCard key={post.id} post={post} onRemoved={(postId) => setPosts((prev) => prev.filter((item) => item.id !== postId))} />
-            ))}
-          </div>
+          <BentoPostGrid posts={posts} emptyMessage={`When @${profile.username} shares a campus gist it will appear here.`} />
         ) : (
           <div className="rounded-2xl border-2 border-dashed border-line px-5 py-12 text-center">
             <Sparkles size={20} className="mx-auto text-brand-deep" aria-hidden />

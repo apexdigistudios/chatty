@@ -439,29 +439,7 @@ export async function fetchPublicPosts(options: {
 }
 
 export async function fetchPopularPublicPosts(limit = 8): Promise<Post[]> {
-  const { data, error } = await publicSupabase()
-    .from("post_like_counts")
-    .select("post_id, likes_count")
-    .gt("likes_count", 100)
-    .order("likes_count", { ascending: false })
-    .limit(limit)
-    .returns<Array<{ post_id: string; likes_count: number }>>();
-  if (error && error.code !== "42P01" && error.code !== "PGRST205") throw new Error(error.message);
-  if (error) {
-    return (await fetchPublicPosts({ limit: 15 }))
-      .filter((post) => post.likeCount > 100)
-      .sort((left, right) => right.likeCount - left.likeCount)
-      .slice(0, limit);
-  }
-  const popular = data ?? [];
-  if (popular.length === 0) return [];
-  const ids = popular.map((item) => item.post_id);
-  const rows = await fetchPublicPostRows({ ids, limit: ids.length });
-  const postsById = new Map(rows.map((row) => [row.id, mapPost(row)]));
-  return ids.flatMap((id) => {
-    const post = postsById.get(id);
-    return post ? [post] : [];
-  });
+  return (await fetchPublicTrendingContent(Math.min(limit, 5))).trendingPosts;
 }
 
 export async function fetchPublicTrendingContent(limit = 20): Promise<{

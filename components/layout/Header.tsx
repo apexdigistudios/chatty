@@ -1,11 +1,12 @@
 'use client';
 
-import { Search, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import NextLink from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { UniversalSearch } from "@/components/layout/UniversalSearch";
 
 /**
  * Sticky brand bar. Mobile keeps only the search trigger (per Step 9 polish);
@@ -34,26 +35,9 @@ export function Header({ hidden = false, spotlight = false }: { hidden?: boolean
           </span>
         </NextLink>
 
-        {/* Desktop search field */}
-        <NextLink
-          href="/explore"
-          aria-label="Search gists and schools"
-          className={`ml-auto hidden h-10 min-w-0 max-w-[430px] flex-1 items-center gap-2.5 rounded-2xl border-2 px-3.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-4 sm:flex md:ml-0 ${spotlight ? "border-white/15 bg-white/10 text-white/75 hover:border-white/30 hover:text-white focus-visible:ring-white/25" : "border-line bg-page text-ink-muted hover:border-brand hover:text-ink focus-visible:ring-brand-soft"}`}
-        >
-          <Search size={17} strokeWidth={2.5} aria-hidden />
-          <span className="truncate">Search gists, students, schools…</span>
-        </NextLink>
+        <UniversalSearch />
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2 md:ml-auto">
-          {/* Mobile: only the search icon trigger */}
-          <NextLink
-            href="/explore"
-            aria-label="Search gists, students and schools"
-            className={`flex size-11 items-center justify-center rounded-2xl border-2 transition-colors focus-visible:outline-none focus-visible:ring-4 sm:hidden ${spotlight ? "border-white/15 bg-white/10 text-white hover:border-white/30 hover:bg-white/15 hover:text-white focus-visible:ring-white/25" : "border-line bg-card text-ink hover:border-brand hover:text-brand-deep focus-visible:ring-brand-soft"}`}
-          >
-            <Search size={19} strokeWidth={2.5} aria-hidden />
-          </NextLink>
-
           <NotificationBell spotlight={spotlight} />
 
           <div className="hidden sm:block">
