@@ -17,7 +17,7 @@ function errorResponse(message: string, status: number): Response {
 }
 
 async function authorize(request: Request) {
-  const accessToken = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+  const accessToken = request.headers.get("authorization")?.trim().match(/^Bearer\s+(\S+)$/i)?.[1];
   if (!accessToken) return { response: errorResponse("Please sign in to continue.", 401) };
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -28,7 +28,7 @@ async function authorize(request: Request) {
   }
 
   const client = createClient(url, anonKey, {
-    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    global: { headers: { Authorization: ["Bearer", accessToken].join(" ") } },
     auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
   });
   const { data, error } = await client.auth.getUser(accessToken);

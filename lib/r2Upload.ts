@@ -19,7 +19,7 @@ export async function uploadFileToR2WithMetadata(
 ): Promise<UploadedR2File> {
   const { data, error } = await supabase.auth.getSession();
   if (error) throw new Error(error.message);
-  const accessToken = data.session?.access_token;
+  const accessToken = data.session?.access_token?.trim();
   if (!accessToken) throw new Error("Please sign in to continue.");
 
   const formData = new FormData();
@@ -31,7 +31,7 @@ export async function uploadFileToR2WithMetadata(
 
   const response = await fetch("/api/upload", {
     method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: { Authorization: ["Bearer", accessToken].join(" ") },
     body: formData,
   });
   const result: unknown = await response.json().catch(() => null);
