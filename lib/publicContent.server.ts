@@ -439,7 +439,7 @@ export async function fetchPublicPosts(options: {
 }
 
 export async function fetchPopularPublicPosts(limit = 8): Promise<Post[]> {
-  return (await fetchPublicTrendingContent(Math.min(limit, 5))).trendingPosts;
+  return (await fetchPublicTrendingContent(Math.min(limit, 6))).trendingPosts;
 }
 
 export async function fetchPublicTrendingContent(limit = 20): Promise<{

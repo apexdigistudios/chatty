@@ -69,7 +69,7 @@ export function ExplorePage({
         ? Promise.resolve(initialGists ?? [])
         : tag
         ? fetchFeed({ tag, limit: 30 })
-        : debounced ? fetchFeed({ search: debounced, limit: 20 }) : fetchTrendingPosts(1000, 5),
+        : debounced ? fetchFeed({ search: debounced, limit: 20 }) : fetchTrendingPosts(1000, 6),
       debounced && !tag ? searchProfiles(debounced) : fetchPopularProfiles(),
     ])
       .then(([nextGists, nextPeople]) => {
@@ -151,7 +151,7 @@ export function ExplorePage({
                 <Badge tone="brand">{gists.length}</Badge>
               </div>
               {!tag && !debounced ? (
-                <BentoPostGrid posts={gists.slice(0, 5)} />
+                <BentoPostGrid posts={gists.slice(0, 6)} />
               ) : (
               <div className="divide-y-2 divide-line overflow-hidden rounded-2xl border-2 border-line bg-card">
                 {gists.map((post) => (
