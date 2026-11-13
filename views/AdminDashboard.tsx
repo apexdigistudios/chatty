@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "@/lib/router";
 import {
+  BadgeCheck,
   AlertTriangle,
   Check,
   ChevronDown,
@@ -16,6 +17,7 @@ import {
   Trash2,
   Upload,
   Users,
+  UserPlus,
   UserRoundPen,
   X,
 } from "lucide-react";
@@ -51,13 +53,20 @@ import {
 } from "@/services/postsService";
 import { useGistStore } from "@/store/gistStore";
 import type { AdminSeedProfile } from "@/types/models";
+import {
+  fetchAmbassadors,
+  searchAmbassadorProfiles,
+  setAmbassadorStatus,
+  type AmbassadorProfile,
+} from "@/services/profilesService";
 
-type DashboardTab = "profiles" | "publisher" | "engagement" | "purge";
+type DashboardTab = "profiles" | "publisher" | "engagement" | "ambassadors" | "purge";
 
 const TABS: Array<{ id: DashboardTab; label: string }> = [
   { id: "profiles", label: "Synthetic profiles" },
   { id: "publisher", label: "Post studio" },
   { id: "engagement", label: "Posts & confessions" },
+  { id: "ambassadors", label: "Ambassadors" },
   { id: "purge", label: "System clean-up" },
 ];
 
@@ -111,6 +120,12 @@ export function AdminDashboard() {
   const [category, setCategory] = useState(CONFESSION_CATEGORIES[1]);
   const [purgeOpen, setPurgeOpen] = useState(false);
   const [purgeConfirmation, setPurgeConfirmation] = useState("");
+  const [ambassadors, setAmbassadors] = useState<AmbassadorProfile[]>([]);
+  const [ambassadorsLoading, setAmbassadorsLoading] = useState(false);
+  const [ambassadorSearch, setAmbassadorSearch] = useState("");
+  const [ambassadorResults, setAmbassadorResults] = useState<AmbassadorProfile[]>([]);
+  const [ambassadorSearchLoading, setAmbassadorSearchLoading] = useState(false);
+  const [ambassadorBusyId, setAmbassadorBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -186,6 +201,76 @@ export function AdminDashboard() {
       active = false;
     };
   }, [serverAuthorized, tab, toast]);
+
+  useEffect(() => {
+    if (!serverAuthorized || tab !== "ambassadors") return;
+    let active = true;
+    setAmbassadorsLoading(true);
+    void fetchAmbassadors()
+      .then((items) => {
+        if (active) setAmbassadors(items);
+      })
+      .catch((error: unknown) => {
+        if (active) toast(describeError(error, "Could not load ambassadors."), "danger");
+      })
+      .finally(() => {
+        if (active) setAmbassadorsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [serverAuthorized, tab, toast]);
+
+  useEffect(() => {
+    if (!serverAuthorized || tab !== "ambassadors") return;
+    const term = ambassadorSearch.trim();
+    if (!term) {
+      setAmbassadorResults([]);
+      setAmbassadorSearchLoading(false);
+      return;
+    }
+
+    let active = true;
+    const timeout = window.setTimeout(() => {
+      setAmbassadorSearchLoading(true);
+      void searchAmbassadorProfiles(term)
+        .then((items) => {
+          if (active) setAmbassadorResults(items.filter((item) => !ambassadors.some((entry) => entry.id === item.id)));
+        })
+        .catch((error: unknown) => {
+          if (active) toast(describeError(error, "Could not search user profiles."), "danger");
+        })
+        .finally(() => {
+          if (active) setAmbassadorSearchLoading(false);
+        });
+    }, 250);
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [ambassadorSearch, ambassadors, serverAuthorized, tab, toast]);
+
+  const changeAmbassadorStatus = async (profile: AmbassadorProfile, makeAmbassador: boolean) => {
+    setAmbassadorBusyId(profile.id);
+    try {
+      await setAmbassadorStatus(profile.id, makeAmbassador);
+      if (makeAmbassador) {
+        setAmbassadors((current) => [...current.filter((item) => item.id !== profile.id), {
+          ...profile,
+          isVerified: true,
+        }].sort((a, b) => a.username.localeCompare(b.username, undefined, { sensitivity: "base" })));
+        setAmbassadorResults((current) => current.filter((item) => item.id !== profile.id));
+        toast(`@${profile.username} is now a campus ambassador.`, "success");
+      } else {
+        setAmbassadors((current) => current.filter((item) => item.id !== profile.id));
+        toast(`@${profile.username} was removed from ambassadors.`, "success");
+      }
+    } catch (error) {
+      toast(describeError(error, "Could not update ambassador status."), "danger");
+    } finally {
+      setAmbassadorBusyId(null);
+    }
+  };
 
   const boostProfileFollowers = async (profile: AdminSeedProfile) => {
     const count = Number(followerIncrement);
@@ -454,7 +539,7 @@ export function AdminDashboard() {
         action={<Badge tone="brand"><ShieldCheck size={12} aria-hidden />Admin only</Badge>}
       />
 
-      <div role="tablist" aria-label="Synthetic content tools" className="mb-5 grid grid-cols-2 gap-2 rounded-2xl border-2 border-line bg-page p-1.5 sm:grid-cols-4">
+      <div role="tablist" aria-label="VVIP dashboard tools" className="mb-5 grid grid-cols-2 gap-2 rounded-2xl border-2 border-line bg-page p-1.5 sm:grid-cols-5">
         {TABS.map((item) => (
           <button
             key={item.id}
@@ -742,6 +827,105 @@ export function AdminDashboard() {
               </CardBody>
             </Card>
           ))}
+        </section>
+      )}
+
+      {tab === "ambassadors" && (
+        <section id="seed-panel-ambassadors" role="tabpanel" aria-labelledby="seed-tab-ambassadors" className="space-y-5">
+          <Card>
+            <CardBody className="pt-5">
+              <div className="flex items-start gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-wash text-brand-deep">
+                  <BadgeCheck size={19} aria-hidden />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-sm font-extrabold text-ink">Find campus ambassadors</h2>
+                  <p className="mt-1 text-xs font-semibold leading-relaxed text-ink-muted">
+                    Search all site profiles by username or full name. Adding an ambassador grants the verified badge immediately.
+                  </p>
+                </div>
+              </div>
+              <label className="mt-4 flex h-11 items-center gap-2 rounded-xl border-2 border-line bg-card px-3 focus-within:border-brand">
+                <Search size={15} className="shrink-0 text-ink-muted" aria-hidden />
+                <span className="sr-only">Search user profiles</span>
+                <input
+                  type="search"
+                  value={ambassadorSearch}
+                  onChange={(event) => setAmbassadorSearch(event.target.value)}
+                  placeholder="Search username or full name"
+                  autoComplete="off"
+                  className="w-full bg-transparent text-sm font-semibold text-ink outline-none placeholder:text-ink-muted"
+                />
+              </label>
+
+              {ambassadorSearch.trim() && (
+                <div className="mt-3 space-y-2" aria-live="polite">
+                  {ambassadorSearchLoading ? (
+                    <div className="flex justify-center py-5"><Loader2 size={20} className="animate-spin text-brand" aria-label="Searching profiles" /></div>
+                  ) : ambassadorResults.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-line px-4 py-5 text-center text-xs font-semibold text-ink-muted">
+                      No matching non-ambassador profiles found.
+                    </p>
+                  ) : ambassadorResults.map((profile) => (
+                    <div key={profile.id} className="flex items-center gap-3 rounded-xl border border-line bg-card p-3">
+                      <Avatar name={profile.fullName || profile.username} src={profile.avatarUrl} size="md" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-extrabold text-ink">{profile.fullName || profile.username}</p>
+                        <p className="truncate text-[11px] font-semibold text-ink-muted">@{profile.username}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        disabled={ambassadorBusyId !== null}
+                        loading={ambassadorBusyId === profile.id}
+                        leftIcon={<UserPlus size={14} aria-hidden />}
+                        onClick={() => void changeAmbassadorStatus(profile, true)}
+                      >
+                        Add as Ambassador
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardBody>
+          </Card>
+
+          <section aria-labelledby="ambassador-list-heading">
+            <div className="mb-3 flex items-center gap-2">
+              <h2 id="ambassador-list-heading" className="text-sm font-extrabold text-ink">Current ambassadors</h2>
+              <Badge tone="neutral">{ambassadors.length}</Badge>
+            </div>
+            {ambassadorsLoading ? (
+              <div className="flex justify-center py-8"><Loader2 size={22} className="animate-spin text-brand" aria-label="Loading ambassadors" /></div>
+            ) : ambassadors.length === 0 ? (
+              <div className="rounded-2xl border-2 border-dashed border-line px-5 py-9 text-center text-xs font-semibold text-ink-muted">
+                No ambassadors have been added yet.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {ambassadors.map((profile) => (
+                  <div key={profile.id} className="flex items-center gap-3 rounded-xl border border-line bg-card p-3">
+                    <Avatar name={profile.fullName || profile.username} src={profile.avatarUrl} size="md" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-extrabold text-ink">{profile.fullName || profile.username}</p>
+                      <p className="flex items-center gap-1 truncate text-[11px] font-semibold text-ink-muted">
+                        @{profile.username}
+                        <BadgeCheck size={13} className="shrink-0 text-sky-500" aria-label="Verified ambassador" />
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={ambassadorBusyId !== null}
+                      loading={ambassadorBusyId === profile.id}
+                      onClick={() => void changeAmbassadorStatus(profile, false)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </section>
       )}
 

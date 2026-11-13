@@ -710,6 +710,83 @@ export async function searchProfiles(query: string, limit = 8): Promise<ProfileS
     .sort((a, b) => a.username.localeCompare(b.username, undefined, { sensitivity: "base" }));
 }
 
+export interface AmbassadorProfile {
+  id: string;
+  username: string;
+  fullName: string | null;
+  avatarUrl: string | null;
+  isVerified: boolean;
+}
+
+type AmbassadorProfileRow = {
+  id: string;
+  username: string | null;
+  full_name?: string | null;
+  avatar_url: string | null;
+  is_verified: boolean | null;
+};
+
+function mapAmbassadorProfile(row: AmbassadorProfileRow): AmbassadorProfile {
+  return {
+    id: row.id,
+    username: row.username?.trim() || "student",
+    fullName: row.full_name?.trim() || null,
+    avatarUrl: row.avatar_url,
+    isVerified: row.is_verified === true,
+  };
+}
+
+/** Search real user profiles by username or full name for global-admin ambassador management. */
+export async function searchAmbassadorProfiles(query: string, limit = 20): Promise<AmbassadorProfile[]> {
+  const term = query.trim().replace(/[\\%,()]/g, "");
+  if (!term) return [];
+
+  const run = (withFullName: boolean) => {
+    const columns = withFullName
+      ? "id, username, full_name, avatar_url, is_verified"
+      : "id, username, avatar_url, is_verified";
+    let request = supabase
+      .from("profiles")
+      .select(columns)
+      .eq("is_ambassador", false)
+      .order("username", { ascending: true })
+      .limit(limit);
+    request = withFullName
+      ? request.or(`username.ilike.%${term}%,full_name.ilike.%${term}%`)
+      : request.ilike("username", `%${term}%`);
+    return request.returns<AmbassadorProfileRow[]>();
+  };
+
+  let { data, error } = await run(true);
+  if (error && (error.code === "42703" || error.code === "PGRST204")) {
+    ({ data, error } = await run(false));
+  }
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapAmbassadorProfile);
+}
+
+/** Return the current ambassador roster. The caller must be a global admin. */
+export async function fetchAmbassadors(): Promise<AmbassadorProfile[]> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, username, full_name, avatar_url, is_verified")
+    .eq("is_ambassador", true)
+    .order("username", { ascending: true })
+    .limit(1000)
+    .returns<AmbassadorProfileRow[]>();
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapAmbassadorProfile);
+}
+
+/** Change ambassador status through a database authorization-checked RPC. */
+export async function setAmbassadorStatus(userId: string, isAmbassador: boolean): Promise<void> {
+  const { error } = await supabase.rpc("admin_set_ambassador", {
+    target_user_id: userId,
+    make_ambassador: isAmbassador,
+  });
+  if (error) throw new Error(error.message);
+}
+
 export async function fetchPopularProfiles(limit = 8): Promise<ProfileSearchHit[]> {
   const { data: counts, error: countError } = await supabase
     .from("profile_follow_counts")
