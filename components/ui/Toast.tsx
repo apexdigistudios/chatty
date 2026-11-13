@@ -115,7 +115,7 @@ export function ToastViewport() {
           className="flex max-w-full items-center gap-2.5 rounded-2xl bg-danger-wash px-4 py-3 text-danger-deep shadow-lg dark:bg-danger/20 dark:text-danger"
         >
           <ShieldAlert size={18} strokeWidth={2.5} aria-hidden />
-          <span className="text-sm font-bold">Internet disconnected. You are offline.</span>
+          <span className="text-sm font-bold">You are offline. Why you off your Data?</span>
         </div>
       )}
       <AnimatePresence mode="wait">
