@@ -15,7 +15,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/context/AuthContext";
 import { describeError } from "@/lib/supabase";
 import { fetchFeed } from "@/services/postsService";
-import { fetchPublicProfile } from "@/services/profilesService";
+import { getProfileByUsername } from "@/services/profilesService";
 import { useAuthGateStore } from "@/store/authGateStore";
 import { fetchFollowSummary, followUser, unfollowUser, type FollowSummary } from "@/services/followsService";
 import { springs } from "@/theme/tokens";
@@ -62,7 +62,7 @@ export function PublicProfilePage({
     setLoading(true);
     setError(null);
     try {
-      const nextProfile = await fetchPublicProfile(userId);
+      const nextProfile = await getProfileByUsername(userId);
       const nextPosts = nextProfile ? await fetchFeed({ authorId: nextProfile.id, limit: 30 }) : [];
       setProfile(nextProfile);
       setPosts(nextPosts);

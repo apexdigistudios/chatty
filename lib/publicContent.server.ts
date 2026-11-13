@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { shortNameOf } from "@/lib/media";
+import { defaultAvatarUrl, shortNameOf } from "@/lib/media";
 import { isVideoUrl } from "@/lib/video";
 import { emptyReactions, type Confession, type Post, type PublicProfile } from "@/types/models";
 
@@ -66,23 +66,6 @@ type PublicConfessionRow = {
   school_crest_url?: string | null;
   media_urls?: string[] | null;
   media_types?: Array<"image" | "video"> | null;
-};
-
-type PublicProfileRow = {
-  id: string;
-  username: string;
-  school_id: string | null;
-  avatar_url: string | null;
-  cover_url?: string | null;
-  bio: string | null;
-  created_at: string;
-  full_name?: string | null;
-  class_form?: string | null;
-  website?: string | null;
-  is_verified?: boolean | null;
-  verified_title?: string | null;
-  verified_expires_at?: string | null;
-  school: { name: string; crest_url: string | null } | null;
 };
 
 function publicSupabase() {
@@ -537,85 +520,135 @@ export async function fetchPublicConfession(id: string): Promise<Confession | nu
 
 export async function fetchPublicProfileData(identifier: string): Promise<PublicProfile | null> {
   const client = publicSupabase();
-  const cleanIdentifier = identifier.trim();
-  const select =
-    "id, username, school_id, avatar_url, cover_url, bio, created_at, full_name, class_form, website, is_verified, verified_title, verified_expires_at, school:schools!school_id(name, crest_url:logo_url)";
+  let cleanIdentifier = identifier.trim();
+  try {
+    cleanIdentifier = decodeURIComponent(cleanIdentifier).trim();
+  } catch {
+    // Keep malformed encoded slugs as entered.
+  }
+  if (!cleanIdentifier) return null;
+
+  const identifierIsUuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cleanIdentifier);
   const escapeIlike = (value: string) => value.replace(/[\\%_]/g, "\\$&");
-  const fetchBy = async (column: "id" | "username", value: string) => {
-    const query = () => client
-      .from("profiles")
-      .select(select);
-    let result = column === "username"
-      ? await query().ilike("username", escapeIlike(value)).maybeSingle<PublicProfileRow>()
-      : await query().eq("id", value).maybeSingle<PublicProfileRow>();
+  const extendedColumns =
+    "id, username, school_id, avatar_url, cover_url, bio, created_at, full_name, class_form, website, is_verified, verified_title, verified_expires_at";
+  const baseColumns = "id, username, school_id, avatar_url, bio, created_at";
+  type ProfileRecord = {
+    id: string;
+    username?: string | null;
+    school_id?: string | null;
+    avatar_url?: string | null;
+    cover_url?: string | null;
+    bio?: string | null;
+    created_at?: string | null;
+    full_name?: string | null;
+    class_form?: string | null;
+    website?: string | null;
+    is_verified?: boolean | null;
+    verified_title?: string | null;
+    verified_expires_at?: string | null;
+  };
+  type SeedRecord = {
+    id: string;
+    username?: string | null;
+    full_name?: string | null;
+    avatar_url?: string | null;
+    school_id?: string | null;
+    created_at?: string | null;
+  };
+
+  const fetchProfile = async (column: "username" | "id", value: string) => {
+    const run = (columns: string) => {
+      let query = client.from("profiles").select(columns);
+      query = column === "username"
+        ? query.ilike("username", escapeIlike(value))
+        : query.eq("id", value);
+      return query.limit(1).maybeSingle<ProfileRecord>();
+    };
+    let result = await run(extendedColumns);
     if (result.error && (result.error.code === "42703" || result.error.code === "PGRST204")) {
-      const fallbackQuery = () => client
-        .from("profiles")
-        .select("id, username, school_id, avatar_url, cover_url, bio, created_at, school:schools!school_id(name, crest_url:logo_url)");
-      result = column === "username"
-        ? await fallbackQuery().ilike("username", escapeIlike(value)).maybeSingle<PublicProfileRow>()
-        : await fallbackQuery().eq("id", value).maybeSingle<PublicProfileRow>();
+      result = await run(baseColumns);
     }
     return result;
   };
-  const identifierIsUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cleanIdentifier);
-  let { data, error } = await fetchBy(identifierIsUuid ? "id" : "username", cleanIdentifier);
-  if (identifierIsUuid && !error && !data) {
-    ({ data, error } = await fetchBy("username", cleanIdentifier));
+
+  let profileResult = await fetchProfile("username", cleanIdentifier);
+  if (profileResult.error) throw new Error(profileResult.error.message);
+  if (!profileResult.data && identifierIsUuid) {
+    profileResult = await fetchProfile("id", cleanIdentifier);
+    if (profileResult.error) throw new Error(profileResult.error.message);
   }
-  if (error) throw new Error(error.message);
-  if (!data) {
-    const seedQuery = () => client
-      .from("admin_seed_profiles")
-      .select("id, username, full_name, avatar_url, school_id, created_at, school:schools!school_id(name, crest_url:logo_url)");
-    type RawSeedProfile = {
-        id: string;
-        username: string;
-        full_name: string;
-        avatar_url: string | null;
-        school_id: string;
-        created_at: string;
-        school: { name: string; crest_url: string | null } | null;
-      };
-    let seedResult = identifierIsUuid
-      ? await seedQuery().eq("id", cleanIdentifier).maybeSingle<RawSeedProfile>()
-      : await seedQuery().ilike("username", escapeIlike(cleanIdentifier)).maybeSingle<RawSeedProfile>();
+
+  const loadSchool = async (schoolId: string | null | undefined) => {
+    if (!schoolId) return null;
+    const { data, error } = await client
+      .from("schools")
+      .select("name, logo_url")
+      .eq("id", schoolId)
+      .maybeSingle<{ name: string; logo_url?: string | null }>();
+    if (error) {
+      console.warn("Could not load the public profile's school details.", error);
+      return null;
+    }
+    return data ?? null;
+  };
+
+  const toPublicProfile = async (row: ProfileRecord, isSeed = false, seedName?: string | null) => {
+    const username = row.username?.trim() || "student";
+    const school = await loadSchool(row.school_id);
+    return {
+      id: row.id,
+      username,
+      avatarUrl: row.avatar_url || defaultAvatarUrl(username),
+      coverUrl: row.cover_url ?? null,
+      bio: row.bio ?? "",
+      fullName: row.full_name?.trim() || seedName?.trim() || username,
+      classForm: row.class_form ?? null,
+      website: row.website ?? null,
+      isVerified: row.is_verified === true,
+      verifiedTitle: row.verified_title ?? null,
+      verifiedExpiresAt: row.verified_expires_at ?? null,
+      schoolId: row.school_id ?? null,
+      schoolName: school?.name ?? null,
+      schoolShort: school?.name ? shortNameOf(school.name) : null,
+      schoolCrest: school?.logo_url ?? null,
+      createdAt: row.created_at || new Date(0).toISOString(),
+      ...(isSeed ? { isSeed: true } : {}),
+    } satisfies PublicProfile;
+  };
+
+  if (profileResult.data) return toPublicProfile(profileResult.data);
+
+  const fetchSeed = async (column: "username" | "id", value: string) => {
+    const run = (columns: string) => {
+      let query = client.from("admin_seed_profiles").select(columns);
+      query = column === "username"
+        ? query.ilike("username", escapeIlike(value))
+        : query.eq("id", value);
+      return query.limit(1).maybeSingle<SeedRecord>();
+    };
+    let result = await run("id, username, full_name, avatar_url, school_id, created_at");
+    if (result.error && (result.error.code === "42703" || result.error.code === "PGRST204")) {
+      result = await run("id, username, school_id, created_at");
+    }
+    return result;
+  };
+
+  let seedResult = await fetchSeed("username", cleanIdentifier);
+  if (seedResult.error && seedResult.error.code !== "42P01" && seedResult.error.code !== "PGRST205") {
+    throw new Error(seedResult.error.message);
+  }
+  if (!seedResult.data && identifierIsUuid) {
+    seedResult = await fetchSeed("id", cleanIdentifier);
     if (seedResult.error && seedResult.error.code !== "42P01" && seedResult.error.code !== "PGRST205") {
       throw new Error(seedResult.error.message);
     }
-    if (!seedResult.data) return null;
-    return {
-      id: seedResult.data.id,
-      username: seedResult.data.username,
-      avatarUrl: seedResult.data.avatar_url,
-      coverUrl: null,
-      bio: "",
-      fullName: seedResult.data.full_name,
-      schoolId: seedResult.data.school_id,
-      schoolName: seedResult.data.school?.name ?? null,
-      schoolShort: seedResult.data.school ? shortNameOf(seedResult.data.school.name) : null,
-      schoolCrest: seedResult.data.school?.crest_url ?? null,
-      createdAt: seedResult.data.created_at,
-      isSeed: true,
-    };
   }
-
-  return {
-    id: data.id,
-    username: data.username,
-    avatarUrl: data.avatar_url,
-    coverUrl: data.cover_url ?? null,
-    bio: data.bio ?? "",
-    fullName: data.full_name ?? null,
-    classForm: data.class_form ?? null,
-    website: data.website ?? null,
-    isVerified: data.is_verified ?? false,
-    verifiedTitle: data.verified_title ?? null,
-    verifiedExpiresAt: data.verified_expires_at ?? null,
-    schoolId: data.school_id,
-    schoolName: data.school?.name ?? null,
-    schoolShort: data.school ? shortNameOf(data.school.name) : null,
-    schoolCrest: data.school?.crest_url ?? null,
-    createdAt: data.created_at,
-  };
+  if (!seedResult.data) return null;
+  return toPublicProfile(
+    { ...seedResult.data, bio: "", cover_url: null },
+    true,
+    seedResult.data.full_name,
+  );
 }

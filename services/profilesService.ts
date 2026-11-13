@@ -269,36 +269,155 @@ function mapSeedPublicProfile(data: RawSeedPublicProfile): PublicProfile {
   };
 }
 
-/** Read-only public profile for `/profile/:userId` and shareable username URLs. */
-export async function fetchPublicProfile(identifier: string): Promise<PublicProfile | null> {
-  const cleanIdentifier = identifier.trim();
-  const identifierIsUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cleanIdentifier);
-  if (identifierIsUuid) {
-    const profiles = await fetchPublicProfiles([cleanIdentifier]);
-    const byId = profiles.get(cleanIdentifier);
-    if (byId) return byId;
+/** Public profile lookup by case-insensitive username, UUID, or seed profile. */
+export async function getProfileByUsername(usernameOrId: string): Promise<PublicProfile | null> {
+  let identifier = usernameOrId.trim();
+  try {
+    identifier = decodeURIComponent(identifier).trim();
+  } catch {
+    // Keep malformed encoded slugs as entered.
   }
-  if (isBrowserOffline()) return null;
-
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(`${await profileSelect()}, school:schools!school_id(name, crest_url:logo_url)`)
-    .ilike("username", cleanIdentifier.replace(/[\\%_]/g, "\\$&"))
-    .maybeSingle<RawPublicProfile>();
-  if (error) throw new Error(error.message);
-  if (data) return mapPublicProfile(data);
-
-  const { data: seedProfile, error: seedError } = await supabase
-    .from("admin_seed_profiles")
-    .select("id, username, full_name, avatar_url, school_id, created_at, school:schools!school_id(name, crest_url:logo_url)")
-    .ilike("username", cleanIdentifier.replace(/[\\%_]/g, "\\$&"))
-    .maybeSingle<RawSeedPublicProfile>();
-  if (seedError) {
-    if (seedError.code !== "42P01" && seedError.code !== "PGRST205") throw new Error(seedError.message);
-    return null;
+  const identifierIsUuid = UUID_PATTERN.test(identifier);
+  if (!identifier) return null;
+  if (isBrowserOffline()) {
+    if (!identifierIsUuid) return null;
+    return (await fetchPublicProfiles([identifier])).get(identifier) ?? null;
   }
-  return seedProfile ? mapSeedPublicProfile(seedProfile) : null;
+
+  const escapeIlike = (value: string) => value.replace(/[\\%_]/g, "\\$&");
+  const baseColumns = "id, username, school_id, avatar_url, bio, created_at";
+  const extendedColumns =
+    `${baseColumns}, full_name, class_form, cover_url, website, is_verified, verified_title, verified_expires_at, is_admin, role`;
+
+  type PublicLookupRow = {
+    id: string;
+    username?: string | null;
+    school_id?: string | null;
+    avatar_url?: string | null;
+    bio?: string | null;
+    created_at?: string | null;
+    full_name?: string | null;
+    class_form?: string | null;
+    cover_url?: string | null;
+    website?: string | null;
+    is_verified?: boolean | null;
+    verified_title?: string | null;
+    verified_expires_at?: string | null;
+    is_admin?: boolean | null;
+    role?: string | null;
+  };
+  type SeedLookupRow = {
+    id: string;
+    username?: string | null;
+    full_name?: string | null;
+    avatar_url?: string | null;
+    school_id?: string | null;
+    created_at?: string | null;
+  };
+
+  const fetchRegular = async (column: "username" | "id") => {
+    const run = (columns: string) => {
+      let query = supabase.from("profiles").select(columns);
+      query = column === "username"
+        ? query.ilike("username", escapeIlike(identifier))
+        : query.eq("id", identifier);
+      return query.limit(1).maybeSingle<PublicLookupRow>();
+    };
+    let result = await run(extendedColumns);
+    if (result.error && (result.error.code === "42703" || result.error.code === "PGRST204")) {
+      result = await run(baseColumns);
+    }
+    return result;
+  };
+
+  let result = await fetchRegular("username");
+  if (result.error) throw new Error(result.error.message);
+  if (!result.data && identifierIsUuid) {
+    result = await fetchRegular("id");
+    if (result.error) throw new Error(result.error.message);
+  }
+
+  const loadSchool = async (schoolId: string | null | undefined) => {
+    if (!schoolId) return null;
+    const { data, error } = await supabase
+      .from("schools")
+      .select("name, logo_url")
+      .eq("id", schoolId)
+      .maybeSingle<{ name: string; logo_url?: string | null }>();
+    if (error) {
+      console.warn("Could not load the public profile's school details.", error);
+      return null;
+    }
+    return data ?? null;
+  };
+
+  const mapLookupRow = async (row: PublicLookupRow, isSeed = false): Promise<PublicProfile> => {
+    const username = row.username?.trim() || "student";
+    const school = await loadSchool(row.school_id);
+    return {
+      id: row.id,
+      username,
+      avatarUrl: row.avatar_url || defaultAvatarUrl(username),
+      coverUrl: row.cover_url ?? null,
+      bio: row.bio ?? "",
+      fullName: row.full_name?.trim() || username,
+      classForm: row.class_form ?? null,
+      website: row.website ?? null,
+      isVerified: row.is_verified === true,
+      verifiedTitle: row.verified_title ?? null,
+      verifiedExpiresAt: row.verified_expires_at ?? null,
+      isAdmin: row.is_admin === true,
+      role: row.role ?? null,
+      schoolId: row.school_id ?? null,
+      schoolName: school?.name ?? null,
+      schoolShort: school?.name ? shortNameOf(school.name) : null,
+      schoolCrest: school?.logo_url ?? null,
+      createdAt: row.created_at || new Date(0).toISOString(),
+      ...(isSeed ? { isSeed: true } : {}),
+    };
+  };
+
+  if (result.data) return mapLookupRow(result.data);
+
+  const fetchSeed = async (column: "username" | "id") => {
+    const run = (columns: string) => {
+      let query = supabase.from("admin_seed_profiles").select(columns);
+      query = column === "username"
+        ? query.ilike("username", escapeIlike(identifier))
+        : query.eq("id", identifier);
+      return query.limit(1).maybeSingle<SeedLookupRow>();
+    };
+    let seedResult = await run("id, username, full_name, avatar_url, school_id, created_at");
+    if (seedResult.error && (seedResult.error.code === "42703" || seedResult.error.code === "PGRST204")) {
+      seedResult = await run("id, username, school_id, created_at");
+    }
+    return seedResult;
+  };
+
+  let seedResult = await fetchSeed("username");
+  if (
+    seedResult.error &&
+    seedResult.error.code !== "42P01" &&
+    seedResult.error.code !== "PGRST205"
+  ) {
+    throw new Error(seedResult.error.message);
+  }
+  if (!seedResult.data && identifierIsUuid) {
+    seedResult = await fetchSeed("id");
+    if (
+      seedResult.error &&
+      seedResult.error.code !== "42P01" &&
+      seedResult.error.code !== "PGRST205"
+    ) {
+      throw new Error(seedResult.error.message);
+    }
+  }
+  if (!seedResult.data) return null;
+  return mapLookupRow({ ...seedResult.data, bio: "" }, true);
 }
+
+/** Backwards-compatible name for existing profile consumers. */
+export const fetchPublicProfile = getProfileByUsername;
 
 /** Fetches regular and seed profiles in batches, preserving input IDs in the result map. */
 export async function fetchPublicProfiles(userIds: string[]): Promise<Map<string, PublicProfile>> {
