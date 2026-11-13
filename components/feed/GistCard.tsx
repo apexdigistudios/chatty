@@ -16,7 +16,6 @@ import {
   ShieldAlert,
   Users,
   Zap,
-  ZoomIn,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { isUserGlobalAdmin } from "@/lib/adminAccess";
@@ -34,11 +33,10 @@ import type { Post } from "@/types/models";
 import { cn } from "@/utils/cn";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
-import { ProgressiveImage } from "@/components/ui/ProgressiveImage";
 import { SchoolTag } from "@/components/ui/SchoolBadge";
-import { VideoPostPlayer } from "@/components/feed/VideoPostPlayer";
 import { useToast } from "@/components/ui/Toast";
 import { PostActionMenu } from "@/components/feed/PostActionMenu";
+import { PostCardMediaCarousel } from "@/components/feed/PostCardMediaCarousel";
 import { PostMediaViewer } from "@/components/feed/PostMediaViewer";
 import { SpotlightModal } from "@/components/spotlight/SpotlightModal";
 import { ReportModal } from "@/components/feed/ReportModal";
@@ -438,62 +436,12 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
           </button>
         )}
 
-        {media.length === 1 && media[0]?.type === "video" ? (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={springs.gentle}
-            className="-mx-4 mt-3 w-[calc(100%+2rem)]"
-          >
-            <VideoPostPlayer
-              src={media[0].src}
-              poster={media[0].poster}
-              durationSeconds={media[0].duration}
-              edgeToEdge
-              onOpenFullScreen={() => setMediaViewerIndex(0)}
-            />
-          </motion.div>
-        ) : media.length > 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={springs.gentle}
-            className={cn("-mx-4 mt-3 w-[calc(100%+2rem)]", media.length > 1 ? "grid grid-cols-2 gap-0" : "block")}
-          >
-            {media.map((item) => item.type === "video" ? (
-              <div key={item.src} className="overflow-hidden bg-black">
-                <VideoPostPlayer
-                  src={item.src}
-                  poster={item.poster}
-                  durationSeconds={item.duration}
-                  edgeToEdge
-                  onOpenFullScreen={() => setMediaViewerIndex(media.indexOf(item))}
-                />
-              </div>
-            ) : (
-              <div key={item.src} className="overflow-hidden rounded-none border-0 bg-page shadow-none">
-                <button
-                  type="button"
-                  onClick={() => setMediaViewerIndex(media.indexOf(item))}
-                  aria-label={`Open full-screen: ${item.alt}`}
-                  className="group relative block w-full cursor-zoom-in focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
-                >
-                  <ProgressiveImage
-                    src={item.src}
-                    alt={item.alt}
-                    referrerPolicy="no-referrer"
-                    containerClassName="aspect-[4/3] max-h-[480px] w-full bg-neutral-950"
-                    fit="cover"
-                  />
-                  <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-[#09090b]/75 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white opacity-0 backdrop-blur transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-                    <ZoomIn size={11} strokeWidth={2.8} aria-hidden />
-                    Full screen
-                  </span>
-                </button>
-              </div>
-            ))}
-          </motion.div>
-        ) : null}
+        {media.length > 0 && (
+          <PostCardMediaCarousel
+            media={media}
+            onOpenMedia={setMediaViewerIndex}
+          />
+        )}
       </div>
 
       <div className="mt-2 flex w-full flex-wrap items-center justify-between gap-1 border-t border-line/50 pt-1.5">
