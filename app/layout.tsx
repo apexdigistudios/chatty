@@ -3,6 +3,7 @@ import Script from "next/script";
 import "@fontsource-variable/nunito";
 import "@/app/globals.css";
 import { AppProviders } from "@/components/AppProviders";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.gistme.online"),
@@ -61,6 +62,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           }}
         />
         <AppProviders>{children}</AppProviders>
+        <Analytics />
       </body>
     </html>
   );
