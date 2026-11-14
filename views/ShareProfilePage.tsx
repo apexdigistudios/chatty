@@ -24,6 +24,22 @@ import { PROFILE_SHARE_HOOKS } from "@/lib/profileShareContent";
 
 const PROFILE_ORIGIN = "https://www.gistme.online";
 
+async function waitForCardAssets(card: HTMLElement): Promise<void> {
+  await document.fonts.ready;
+  await Promise.all(
+    Array.from(card.querySelectorAll("img")).map(async (image) => {
+      try {
+        await image.decode();
+      } catch (cause) {
+        console.warn("A share-card image could not be decoded before export.", cause);
+      }
+    })
+  );
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+}
+
 function ShareAvatar({ profile }: { profile: PublicProfile }) {
   const [failed, setFailed] = useState(false);
   const initials = (profile.fullName?.trim() || profile.username).slice(0, 2).toUpperCase();
@@ -34,7 +50,8 @@ function ShareAvatar({ profile }: { profile: PublicProfile }) {
   useEffect(() => setFailed(false), [profile.avatarUrl]);
 
   return (
-    <div className="mx-auto flex size-24 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-brand-deep text-2xl font-black text-white shadow-xl ring-4 ring-brand/20">
+    <div className="relative mx-auto flex size-24 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-brand-deep text-2xl font-black text-white shadow-xl ring-4 ring-brand/20">
+      <span aria-hidden="true">{initials}</span>
       {src ? (
         <img
           src={src}
@@ -42,9 +59,9 @@ function ShareAvatar({ profile }: { profile: PublicProfile }) {
           crossOrigin="anonymous"
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
-          className="size-full rounded-full object-cover"
+          className="absolute inset-0 size-full rounded-full object-cover"
         />
-      ) : initials}
+      ) : null}
     </div>
   );
 }
@@ -56,7 +73,8 @@ function ShareSchool({ profile }: { profile: PublicProfile }) {
 
   return (
     <span className="inline-flex max-w-full items-center gap-1.5 text-xs font-extrabold text-indigo-900">
-      <span className="flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-md bg-indigo-50 text-indigo-700">
+      <span className="relative flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-md bg-indigo-50 text-indigo-700">
+        <GraduationCap size={15} aria-hidden />
         {src ? (
           <img
             src={src}
@@ -64,11 +82,9 @@ function ShareSchool({ profile }: { profile: PublicProfile }) {
             crossOrigin="anonymous"
             referrerPolicy="no-referrer"
             onError={() => setFailed(true)}
-            className="size-full object-cover"
+            className="absolute inset-0 size-full object-cover"
           />
-        ) : (
-          <GraduationCap size={15} aria-hidden />
-        )}
+        ) : null}
       </span>
       <span className="max-w-[200px] truncate">{profile.schoolName || "Campus community"}</span>
     </span>
@@ -127,6 +143,7 @@ export function ShareProfilePage({
     if (!profile || !card || downloading || !qrCode) return;
     setDownloading(true);
     try {
+      await waitForCardAssets(card);
       const dataUrl = await toPng(card, { cacheBust: true, pixelRatio: 2 });
       const link = document.createElement("a");
       link.download = `gistme-profile-${profile.username.replace(/[^a-zA-Z0-9_-]/g, "") || "student"}.png`;
@@ -227,13 +244,14 @@ export function ShareProfilePage({
 
       <Button
         type="button"
+        variant="primary"
         size="lg"
         fullWidth
         loading={downloading}
         disabled={!qrCode}
         onClick={() => void downloadCard()}
         leftIcon={<Download size={18} aria-hidden />}
-        className="mt-4 w-full max-w-[390px] bg-indigo-950 text-white hover:bg-indigo-900"
+        className="mt-4 w-full max-w-[390px]"
       >
         Download Card
       </Button>
