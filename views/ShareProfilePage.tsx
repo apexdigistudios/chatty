@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
+import { toPng } from "html-to-image";
 import {
   ArrowLeft,
   Check,
   Copy,
+  Download,
   GraduationCap,
   ExternalLink,
   MessageCircle,
@@ -37,6 +39,7 @@ function ShareAvatar({ profile }: { profile: PublicProfile }) {
         <img
           src={src}
           alt={`${profile.username}'s profile`}
+          crossOrigin="anonymous"
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
           className="size-full rounded-full object-cover"
@@ -58,6 +61,7 @@ function ShareSchool({ profile }: { profile: PublicProfile }) {
           <img
             src={src}
             alt=""
+            crossOrigin="anonymous"
             referrerPolicy="no-referrer"
             onError={() => setFailed(true)}
             className="size-full object-cover"
@@ -80,6 +84,8 @@ export function ShareProfilePage({
 }) {
   const { toast } = useToast();
   const [qrCode, setQrCode] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const cardRef = useRef<HTMLElement>(null);
   const profileUrl = profile
     ? `${PROFILE_ORIGIN}/profile/${encodeURIComponent(profile.username)}`
     : "";
@@ -113,6 +119,25 @@ export function ShareProfilePage({
     } catch (cause) {
       console.error("Could not copy the profile link.", cause);
       toast("Could not copy the profile link.", "danger");
+    }
+  };
+
+  const downloadCard = async () => {
+    const card = cardRef.current;
+    if (!profile || !card || downloading || !qrCode) return;
+    setDownloading(true);
+    try {
+      const dataUrl = await toPng(card, { cacheBust: true, pixelRatio: 2 });
+      const link = document.createElement("a");
+      link.download = `gistme-profile-${profile.username.replace(/[^a-zA-Z0-9_-]/g, "") || "student"}.png`;
+      link.href = dataUrl;
+      link.click();
+      toast("Profile card downloaded.", "success");
+    } catch (cause) {
+      console.error("Could not export the profile card.", cause);
+      toast("Could not download the profile card. Please try again.", "danger");
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -151,6 +176,7 @@ export function ShareProfilePage({
       </div>
 
       <section
+        ref={cardRef}
         aria-label={`${displayName}'s QR profile card`}
         className="relative w-full max-w-[390px] overflow-hidden rounded-[2rem] border border-white/60 bg-white p-6 text-center shadow-[0_24px_70px_rgba(27,31,59,0.2)] sm:p-8"
       >
@@ -198,6 +224,19 @@ export function ShareProfilePage({
           </div>
         </div>
       </section>
+
+      <Button
+        type="button"
+        size="lg"
+        fullWidth
+        loading={downloading}
+        disabled={!qrCode}
+        onClick={() => void downloadCard()}
+        leftIcon={<Download size={18} aria-hidden />}
+        className="mt-4 w-full max-w-[390px] bg-indigo-950 text-white hover:bg-indigo-900"
+      >
+        Download Card
+      </Button>
 
       <div className="mt-5 grid w-full max-w-[390px] grid-cols-2 gap-3">
         <a

@@ -408,12 +408,22 @@ export async function hydrateLikes(rows: RawPost[]): Promise<Post[]> {
 
   return rows.map((row) => {
     const post = mapPost(row, likedIds.has(row.id));
-    const items = mediaByPostId.get(row.id)?.length
-      ? mediaByPostId.get(row.id)!
-      : row.media?.length
-        ? [...row.media].sort((left, right) => left.sort_order - right.sort_order)
-      : null;
-    if (!items?.length) return post;
+    const itemsByUrl = new Map<string, RawPostMedia>();
+    for (const item of [...(row.media ?? []), ...(mediaByPostId.get(row.id) ?? [])]) {
+      itemsByUrl.set(item.media_url, item);
+    }
+    if (row.media_url && !itemsByUrl.has(row.media_url)) {
+      itemsByUrl.set(row.media_url, {
+        post_id: row.id,
+        media_url: row.media_url,
+        media_type: row.media_type ?? undefined,
+        video_duration_seconds: row.video_duration_seconds,
+        video_thumbnail_url: row.video_thumbnail_url,
+        sort_order: -1,
+      });
+    }
+    const items = [...itemsByUrl.values()].sort((left, right) => left.sort_order - right.sort_order);
+    if (items.length === 0) return post;
     return {
       ...post,
       mediaUrls: items.map((item) => item.media_url),

@@ -6,6 +6,7 @@ import { VideoPostPlayer } from "@/components/feed/VideoPostPlayer";
 import { ProgressiveImage } from "@/components/ui/ProgressiveImage";
 import { springs } from "@/theme/tokens";
 import { cn } from "@/utils/cn";
+import { cloudflareMediaUrl } from "@/lib/mediaUrl";
 import type { MediaType } from "@/types/models";
 
 export interface PostCardMediaItem {
@@ -23,7 +24,70 @@ interface PostCardMediaCarouselProps {
 
 const peekSpring = { type: "spring" as const, stiffness: 190, damping: 23, mass: 0.85 };
 
-export function PostCardMediaCarousel({ media, onOpenMedia }: PostCardMediaCarouselProps) {
+export function PostCardMediaCarousel(props: PostCardMediaCarouselProps) {
+  return props.media.length > 1
+    ? <PostCardMediaGrid {...props} />
+    : <SinglePostMediaCarousel {...props} />;
+}
+
+function PostCardMediaGrid({ media, onOpenMedia }: PostCardMediaCarouselProps) {
+  const visibleMedia = media.slice(0, 4);
+  const remainingCount = media.length - visibleMedia.length;
+  const gridLayout = media.length === 2
+    ? "grid-cols-2 grid-rows-1"
+    : "grid-cols-2 grid-rows-2";
+
+  return (
+    <div className="-mx-4 mt-3 w-[calc(100%+2rem)]">
+      <button
+        type="button"
+        onClick={() => onOpenMedia(0)}
+        aria-label={`Open all ${media.length} post media items`}
+        className={cn(
+          "relative grid aspect-[4/3] w-full overflow-hidden bg-neutral-950",
+          gridLayout,
+          media.length === 3 && "[&>*:last-child]:col-span-2"
+        )}
+      >
+        {visibleMedia.map((item, index) => (
+          <span key={`${item.src}-${index}`} className="relative min-h-0 min-w-0 overflow-hidden bg-neutral-900">
+            {item.type === "video" ? (
+              <video
+                src={cloudflareMediaUrl(item.src)}
+                poster={item.poster ? cloudflareMediaUrl(item.poster) : undefined}
+                muted
+                playsInline
+                preload="metadata"
+                aria-label={item.alt}
+                className="pointer-events-none size-full object-cover"
+              />
+            ) : (
+              <ProgressiveImage
+                src={item.src}
+                alt={item.alt}
+                referrerPolicy="no-referrer"
+                containerClassName="size-full"
+                fit="cover"
+              />
+            )}
+            {item.type === "video" && (
+              <span className="pointer-events-none absolute bottom-2 left-2 rounded-full bg-black/65 px-2 py-1 text-[9px] font-extrabold uppercase tracking-wide text-white">
+                Video
+              </span>
+            )}
+            {index === 3 && remainingCount > 0 && (
+              <span className="absolute inset-0 flex items-center justify-center bg-black/60 text-2xl font-black tabular-nums text-white backdrop-blur-[2px]">
+                +{remainingCount}
+              </span>
+            )}
+          </span>
+        ))}
+      </button>
+    </div>
+  );
+}
+
+function SinglePostMediaCarousel({ media, onOpenMedia }: PostCardMediaCarouselProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const hasPeekedRef = useRef(false);
   const controls = useAnimationControls();
