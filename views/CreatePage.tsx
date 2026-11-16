@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import posthog from "posthog-js";
 import { motion } from "framer-motion";
 import { useNavigate, useSearchParams } from "@/lib/router";
-import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Globe2, Hash, ImagePlus, Loader2, Send, Smile, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, ChevronLeft, ChevronRight, Globe2, Hash, ImagePlus, Loader2, Send, Smile, X } from "lucide-react";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { ProgressiveImage } from "@/components/ui/ProgressiveImage";
 import { SchoolBadge } from "@/components/ui/SchoolBadge";
@@ -169,6 +169,13 @@ export function CreatePage() {
     if (!canContinue) {
       return;
     }
+    setStep(2);
+    setEmojiPickerOpen(false);
+  };
+
+  const startPoll = () => {
+    if (!canContinue) return;
+    setPollDraft((current) => current ?? { question: "", options: ["", ""] });
     setStep(2);
     setEmojiPickerOpen(false);
   };
@@ -452,6 +459,15 @@ export function CreatePage() {
               >
                 {compressing ? <Loader2 size={17} className="animate-spin" aria-hidden /> : <ImagePlus size={17} aria-hidden />}
                 Add photos/videos
+              </button>
+              <button
+                type="button"
+                onClick={startPoll}
+                disabled={!canContinue}
+                className="inline-flex min-h-11 items-center gap-2 rounded-full bg-brand px-4 text-xs font-extrabold text-white shadow-[0_3px_0_var(--brand-edge)] hover:brightness-105 disabled:pointer-events-none disabled:opacity-40"
+              >
+                <BarChart3 size={17} aria-hidden />
+                Create Poll
               </button>
               <button
                 type="button"
