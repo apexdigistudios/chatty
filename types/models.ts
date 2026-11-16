@@ -114,6 +114,25 @@ export interface School {
 
 export type MediaType = "image" | "video";
 
+export interface PollOption {
+  id: string;
+  text: string;
+  voteCount: number;
+}
+
+export interface PostPoll {
+  id: string;
+  question: string;
+  options: PollOption[];
+  totalVotes: number;
+  votedOptionId: string | null;
+}
+
+export interface PollDraft {
+  question: string;
+  options: string[];
+}
+
 export interface Post {
   id: string;
   authorId: string;
@@ -136,6 +155,7 @@ export interface Post {
   groupName: string | null;
   groupEmoji: string | null;
   content: string;
+  poll?: PostPoll | null;
   mediaUrls: string[];
   mediaTypes?: MediaType[];
   videoThumbnailUrl?: string | null;

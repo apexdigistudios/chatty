@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "
 import { useNavigate } from "@/lib/router";
 import {
   BadgeCheck,
+  BarChart3,
   AlertTriangle,
   Check,
   ChevronDown,
@@ -13,12 +14,14 @@ import {
   MessageCircle,
   Plus,
   Search,
+  Settings,
   ShieldCheck,
   Trash2,
   Upload,
   Users,
   UserPlus,
   UserRoundPen,
+  Radio,
   X,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
@@ -62,12 +65,12 @@ import {
 
 type DashboardTab = "profiles" | "publisher" | "engagement" | "ambassadors" | "purge";
 
-const TABS: Array<{ id: DashboardTab; label: string }> = [
-  { id: "profiles", label: "Synthetic profiles" },
-  { id: "publisher", label: "Post studio" },
-  { id: "engagement", label: "Posts & confessions" },
-  { id: "ambassadors", label: "Ambassadors" },
-  { id: "purge", label: "System clean-up" },
+const TABS: Array<{ id: DashboardTab; label: string; icon: typeof ShieldCheck }> = [
+  { id: "profiles", label: "Synthetic profiles", icon: Users },
+  { id: "publisher", label: "Post studio", icon: Radio },
+  { id: "engagement", label: "Posts & confessions", icon: BarChart3 },
+  { id: "ambassadors", label: "Ambassadors", icon: UserPlus },
+  { id: "purge", label: "System clean-up", icon: Settings },
 ];
 
 const CONFESSION_CATEGORIES = [
@@ -546,14 +549,17 @@ export function AdminDashboard() {
             id={`seed-tab-${item.id}`}
             type="button"
             role="tab"
+            aria-label={item.label}
             aria-selected={tab === item.id}
             aria-controls={`seed-panel-${item.id}`}
+            title={item.label}
             onClick={() => setTab(item.id)}
             className={`min-h-11 rounded-xl px-2 text-[10px] font-extrabold transition-colors sm:text-xs ${
               tab === item.id ? "bg-card text-brand-deep shadow-sm" : "text-ink-muted hover:text-ink"
             }`}
           >
-            {item.label}
+            <item.icon size={17} aria-hidden />
+            <span className="sr-only sm:not-sr-only">{item.label}</span>
           </button>
         ))}
       </div>

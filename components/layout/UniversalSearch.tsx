@@ -131,7 +131,7 @@ export function UniversalSearch() {
     <>
       <div className="relative ml-auto hidden min-w-0 max-w-[430px] flex-1 sm:block md:ml-0">
         <label className="flex h-10 items-center gap-2.5 rounded-2xl border-2 border-line bg-page px-3.5 text-sm font-semibold text-ink-muted transition-colors focus-within:border-brand focus-within:ring-4 focus-within:ring-brand-soft">
-          <Search size={17} strokeWidth={2.5} aria-hidden />
+          <Search size={17} strokeWidth={2.5} className="dark:text-white" aria-hidden />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -152,7 +152,7 @@ export function UniversalSearch() {
           {loading && <Loader2 size={14} className="animate-spin" aria-hidden />}
           {query && (
             <button type="button" aria-label="Clear search" onMouseDown={(event) => event.preventDefault()} onClick={() => setQuery("")} className="flex size-7 items-center justify-center rounded-lg hover:bg-line/50">
-              <X size={14} aria-hidden />
+              <X size={14} className="dark:text-white" aria-hidden />
             </button>
           )}
         </label>
@@ -177,7 +177,7 @@ export function UniversalSearch() {
         aria-label="Search posts and profiles"
         className="flex size-11 shrink-0 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:hidden"
       >
-        <Search size={19} strokeWidth={2.5} aria-hidden />
+        <Search size={19} strokeWidth={2.5} className="dark:text-white" aria-hidden />
       </button>
       <AnimatePresence>
         {mobileOpen && (
@@ -197,7 +197,7 @@ export function UniversalSearch() {
               className="overflow-hidden rounded-2xl border-2 border-line bg-card shadow-2xl"
             >
               <label className="flex h-12 items-center gap-2.5 border-b-2 border-line px-3">
-                <Search size={17} className="text-ink-muted" aria-hidden />
+                <Search size={17} className="text-ink-muted dark:text-white" aria-hidden />
                 <input
                   ref={inputRef}
                   value={query}
@@ -209,9 +209,9 @@ export function UniversalSearch() {
                   aria-label="Search posts and profiles"
                   className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-ink outline-none placeholder:text-ink-muted"
                 />
-                {loading && <Loader2 size={15} className="animate-spin text-ink-muted" aria-hidden />}
+                {loading && <Loader2 size={15} className="animate-spin text-ink-muted dark:text-white" aria-hidden />}
                 <button type="button" onClick={closeMobile} aria-label="Close search" className="flex size-9 items-center justify-center rounded-lg text-ink-muted hover:bg-page">
-                  <X size={17} aria-hidden />
+                  <X size={17} className="dark:text-white" aria-hidden />
                 </button>
               </label>
               <p className={cn("px-3 pt-2 text-[10px] font-extrabold uppercase tracking-wider text-ink-muted", query.trim().length < 2 && "pb-3")}>

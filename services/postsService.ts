@@ -8,12 +8,13 @@ import {
 } from "@/lib/offlineCache";
 import { countOf, currentUserId, requireUserId, supabase } from "@/lib/supabase";
 import { isUserGlobalAdmin } from "@/lib/adminAccess";
-import type { Comment, CommentThreadTarget, MediaType, Post, PostStatus } from "@/types/models";
+import type { Comment, CommentThreadTarget, MediaType, PollDraft, Post, PostStatus } from "@/types/models";
 import { fetchBlockedUserIds } from "@/services/blocksService";
 import { isVideoFile, uploadPostMedia } from "@/services/storageService";
 import { hasActiveVerification } from "@/lib/verification";
 import { isVideoUrl } from "@/lib/video";
 import { isPostPromoted } from "@/lib/promotions";
+import { fetchPollsForPosts } from "@/services/pollsService";
 
 const AUTHOR_SELECT = "author:profiles(id, username, avatar_url, school_id)";
 const AUTHOR_IDENTITY_SELECT = "author:profiles(id, username, full_name, avatar_url, school_id)";
@@ -405,9 +406,13 @@ export async function hydrateLikes(rows: RawPost[]): Promise<Post[]> {
     })());
   }
   await Promise.all(requests);
+  const pollsByPostId = await fetchPollsForPosts(rows.map((row) => row.id), userId);
 
   return rows.map((row) => {
-    const post = mapPost(row, likedIds.has(row.id));
+    const post = {
+      ...mapPost(row, likedIds.has(row.id)),
+      poll: pollsByPostId.get(row.id) ?? null,
+    };
     const itemsByUrl = new Map<string, RawPostMedia>();
     for (const item of [...(row.media ?? []), ...(mediaByPostId.get(row.id) ?? [])]) {
       itemsByUrl.set(item.media_url, item);
@@ -922,6 +927,7 @@ export interface CreatePostInput {
   groupId?: string | null;
   files?: File[];
   videoDurations?: Array<number | null>;
+  poll?: PollDraft | null;
 }
 
 export async function fetchPostCount(userId: string): Promise<number> {
@@ -953,8 +959,20 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
   }
   const files = input.files ?? [];
   const content = input.content.trim();
-  if (!content && files.length === 0) {
-    throw new Error("Please add text, an image, or a video to publish.");
+  const pollQuestion = input.poll?.question.trim() ?? "";
+  const pollOptions = input.poll?.options.map((option) => option.trim()) ?? [];
+  const hasPoll = Boolean(input.poll);
+  if (!content && files.length === 0 && !hasPoll) {
+    throw new Error("Please add text, media, or a poll to publish.");
+  }
+  if (hasPoll && (
+    pollQuestion.length < 1 ||
+    pollQuestion.length > 160 ||
+    pollOptions.length < 2 ||
+    pollOptions.length > 6 ||
+    pollOptions.some((option) => option.length < 1 || option.length > 80)
+  )) {
+    throw new Error("Add a poll question and 2–6 options (each up to 80 characters).");
   }
   if (content.length > 300) {
     throw new Error("Gist text must be 300 characters or fewer.");
@@ -989,6 +1007,9 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
       content,
       schoolId: input.schoolId,
       groupId: input.groupId ?? null,
+      poll: input.poll
+        ? { question: pollQuestion, options: pollOptions }
+        : null,
       media: media.map((item, index) => ({
         url: item.url,
         mediaType: item.mediaType,

@@ -228,7 +228,7 @@ export function NotificationDrawer() {
                           <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#8B5CF6] opacity-70 motion-reduce:animate-none" aria-hidden />
                           <span className="relative inline-flex size-1.5 rounded-full bg-[#8B5CF6]" />
                         </span>
-                        Gist me · live
+                        Gist me ·
                       </p>
                       <h2 className="mt-1 text-[28px] font-black leading-none tracking-tight text-ink">
                         Notifications

@@ -37,6 +37,7 @@ import { SchoolTag } from "@/components/ui/SchoolBadge";
 import { useToast } from "@/components/ui/Toast";
 import { PostActionMenu } from "@/components/feed/PostActionMenu";
 import { PostCardMediaCarousel } from "@/components/feed/PostCardMediaCarousel";
+import { PostPollCard } from "@/components/feed/PostPollCard";
 import { PostMediaViewer } from "@/components/feed/PostMediaViewer";
 import { SpotlightModal } from "@/components/spotlight/SpotlightModal";
 import { ReportModal } from "@/components/feed/ReportModal";
@@ -435,6 +436,8 @@ export const GistCard = memo(function GistCard({ post, onRemoved }: GistCardProp
             See less
           </button>
         )}
+
+        {post.poll && <PostPollCard postId={post.id} poll={post.poll} />}
 
         {media.length > 0 && (
           <PostCardMediaCarousel

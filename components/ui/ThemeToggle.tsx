@@ -54,7 +54,7 @@ export function ThemeToggle({ showLabel = false, className, spotlight = false }:
           className="inline-flex"
           aria-hidden
         >
-          <Icon size={19} strokeWidth={2.5} />
+          <Icon size={19} strokeWidth={2.5} className="dark:text-white" />
         </motion.span>
       </AnimatePresence>
       {showLabel && (

@@ -97,7 +97,7 @@ export function BottomNav({
                 {isProfile && user ? (
                   <Avatar name={profile?.username ?? "you"} src={profile?.avatarUrl} size="sm" />
                 ) : (
-                  <Icon size={22} strokeWidth={isActive || create ? 2.65 : 2.3} aria-hidden />
+                  <Icon size={22} strokeWidth={isActive || create ? 2.65 : 2.3} className="dark:text-white" aria-hidden />
                 )}
               </motion.span>
             </NextLink>

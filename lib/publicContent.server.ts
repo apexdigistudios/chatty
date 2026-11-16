@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { defaultAvatarUrl, shortNameOf } from "@/lib/media";
 import { isVideoUrl } from "@/lib/video";
-import { emptyReactions, type Confession, type Post, type PublicProfile } from "@/types/models";
+import { emptyReactions, type Confession, type Post, type PostPoll, type PublicProfile } from "@/types/models";
 
 if (typeof window !== "undefined") {
   throw new Error("Public content queries are server-only.");
@@ -139,7 +139,7 @@ function mapPost(row: PublicPostRow, media?: Array<{
   media_type?: "image" | "video" | null;
   video_duration_seconds?: number | null;
   video_thumbnail_url?: string | null;
-}>): Post {
+}>, poll: PostPoll | null = null): Post {
   const joinedMedia = row.media?.length
     ? [...row.media].sort((left, right) => left.sort_order - right.sort_order)
     : undefined;
@@ -176,6 +176,7 @@ function mapPost(row: PublicPostRow, media?: Array<{
     groupName: null,
     groupEmoji: null,
     content: row.content,
+    poll,
     mediaUrls,
     mediaTypes,
     videoDurations: mediaItems.map((item) => item.video_duration_seconds ?? null),
@@ -418,7 +419,50 @@ export async function fetchPublicPosts(options: {
   limit?: number;
 } = {}): Promise<Post[]> {
   const rows = await fetchPublicPostRows({ ...options, limit: options.limit ?? 30 });
-  return rows.map((row) => mapPost(row));
+  const polls = await fetchPublicPolls(rows.map((row) => row.id));
+  return rows.map((row) => mapPost(row, undefined, polls.get(row.id) ?? null));
+}
+
+async function fetchPublicPolls(postIds: string[]): Promise<Map<string, PostPoll>> {
+  const pollsByPost = new Map<string, PostPoll>();
+  if (postIds.length === 0) return pollsByPost;
+  const client = publicSupabase();
+  const { data: polls, error: pollsError } = await client
+    .from("polls")
+    .select("id, post_id, question")
+    .in("post_id", postIds)
+    .returns<Array<{ id: string; post_id: string; question: string }>>();
+  if (pollsError) {
+    if (pollsError.code === "42P01" || pollsError.code === "PGRST205") return pollsByPost;
+    throw new Error(pollsError.message);
+  }
+  if (!polls?.length) return pollsByPost;
+
+  const { data: options, error: optionsError } = await client
+    .from("poll_options")
+    .select("id, poll_id, text, vote_count, sort_order")
+    .in("poll_id", polls.map((poll) => poll.id))
+    .order("sort_order", { ascending: true })
+    .returns<Array<{ id: string; poll_id: string; text: string; vote_count: number; sort_order: number }>>();
+  if (optionsError) throw new Error(optionsError.message);
+
+  const optionsByPoll = new Map<string, Array<{ id: string; text: string; voteCount: number }>>();
+  for (const option of options ?? []) {
+    const pollOptions = optionsByPoll.get(option.poll_id) ?? [];
+    pollOptions.push({ id: option.id, text: option.text, voteCount: option.vote_count });
+    optionsByPoll.set(option.poll_id, pollOptions);
+  }
+  for (const poll of polls) {
+    const pollOptions = optionsByPoll.get(poll.id) ?? [];
+    pollsByPost.set(poll.post_id, {
+      id: poll.id,
+      question: poll.question,
+      options: pollOptions,
+      totalVotes: pollOptions.reduce((sum, option) => sum + option.voteCount, 0),
+      votedOptionId: null,
+    });
+  }
+  return pollsByPost;
 }
 
 export async function fetchPopularPublicPosts(limit = 8): Promise<Post[]> {

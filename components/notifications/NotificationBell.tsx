@@ -45,7 +45,7 @@ export function NotificationBell({ spotlight = false }: { spotlight?: boolean })
           : "border-line bg-card text-ink hover:border-brand hover:text-brand-deep focus-visible:ring-brand-soft"
       }`}
     >
-      <Bell size={19} strokeWidth={2.5} aria-hidden />
+      <Bell size={19} strokeWidth={2.5} className="dark:text-white" aria-hidden />
 
       {/* Ambient attention ring while unread */}
       {unread > 0 && (

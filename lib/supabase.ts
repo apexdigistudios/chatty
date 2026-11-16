@@ -47,7 +47,7 @@ export function describeError(error: unknown, fallback = "Couldn't complete that
     (typeof navigator !== "undefined" && navigator.onLine === false) ||
     /internet disconnected|failed to fetch|networkerror|fetch failed|network request failed|load failed|err_(?:network|connection|internet)|connection (?:was )?(?:lost|reset|refused|aborted)/.test(normalized)
   ) {
-    return "You are offline. Why you off your Data?";
+    return "You are offline. Why you off your data?";
   }
   if (/invalid login credentials|invalid email or password/.test(normalized)) {
     return "That email or password doesn't look right. Please try again.";

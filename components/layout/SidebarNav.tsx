@@ -72,7 +72,7 @@ function SidebarLink({
                 : "border-transparent text-ink-muted hover:border-line hover:bg-card hover:text-ink"
           }`}
         >
-          <Icon size={19} strokeWidth={2.5} aria-hidden />
+          <Icon size={19} strokeWidth={2.5} className="dark:text-white" aria-hidden />
           <span className="whitespace-nowrap">{label}</span>
           {badge && (
             <span className="ml-auto rounded-full bg-warning-wash px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-warning-deep">{badge}</span>
@@ -181,7 +181,7 @@ export function SidebarNav() {
                 aria-label="Sign out"
                 className="flex size-8 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-danger-wash hover:text-danger"
               >
-                <LogOut size={14} strokeWidth={2.5} aria-hidden />
+                <LogOut size={14} strokeWidth={2.5} className="dark:text-white" aria-hidden />
               </button>
             </div>
           </div>

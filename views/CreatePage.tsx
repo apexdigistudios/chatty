@@ -8,6 +8,7 @@ import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Globe2, Hash, ImagePl
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { ProgressiveImage } from "@/components/ui/ProgressiveImage";
 import { SchoolBadge } from "@/components/ui/SchoolBadge";
+import { PollComposer } from "@/components/feed/PollComposer";
 import { useToast } from "@/components/ui/Toast";
 import { fetchGroup } from "@/services/groupsService";
 import { useAuth } from "@/context/AuthContext";
@@ -22,7 +23,7 @@ import { readVideoMetadata } from "@/lib/video";
 import { isVideoFile } from "@/services/storageService";
 import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
-import { MAX_POST_LENGTH, type SchoolGroup } from "@/types/models";
+import { MAX_POST_LENGTH, type PollDraft, type SchoolGroup } from "@/types/models";
 import { cn } from "@/utils/cn";
 
 const MAX_IMAGES = 5;
@@ -54,6 +55,7 @@ export function CreatePage() {
   const loadSchools = useGistStore((state) => state.loadSchools);
 
   const [content, setContent] = useState("");
+  const [pollDraft, setPollDraft] = useState<PollDraft | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [compressing, setCompressing] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -74,15 +76,21 @@ export function CreatePage() {
   const remaining = MAX_POST_LENGTH - content.length;
   const hasText = content.trim().length > 0;
   const hasMedia = attachments.length > 0;
+  const pollIsValid = Boolean(
+    pollDraft &&
+    pollDraft.question.trim().length > 0 &&
+    pollDraft.question.trim().length <= 160 &&
+    pollDraft.options.length >= 2 &&
+    pollDraft.options.length <= 6 &&
+    pollDraft.options.every((option) => option.trim().length > 0 && option.trim().length <= 80)
+  );
   const canPublish =
-    (hasText || hasMedia) &&
+    (hasText || hasMedia || pollIsValid) &&
+    (!pollDraft || pollIsValid) &&
     (Boolean(schoolId) || isGlobalAdminAuthor) &&
     !publishing &&
     !compressing;
-  const canContinue =
-    hasMedia &&
-    !publishing &&
-    !compressing;
+  const canContinue = !publishing && !compressing;
   const activeAttachment = attachments[previewIndex] ?? attachments[0] ?? null;
   const detectedHashtags = useMemo(
     () => [...new Set([...content.matchAll(/#([A-Za-z0-9_]{1,50})/g)].map((match) => match[1]!.toLowerCase()))],
@@ -159,7 +167,6 @@ export function CreatePage() {
 
   const continueToDetails = () => {
     if (!canContinue) {
-      if (!hasMedia) toast("Select an image or video before continuing.", "danger");
       return;
     }
     setStep(2);
@@ -294,9 +301,11 @@ export function CreatePage() {
 
   const publish = async () => {
     const text = content.trim();
-    if ((!text && attachments.length === 0) || publishing || compressing) {
-      if (!text && attachments.length === 0) {
-        toast("Please add text, an image, or a video to publish.", "danger");
+    if ((!text && attachments.length === 0 && !pollIsValid) || (pollDraft && !pollIsValid) || publishing || compressing) {
+      if (pollDraft && !pollIsValid) {
+        toast("Add a poll question and 2–6 options before publishing.", "danger");
+      } else if (!text && attachments.length === 0 && !pollIsValid) {
+        toast("Please add text, media, or a poll to publish.", "danger");
       }
       return;
     }
@@ -312,6 +321,7 @@ export function CreatePage() {
         groupId: postGroup?.schoolId === schoolId ? postGroup.id : null,
         files: attachments.map((item) => item.file),
         videoDurations: attachments.map((item) => item.duration ?? null),
+        poll: pollDraft,
       });
       posthog.capture("gist_published", {
         audience_scope: isGlobalAdminAuthor ? "global" : "school",
@@ -319,6 +329,7 @@ export function CreatePage() {
         has_caption: Boolean(text),
         image_count: attachments.filter((item) => item.kind === "image").length,
         video_count: attachments.filter((item) => item.kind === "video").length,
+        has_poll: Boolean(pollDraft),
       });
       toast("Gist published to the feed!", "success");
       navigate("/");
@@ -453,7 +464,9 @@ export function CreatePage() {
                 Record video
               </button>
             </div>
-            <p className="mt-2 text-center text-[10px] font-semibold text-ink-muted">{attachments.length ? `${attachments.length} selected · up to 5 photos and 3 videos` : "Up to 5 photos and 3 videos"}</p>
+            <p className="mt-2 text-center text-[10px] font-semibold text-ink-muted">
+              {attachments.length ? `${attachments.length} selected · up to 5 photos and 3 videos` : "Media is optional · add text or a poll on the next step"}
+            </p>
           </footer>
         </>
       ) : (
@@ -526,6 +539,8 @@ export function CreatePage() {
                     ))}
                   </div>
               </section>
+
+              <PollComposer value={pollDraft} onChange={setPollDraft} disabled={publishing} />
 
               {attachments.length > 0 && (
                 <div className="mt-4">

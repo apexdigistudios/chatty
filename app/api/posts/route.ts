@@ -17,11 +17,43 @@ interface SubmittedMedia {
   thumbnailUrl: string | null;
 }
 
+interface SubmittedPoll {
+  question: string;
+  options: string[];
+}
+
 class PostRequestError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
     this.name = "PostRequestError";
   }
+}
+
+function parsePoll(value: unknown): SubmittedPoll | null {
+  if (value === undefined || value === null) return null;
+  if (
+    typeof value !== "object" ||
+    !("question" in value) ||
+    typeof value.question !== "string" ||
+    !("options" in value) ||
+    !Array.isArray(value.options)
+  ) {
+    throw new PostRequestError("Your poll details are invalid.", 400);
+  }
+  const question = value.question.trim();
+  const options = value.options.map((option) =>
+    typeof option === "string" ? option.trim() : ""
+  );
+  if (
+    question.length < 1 ||
+    question.length > 160 ||
+    options.length < 2 ||
+    options.length > 6 ||
+    options.some((option) => option.length < 1 || option.length > 80)
+  ) {
+    throw new PostRequestError("Add a poll question and 2–6 options (each up to 80 characters).", 400);
+  }
+  return { question, options };
 }
 
 function errorResponse(message: string, status: number): Response {
@@ -123,6 +155,7 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const content = body.content.trim();
+    const poll = parsePoll("poll" in body ? body.poll : null);
     const media: SubmittedMedia[] = [];
     for (const item of body.media) {
       if (
@@ -154,8 +187,8 @@ export async function POST(request: Request): Promise<Response> {
       });
     }
 
-    if (!content && media.length === 0) {
-      throw new PostRequestError("Please add text, an image, or a video to publish.", 400);
+    if (!content && media.length === 0 && !poll) {
+      throw new PostRequestError("Please add text, media, or a poll to publish.", 400);
     }
     const imageCount = media.filter((item) => item.mediaType === "image").length;
     const videoCount = media.length - imageCount;
@@ -164,6 +197,7 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     await moderatePostCaption(content, user.id);
+    if (poll) await moderatePostCaption(`${poll.question}\n${poll.options.join("\n")}`, user.id);
 
     let globalAdmin = isUserGlobalAdmin(user.email);
     if (!globalAdmin) {
@@ -191,6 +225,21 @@ export async function POST(request: Request): Promise<Response> {
     if (media.length > 1 && !postMediaAvailable) {
       throw new PostRequestError("Multiple attachments need the post media database migration.", 400);
     }
+    if (poll) {
+      const [{ error: pollsError }, hasPollColumn] = await Promise.all([
+        serviceClient.from("polls").select("id").limit(1),
+        columnExists(serviceClient, "posts", "has_poll"),
+      ]);
+      if (pollsError) {
+        if (pollsError.code === "42P01" || pollsError.code === "PGRST205") {
+          throw new PostRequestError("Polls need the post polls database migration.", 400);
+        }
+        throw new Error(pollsError.message);
+      }
+      if (!hasPollColumn) {
+        throw new PostRequestError("Polls need the post polls database migration.", 400);
+      }
+    }
 
     let groupId: string | null = null;
     if (body.groupId && groupsAvailable) {
@@ -211,6 +260,7 @@ export async function POST(request: Request): Promise<Response> {
       school_id: body.schoolId,
       content,
       media_url: firstMedia?.url ?? null,
+      ...(poll ? { has_poll: true } : {}),
       post_type: "public",
       status: "active",
       ...(groupsAvailable && groupId ? { group_id: groupId } : {}),
@@ -259,6 +309,23 @@ export async function POST(request: Request): Promise<Response> {
       }));
       const { error: mediaError } = await serviceClient.from("post_media").insert(rows);
       if (mediaError) throw new Error(mediaError.message);
+    }
+
+    if (poll) {
+      const { data: createdPoll, error: pollCreateError } = await serviceClient
+        .from("polls")
+        .insert({ post_id: created.id, question: poll.question })
+        .select("id")
+        .single<{ id: string }>();
+      if (pollCreateError) throw new Error(pollCreateError.message);
+      const { error: optionsError } = await serviceClient.from("poll_options").insert(
+        poll.options.map((option, sortOrder) => ({
+          poll_id: createdPoll.id,
+          text: option,
+          sort_order: sortOrder,
+        }))
+      );
+      if (optionsError) throw new Error(optionsError.message);
     }
 
     return Response.json({ id: created.id });
