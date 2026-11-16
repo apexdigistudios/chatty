@@ -39,9 +39,12 @@ function PostCardMediaGrid({ media, onOpenMedia }: PostCardMediaCarouselProps) {
 
   return (
     <div className="-mx-4 mt-3 w-[calc(100%+2rem)]">
-      <button
+      <motion.button
         type="button"
         onClick={() => onOpenMedia(0)}
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.985 }}
+        transition={springs.snappy}
         aria-label={`Open all ${media.length} post media items`}
         className={cn(
           "relative grid aspect-[4/3] w-full overflow-hidden bg-neutral-950",
@@ -82,7 +85,7 @@ function PostCardMediaGrid({ media, onOpenMedia }: PostCardMediaCarouselProps) {
             )}
           </span>
         ))}
-      </button>
+      </motion.button>
     </div>
   );
 }

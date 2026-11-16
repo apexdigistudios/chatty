@@ -34,6 +34,7 @@ import { useAuth } from "@/context/AuthContext";
 import { isUserGlobalAdmin } from "@/lib/adminAccess";
 import { formatCompactNumber } from "@/lib/utils";
 import { describeError, supabase } from "@/lib/supabase";
+import { celebrateSuccess } from "@/lib/celebrations";
 import {
   clearAllSeedData,
   createSeedPost,
@@ -263,6 +264,7 @@ export function AdminDashboard() {
           isVerified: true,
         }].sort((a, b) => a.username.localeCompare(b.username, undefined, { sensitivity: "base" })));
         setAmbassadorResults((current) => current.filter((item) => item.id !== profile.id));
+        celebrateSuccess();
         toast(`@${profile.username} is now a campus ambassador.`, "success");
       } else {
         setAmbassadors((current) => current.filter((item) => item.id !== profile.id));

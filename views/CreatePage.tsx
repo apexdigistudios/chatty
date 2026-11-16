@@ -19,6 +19,7 @@ import {
 } from "@/lib/imageCompression";
 import { describeError } from "@/lib/supabase";
 import { isUserGlobalAdmin } from "@/lib/adminAccess";
+import { celebrateSuccess } from "@/lib/celebrations";
 import { readVideoMetadata } from "@/lib/video";
 import { isVideoFile } from "@/services/storageService";
 import { useGistStore } from "@/store/gistStore";
@@ -338,6 +339,7 @@ export function CreatePage() {
         video_count: attachments.filter((item) => item.kind === "video").length,
         has_poll: Boolean(pollDraft),
       });
+      celebrateSuccess();
       toast("Gist published to the feed!", "success");
       navigate("/");
     } catch (error) {
@@ -460,15 +462,18 @@ export function CreatePage() {
                 {compressing ? <Loader2 size={17} className="animate-spin" aria-hidden /> : <ImagePlus size={17} aria-hidden />}
                 Add photos/videos
               </button>
-              <button
+              <motion.button
                 type="button"
                 onClick={startPoll}
                 disabled={!canContinue}
+                whileHover={!canContinue ? undefined : { scale: 1.02 }}
+                whileTap={!canContinue ? undefined : { scale: 0.96 }}
+                transition={springs.snappy}
                 className="inline-flex min-h-11 items-center gap-2 rounded-full bg-brand px-4 text-xs font-extrabold text-white shadow-[0_3px_0_var(--brand-edge)] hover:brightness-105 disabled:pointer-events-none disabled:opacity-40"
               >
                 <BarChart3 size={17} aria-hidden />
                 Create Poll
-              </button>
+              </motion.button>
               <button
                 type="button"
                 onClick={() => cameraRef.current?.click()}

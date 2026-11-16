@@ -5,6 +5,7 @@ import { Heart } from "lucide-react";
 import { Link } from "@/lib/router";
 import { cloudflareMediaUrl } from "@/lib/mediaUrl";
 import { isVideoUrl } from "@/lib/video";
+import { MascotCharacter } from "@/components/auth/MascotCharacter";
 import type { Post } from "@/types/models";
 import { formatCompactNumber } from "@/lib/utils";
 
@@ -182,7 +183,12 @@ export function BentoPostGrid({
   }, [activeVideoId]);
 
   if (posts.length === 0) {
-    return <p className="py-8 text-center text-xs font-semibold text-ink-muted">{emptyMessage}</p>;
+    return (
+      <div className="flex flex-col items-center py-6 text-center">
+        <MascotCharacter compact outfit="shs_welcome" className="mx-auto max-w-28" />
+        <p className="mt-2 text-xs font-semibold text-ink-muted">{emptyMessage}</p>
+      </div>
+    );
   }
 
   return (

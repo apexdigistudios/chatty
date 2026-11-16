@@ -7,8 +7,10 @@ import { useAuth } from "@/context/AuthContext";
 import { useAuthGateStore } from "@/store/authGateStore";
 import { castPollVote, fetchPollsForPosts } from "@/services/pollsService";
 import { supabase } from "@/lib/supabase";
+import { celebrateSuccess } from "@/lib/celebrations";
 import type { PostPoll } from "@/types/models";
 import { useToast } from "@/components/ui/Toast";
+import { springs } from "@/theme/tokens";
 
 export function PostPollCard({ postId, poll }: { postId: string; poll: PostPoll }) {
   const { user } = useAuth();
@@ -109,6 +111,7 @@ export function PostPollCard({ postId, poll }: { postId: string; poll: PostPoll 
     try {
       const updated = await castPollVote(poll.id, optionId);
       setResults(updated);
+      celebrateSuccess();
     } catch (error) {
       setResults(previous);
       console.error("Could not cast a poll vote.", error);
@@ -130,12 +133,15 @@ export function PostPollCard({ postId, poll }: { postId: string; poll: PostPoll 
             : 0;
           const selected = results.votedOptionId === option.id;
           return (
-            <button
+            <motion.button
               key={option.id}
               type="button"
               onClick={() => void vote(option.id)}
               disabled={submitting}
               aria-pressed={selected}
+              whileHover={!submitting ? { scale: 1.01 } : undefined}
+              whileTap={!submitting ? { scale: 0.98 } : undefined}
+              transition={springs.snappy}
               className="relative flex min-h-11 w-full items-center overflow-hidden rounded-xl border border-line bg-page px-3 text-left transition-colors hover:border-brand-soft disabled:cursor-wait"
             >
               {showResults && (
@@ -156,7 +162,7 @@ export function PostPollCard({ postId, poll }: { postId: string; poll: PostPoll 
                   {percentage}%
                 </span>
               )}
-            </button>
+            </motion.button>
           );
         })}
       </div>
