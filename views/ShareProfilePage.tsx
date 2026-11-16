@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { toPng } from "html-to-image";
 import {
@@ -27,13 +27,7 @@ const PROFILE_ORIGIN = "https://www.gistme.online";
 async function waitForCardAssets(card: HTMLElement): Promise<void> {
   await document.fonts.ready;
   await Promise.all(
-    Array.from(card.querySelectorAll("img")).map(async (image) => {
-      try {
-        await image.decode();
-      } catch (cause) {
-        console.warn("A share-card image could not be decoded before export.", cause);
-      }
-    })
+    Array.from(card.querySelectorAll("img")).map((image) => image.decode())
   );
   await new Promise<void>((resolve) => {
     requestAnimationFrame(() => resolve());
@@ -41,27 +35,24 @@ async function waitForCardAssets(card: HTMLElement): Promise<void> {
 }
 
 function ShareAvatar({ profile }: { profile: PublicProfile }) {
-  const [failed, setFailed] = useState(false);
   const initials = (profile.fullName?.trim() || profile.username).slice(0, 2).toUpperCase();
-  const src = useMemo(
-    () => profile.avatarUrl && !failed ? cloudflareMediaUrl(profile.avatarUrl) : null,
-    [failed, profile.avatarUrl]
-  );
-  useEffect(() => setFailed(false), [profile.avatarUrl]);
+  const avatarUrl = profile.avatarUrl?.trim();
+  const src = avatarUrl
+    ? `/api/profile-card/avatar?url=${encodeURIComponent(cloudflareMediaUrl(avatarUrl))}`
+    : null;
 
   return (
     <div className="relative mx-auto flex size-24 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-brand-deep text-2xl font-black text-white shadow-xl ring-4 ring-brand/20">
-      <span aria-hidden="true">{initials}</span>
-      {src ? (
+      {!src && <span aria-hidden="true">{initials}</span>}
+      {src && (
         <img
           src={src}
           alt={`${profile.username}'s profile`}
           crossOrigin="anonymous"
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
+          onError={() => console.error(`Could not load the configured avatar for @${profile.username}.`)}
           className="absolute inset-0 size-full rounded-full object-cover"
         />
-      ) : null}
+      )}
     </div>
   );
 }
