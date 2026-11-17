@@ -36,6 +36,7 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { loading, user, profile, isGlobalAdmin } = useAuth();
+  const isLegalPage = pathname === "/privacy" || pathname === "/terms";
   const navigationHidden = useScrollDirection(pathname);
   const [spotlightNavigationHidden, setSpotlightNavigationHidden] = useState(false);
   const loadFeed = useGistStore((state) => state.loadFeed);
@@ -43,16 +44,16 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
   const feedHasLoaded = useGistStore((state) => state.feedHasLoaded);
   const schoolsHasLoaded = useGistStore((state) => state.schoolsHasLoaded);
   useEffect(() => {
-    if (!isSupabaseConfigured || schoolsHasLoaded) return;
+    if (isLegalPage || !isSupabaseConfigured || schoolsHasLoaded) return;
     if (pathname === "/schools") return;
     void loadSchools();
-  }, [loadSchools, pathname, schoolsHasLoaded]);
+  }, [isLegalPage, loadSchools, pathname, schoolsHasLoaded]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || loading || feedHasLoaded) return;
+    if (isLegalPage || !isSupabaseConfigured || loading || feedHasLoaded) return;
     if (pathname === "/" || pathname === "/trending" || pathname === "/spotlight") return;
     void loadFeed();
-  }, [feedHasLoaded, loading, loadFeed, pathname]);
+  }, [feedHasLoaded, isLegalPage, loading, loadFeed, pathname]);
 
   useEffect(() => {
     if (loading) return;
@@ -77,7 +78,7 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
     setSpotlightNavigationHidden(false);
   }, [pathname]);
 
-  if (!isSupabaseConfigured) return <SetupGate />;
+  if (!isSupabaseConfigured && !isLegalPage) return <SetupGate />;
 
   const fullscreen = FULLSCREEN_PATHS.has(pathname);
   const standaloneAuth = pathname === "/auth" || pathname === "/login" || pathname === "/register";
@@ -87,10 +88,10 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
 
   return (
     <MotionConfig reducedMotion="user">
-      <NavigationFeedback />
-      <PWAInstallPrompt />
-      <SEOHead />
-      {!loading && (
+      {!isLegalPage && <NavigationFeedback />}
+      {!isLegalPage && <PWAInstallPrompt />}
+      {!isLegalPage && <SEOHead />}
+      {!isLegalPage && !loading && (
         <>
           <NotificationListener />
           <OfflineSyncListener />
@@ -100,7 +101,9 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
           <ToastViewport />
         </>
       )}
-      {standaloneAuth || standaloneOnboarding ? (
+      {isLegalPage ? (
+        children
+      ) : standaloneAuth || standaloneOnboarding ? (
         children
       ) : (
         <AppLayout
@@ -112,7 +115,7 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
         </AppLayout>
       )}
       <AnimatePresence>
-        {loading && <SplashScreen key="startup-splash" />}
+        {loading && !isLegalPage && <SplashScreen key="startup-splash" />}
       </AnimatePresence>
     </MotionConfig>
   );
