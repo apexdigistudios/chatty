@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Search, X } from "lucide-react";
 import { Link } from "@/lib/router";
@@ -38,12 +38,6 @@ export function UniversalSearch() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (mobileOpen) inputRef.current?.focus();
-  }, [mobileOpen]);
 
   useEffect(() => {
     const term = query.trim();
@@ -79,11 +73,6 @@ export function UniversalSearch() {
     };
   }, [query]);
 
-  const closeMobile = () => {
-    setMobileOpen(false);
-    setFocused(false);
-  };
-
   const resultList = (
     <div className="max-h-[min(60dvh,26rem)] overflow-y-auto overscroll-contain">
       {loading && (
@@ -99,7 +88,7 @@ export function UniversalSearch() {
         <Link
           key={`profile-${result.profile.id}`}
           to={`/profile/${result.profile.id}`}
-          onClick={closeMobile}
+          onClick={() => setFocused(false)}
           className="flex min-h-14 items-center gap-2.5 border-b border-line/70 px-3 py-2.5 last:border-0 hover:bg-page focus-visible:outline-none focus-visible:bg-page"
         >
           <Avatar name={result.profile.username} src={result.profile.avatarUrl} size="sm" />
@@ -113,7 +102,7 @@ export function UniversalSearch() {
         <Link
           key={`post-${result.post.id}`}
           to={`/posts/${result.post.id}`}
-          onClick={closeMobile}
+          onClick={() => setFocused(false)}
           className="flex min-h-14 items-center gap-2.5 border-b border-line/70 px-3 py-2.5 last:border-0 hover:bg-page focus-visible:outline-none focus-visible:bg-page"
         >
           <Avatar name={result.post.authorName} src={result.post.authorAvatar} size="sm" />
@@ -129,7 +118,7 @@ export function UniversalSearch() {
 
   return (
     <>
-      <div className="relative ml-auto hidden min-w-0 max-w-[430px] flex-1 sm:block md:ml-0">
+      <div className="relative ml-auto hidden min-w-0 max-w-[430px] flex-1 md:ml-0 md:block">
         <label className="flex h-10 items-center gap-2.5 rounded-2xl border-2 border-line bg-page px-3.5 text-sm font-semibold text-ink-muted transition-colors focus-within:border-brand focus-within:ring-4 focus-within:ring-brand-soft">
           <Search size={17} strokeWidth={2.5} className="dark:text-white" aria-hidden />
           <input
@@ -171,57 +160,13 @@ export function UniversalSearch() {
         </AnimatePresence>
       </div>
 
-      <button
-        type="button"
-        onClick={() => setMobileOpen(true)}
+      <Link
+        to="/explore"
         aria-label="Search posts and profiles"
-        className="flex size-11 shrink-0 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:hidden"
+        className="flex size-11 shrink-0 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink transition-colors hover:border-brand hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft md:hidden"
       >
         <Search size={19} strokeWidth={2.5} className="dark:text-white" aria-hidden />
-      </button>
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/45 px-3 pt-[max(1rem,env(safe-area-inset-top))] sm:hidden"
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget) closeMobile();
-            }}
-          >
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="overflow-hidden rounded-2xl border-2 border-line bg-card shadow-2xl"
-            >
-              <label className="flex h-12 items-center gap-2.5 border-b-2 border-line px-3">
-                <Search size={17} className="text-ink-muted dark:text-white" aria-hidden />
-                <input
-                  ref={inputRef}
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") closeMobile();
-                  }}
-                  placeholder="Search gists and students…"
-                  aria-label="Search posts and profiles"
-                  className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-ink outline-none placeholder:text-ink-muted"
-                />
-                {loading && <Loader2 size={15} className="animate-spin text-ink-muted dark:text-white" aria-hidden />}
-                <button type="button" onClick={closeMobile} aria-label="Close search" className="flex size-9 items-center justify-center rounded-lg text-ink-muted hover:bg-page">
-                  <X size={17} className="dark:text-white" aria-hidden />
-                </button>
-              </label>
-              <p className={cn("px-3 pt-2 text-[10px] font-extrabold uppercase tracking-wider text-ink-muted", query.trim().length < 2 && "pb-3")}>
-                {query.trim().length < 2 ? "Type at least 2 characters" : "Posts and profiles · A–Z"}
-              </p>
-              {query.trim().length >= 2 && resultList}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </Link>
     </>
   );
 }
