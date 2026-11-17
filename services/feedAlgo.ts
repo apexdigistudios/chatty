@@ -1,6 +1,6 @@
 import { currentUserId, supabase } from "@/lib/supabase";
 import { isBrowserOffline, readOfflineValue } from "@/lib/offlineCache";
-import { rotateBySeed } from "@/lib/feedRotation";
+import { shuffleBySeed } from "@/lib/feedRotation";
 import type { Post, Profile } from "@/types/models";
 import { fetchFollowingIds } from "@/services/followsService";
 import { fetchFeed } from "@/services/postsService";
@@ -91,8 +91,8 @@ export async function fetchRankedFeed({
   const rankedCandidates = rankFeedPosts(candidates, context);
   const promoted = rankedCandidates.filter((post) => isPostPromoted(post, context.now));
   const organic = rankedCandidates.filter((post) => !isPostPromoted(post, context.now));
-  const rotatedOrganic = rotationSeed === undefined
+  const shuffledOrganic = rotationSeed === undefined
     ? organic
-    : rotateBySeed(organic, rotationSeed);
-  return [...promoted, ...rotatedOrganic].slice(offset, offset + limit);
+    : shuffleBySeed(organic, rotationSeed);
+  return [...promoted, ...shuffledOrganic].slice(offset, offset + limit);
 }

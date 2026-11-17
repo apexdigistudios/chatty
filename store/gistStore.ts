@@ -279,6 +279,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
   loadFollowingFeed: async ({ silent } = {}) => {
     const requestId = ++followingLoadRequestId;
     const schoolId = get().feedSchoolId;
+    feedRotationSeed = Math.random();
     if (!silent) set({ followingLoading: true, feedError: null });
     try {
       const posts = await fetchRankedFeed({ limit: PAGE_SIZE, followingOnly: true, schoolId, rotationSeed: feedRotationSeed });

@@ -142,23 +142,31 @@ export function PostPollCard({ postId, poll }: { postId: string; poll: PostPoll 
               whileHover={!submitting ? { scale: 1.01 } : undefined}
               whileTap={!submitting ? { scale: 0.98 } : undefined}
               transition={springs.snappy}
-              className="relative flex min-h-11 w-full items-center overflow-hidden rounded-xl border border-line bg-page px-3 text-left transition-colors hover:border-brand-soft disabled:cursor-wait"
+              className={`relative flex min-h-11 w-full items-center overflow-hidden rounded-xl bg-page px-3 text-left transition-colors disabled:cursor-wait ${
+                selected
+                  ? "border-2 border-brand bg-brand-wash shadow-sm"
+                  : "border border-line hover:border-brand-soft"
+              }`}
             >
               {showResults && (
                 <motion.span
                   initial={false}
                   animate={{ width: `${percentage}%` }}
                   transition={{ type: "spring", stiffness: 120, damping: 20 }}
-                  className={`absolute inset-y-0 left-0 rounded-lg ${selected ? "bg-brand-wash" : "bg-line/70"}`}
+                  className={`absolute inset-y-0 left-0 rounded-lg ${selected ? "bg-brand-soft" : "bg-line/70"}`}
                   aria-hidden
                 />
               )}
-              <span className="relative z-10 flex min-w-0 flex-1 items-center gap-2 text-xs font-bold text-ink">
-                {selected ? <Check size={15} className="shrink-0 text-brand-deep" strokeWidth={3} aria-label="Your vote" /> : <span className="size-[15px] shrink-0" />}
+              <span className={`relative z-10 flex min-w-0 flex-1 items-center gap-2 text-xs ${selected ? "font-black text-brand-deep" : "font-bold text-ink"}`}>
+                {selected ? (
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-brand text-brand-contrast shadow-sm">
+                    <Check size={12} strokeWidth={3.5} aria-label="Your vote" />
+                  </span>
+                ) : <span className="size-5 shrink-0" />}
                 <span className="truncate">{option.text}</span>
               </span>
               {showResults && (
-                <span className="relative z-10 ml-2 shrink-0 text-[10px] font-extrabold tabular-nums text-ink-muted">
+                <span className={`relative z-10 ml-2 shrink-0 text-[10px] font-extrabold tabular-nums ${selected ? "text-brand-deep" : "text-ink-muted"}`}>
                   {percentage}%
                 </span>
               )}

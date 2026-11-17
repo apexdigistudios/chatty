@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { Heart } from "lucide-react";
 import { Link } from "@/lib/router";
 import { cloudflareMediaUrl } from "@/lib/mediaUrl";
 import { isVideoUrl } from "@/lib/video";
 import { MascotCharacter } from "@/components/auth/MascotCharacter";
+import { springs } from "@/theme/tokens";
 import type { Post } from "@/types/models";
 import { formatCompactNumber } from "@/lib/utils";
 
@@ -68,7 +70,13 @@ function BentoPostCard({
   }, [isVideo, onVisibilityChange, post.id]);
 
   return (
-    <div ref={cardRef} className="min-w-0">
+    <motion.div
+      ref={cardRef}
+      className="min-w-0"
+      whileHover={{ scale: 1.02, y: -2 }}
+      whileTap={{ scale: 0.98 }}
+      transition={springs.snappy}
+    >
       <Link
         to={`/posts/${post.id}`}
         onMouseEnter={() => onIntentChange(isVideo ? post.id : null)}
@@ -119,7 +127,7 @@ function BentoPostCard({
           </span>
         </div>
       </Link>
-    </div>
+    </motion.div>
   );
 }
 

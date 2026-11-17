@@ -15,7 +15,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuthGateStore } from "@/store/authGateStore";
 import { useGistStore } from "@/store/gistStore";
 import { springs } from "@/theme/tokens";
-import { rotateBySeed } from "@/lib/feedRotation";
+import { shuffleBySeed } from "@/lib/feedRotation";
 import { isPostPromoted } from "@/lib/promotions";
 import { formatCompactNumber } from "@/lib/utils";
 import type { Confession, Post } from "@/types/models";
@@ -100,6 +100,10 @@ export function HomePage({
   useEffect(() => {
     hydrateInitialPublicContent(initialPosts, initialConfessions, initialTrendingPosts, initialTrendingFallback);
   }, [hydrateInitialPublicContent, initialPosts, initialConfessions, initialTrendingFallback, initialTrendingPosts]);
+
+  useEffect(() => {
+    setRotationSeed(Math.random());
+  }, []);
 
   useEffect(() => {
     const refreshFeeds = () => {
@@ -189,7 +193,7 @@ export function HomePage({
     items.sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
     const promotedItems = items.filter((item) => item.kind === "post" && isPostPromoted(item.post));
     const organicItems = items.filter((item) => item.kind !== "post" || !isPostPromoted(item.post));
-    return [...promotedItems, ...rotateBySeed(organicItems, rotationSeed)];
+    return [...promotedItems, ...shuffleBySeed(organicItems, rotationSeed)];
   }, [activeTab, displayConfessions, feedSchoolId, profile?.schoolId, rotationSeed, visiblePosts]);
 
   const startComposing = (type: "gist" | "confession") => {

@@ -13,7 +13,12 @@ export const isSupabaseConfigured = Boolean(url && anonKey);
 export const supabase = createClient(
   url ?? "https://setup-required.supabase.co",
   anonKey ?? "setup-required",
-  { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
+  {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    global: {
+      fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+    },
+  }
 );
 
 export const MEDIA_BUCKET = "letsgist-media";

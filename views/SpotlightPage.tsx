@@ -18,7 +18,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { PageSpinner } from "@/components/ui/PageSpinner";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { PromotedBadge } from "@/components/feed/PromotedBadge";
-import { rotateBySeed } from "@/lib/feedRotation";
+import { shuffleBySeed } from "@/lib/feedRotation";
 import { shareOrCopyLink, sharePreviewUrl } from "@/lib/shareLinks";
 import { reportSpotlightScrollDirection } from "@/hooks/useScrollDirection";
 import { downloadSpotlightVideo } from "@/lib/download";
@@ -120,7 +120,7 @@ export function SpotlightPage({
       const collected = collectSpotlightItems(feed, confessions);
       const promoted = collected.filter((item) => item.kind === "post" && isPostPromoted(item.post));
       const organic = collected.filter((item) => item.kind !== "post" || !isPostPromoted(item.post));
-      setItems([...promoted, ...rotateBySeed(organic, Math.random())]);
+      setItems([...promoted, ...shuffleBySeed(organic, Math.random())]);
     } catch (cause) {
       setError(describeError(cause, "Could not load Spotlight videos."));
     } finally {

@@ -74,6 +74,9 @@ function publicSupabase() {
   if (!url || !anonKey) throw new Error("Public Supabase configuration is missing.");
   return createClient(url, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+    },
   });
 }
 
