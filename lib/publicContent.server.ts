@@ -430,11 +430,13 @@ async function fetchPublicPolls(postIds: string[]): Promise<Map<string, PostPoll
   const pollsByPost = new Map<string, PostPoll>();
   if (postIds.length === 0) return pollsByPost;
   const client = publicSupabase();
+  const activeSince = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: polls, error: pollsError } = await client
     .from("polls")
-    .select("id, post_id, question")
+    .select("id, post_id, question, created_at")
     .in("post_id", postIds)
-    .returns<Array<{ id: string; post_id: string; question: string }>>();
+    .gt("created_at", activeSince)
+    .returns<Array<{ id: string; post_id: string; question: string; created_at: string }>>();
   if (pollsError) {
     if (pollsError.code === "42P01" || pollsError.code === "PGRST205") return pollsByPost;
     throw new Error(pollsError.message);
@@ -460,6 +462,7 @@ async function fetchPublicPolls(postIds: string[]): Promise<Map<string, PostPoll
     pollsByPost.set(poll.post_id, {
       id: poll.id,
       question: poll.question,
+      createdAt: poll.created_at,
       options: pollOptions,
       totalVotes: pollOptions.reduce((sum, option) => sum + option.voteCount, 0),
       votedOptionId: null,

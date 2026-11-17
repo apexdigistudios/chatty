@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Heart } from "lucide-react";
+import { BarChart3, Heart } from "lucide-react";
 import { Link } from "@/lib/router";
 import { cloudflareMediaUrl } from "@/lib/mediaUrl";
 import { isVideoUrl } from "@/lib/video";
@@ -111,6 +111,15 @@ function BentoPostCard({
           <div className="absolute inset-0 bg-linear-to-br from-brand-deep via-purple-700 to-neutral-950" />
         )}
         <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/15 to-black/10" aria-hidden />
+        {post.poll && Date.now() - Date.parse(post.poll.createdAt) < 24 * 60 * 60 * 1000 && (
+          <span
+            className="absolute left-1/2 top-1/2 flex size-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/35 bg-black/45 text-white shadow-lg backdrop-blur-sm"
+            title="This post has a poll"
+            aria-label="Poll"
+          >
+            <BarChart3 size={22} strokeWidth={2.5} aria-hidden />
+          </span>
+        )}
         <div className="absolute inset-x-0 bottom-0 min-w-0 p-2.5 text-white sm:p-3">
           <div className="flex min-w-0 items-center gap-1.5">
             <BentoAuthorAvatar name={post.authorName} src={post.authorAvatar} />

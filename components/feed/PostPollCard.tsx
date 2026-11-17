@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Clock3, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useAuthGateStore } from "@/store/authGateStore";
 import { castPollVote, fetchPollsForPosts } from "@/services/pollsService";
@@ -12,6 +12,8 @@ import type { PostPoll } from "@/types/models";
 import { useToast } from "@/components/ui/Toast";
 import { springs } from "@/theme/tokens";
 
+const POLL_LIFETIME_MS = 24 * 60 * 60 * 1000;
+
 export function PostPollCard({ postId, poll }: { postId: string; poll: PostPoll }) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
@@ -19,10 +21,25 @@ export function PostPollCard({ postId, poll }: { postId: string; poll: PostPoll 
   const { toast } = useToast();
   const [results, setResults] = useState(poll);
   const [submitting, setSubmitting] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const expiresAt = Date.parse(poll.createdAt) + POLL_LIFETIME_MS;
+  const remainingMs = Math.max(0, expiresAt - now);
+  const remainingMinutes = Math.ceil(remainingMs / 60_000);
+  const countdown = remainingMinutes >= 60
+    ? `Disappears in ${Math.floor(remainingMinutes / 60)}h ${remainingMinutes % 60}m`
+    : remainingMinutes > 0
+      ? `Disappears in ${remainingMinutes}m`
+      : "Poll expired";
 
   useEffect(() => {
     setResults(poll);
   }, [poll]);
+
+  useEffect(() => {
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, [poll.createdAt]);
 
   useEffect(() => {
     const channel = supabase
@@ -123,9 +140,21 @@ export function PostPollCard({ postId, poll }: { postId: string; poll: PostPoll 
 
   const showResults = Boolean(results.votedOptionId);
 
+  if (!Number.isFinite(expiresAt) || remainingMs === 0) return null;
+
   return (
     <section className="mt-3 rounded-2xl border border-line bg-card p-3" aria-label="Poll">
-      <h3 className="text-sm font-extrabold leading-snug text-ink">{results.question}</h3>
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="text-sm font-extrabold leading-snug text-ink">{results.question}</h3>
+        <span
+          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-line bg-page px-2 py-1 text-[9px] font-bold tabular-nums text-ink-muted"
+          aria-label={`Poll ${countdown.toLowerCase()}`}
+          title="Polls expire 24 hours after posting"
+        >
+          <Clock3 size={11} aria-hidden />
+          {countdown}
+        </span>
+      </div>
       <div className="mt-3 space-y-2">
         {results.options.map((option) => {
           const percentage = results.totalVotes > 0

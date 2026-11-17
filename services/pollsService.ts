@@ -5,6 +5,7 @@ interface PollRow {
   id: string;
   post_id: string;
   question: string;
+  created_at: string;
 }
 
 interface PollOptionRow {
@@ -29,10 +30,12 @@ export async function fetchPollsForPosts(
   const result = new Map<string, PostPoll>();
   if (postIds.length === 0) return result;
 
+  const activeSince = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: polls, error: pollError } = await supabase
     .from("polls")
-    .select("id, post_id, question")
+    .select("id, post_id, question, created_at")
     .in("post_id", postIds)
+    .gt("created_at", activeSince)
     .returns<PollRow[]>();
   if (pollError) {
     if (MISSING_TABLE_CODES.has(pollError.code)) return result;
@@ -77,6 +80,7 @@ export async function fetchPollsForPosts(
     result.set(poll.post_id, {
       id: poll.id,
       question: poll.question,
+      createdAt: poll.created_at,
       options,
       totalVotes: options.reduce((total, option) => total + option.voteCount, 0),
       votedOptionId: votesByPoll.get(poll.id) ?? null,

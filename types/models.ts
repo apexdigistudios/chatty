@@ -123,6 +123,7 @@ export interface PollOption {
 export interface PostPoll {
   id: string;
   question: string;
+  createdAt: string;
   options: PollOption[];
   totalVotes: number;
   votedOptionId: string | null;

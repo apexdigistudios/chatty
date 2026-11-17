@@ -76,7 +76,7 @@ export function Avatar({
 
   return (
     <span className="relative inline-flex aspect-square shrink-0">
-      <span
+      <motion.span
         role={viewable ? "button" : undefined}
         tabIndex={viewable ? 0 : undefined}
         aria-label={viewable ? `View ${name}'s profile photo` : undefined}
@@ -93,6 +93,9 @@ export function Avatar({
           ring && "ring-2 ring-brand",
           viewable && "cursor-zoom-in focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
         )}
+        whileHover={viewable ? { scale: 1.04 } : undefined}
+        whileTap={viewable ? { scale: 0.96 } : undefined}
+        transition={{ type: "spring", stiffness: 500, damping: 28 }}
       >
         <SafeImage
           src={primary}
@@ -102,7 +105,7 @@ export function Avatar({
           referrerPolicy="no-referrer"
           className="relative aspect-square h-full w-full shrink-0 rounded-full object-cover"
         />
-      </span>
+      </motion.span>
 
       {online && (
         <span
@@ -143,16 +146,22 @@ export function Avatar({
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: 0.18 }}
-                className="flex max-h-[88dvh] max-w-[94vw] items-center justify-center"
+                className="size-[min(80vw,24rem)] overflow-hidden rounded-full border-4 border-white/15 bg-white/10 shadow-2xl sm:size-96"
                 onClick={(event) => event.stopPropagation()}
               >
-                <SafeImage
-                  src={primary}
-                  alt={name}
-                  decoding="async"
-                  className="max-h-[88dvh] max-w-[94vw] rounded-lg object-contain"
-                  style={{ visibility: "visible" }}
-                />
+                {src ? (
+                  <SafeImage
+                    src={primary}
+                    alt={name}
+                    decoding="async"
+                    className="size-full rounded-full object-cover"
+                    style={{ visibility: "visible" }}
+                  />
+                ) : (
+                  <span className="flex size-full items-center justify-center rounded-full bg-brand-deep text-6xl font-black tracking-wide text-brand-contrast sm:text-7xl" aria-label={`${name}'s initials`}>
+                    {name.trim().replace(/^@/, "").slice(0, 2).toUpperCase() || "?"}
+                  </span>
+                )}
               </motion.div>
             </motion.div>
           )}

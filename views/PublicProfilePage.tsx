@@ -191,7 +191,7 @@ export function PublicProfilePage({
             transition={springs.bouncy}
             className="shrink-0"
           >
-            <Avatar name={profile.username} src={profile.avatarUrl} size="3xl" className="size-20 sm:size-28" />
+            <Avatar name={profile.username} src={profile.avatarUrl} size="3xl" className="size-20 sm:size-28" viewable />
           </motion.div>
 
           <div className="w-full min-w-0 flex-1 sm:w-auto">

@@ -109,6 +109,7 @@ begin
     where poll.id = p_poll_id
       and post.post_type = 'public'
       and post.status = 'active'
+      and poll.created_at > now() - interval '24 hours'
   ) then
     raise exception 'This poll is not available.';
   end if;
@@ -137,6 +138,7 @@ create policy "polls: read visible public posts" on public.polls
       select 1 from public.posts post
       where post.id = polls.post_id
         and post.post_type = 'public'
+        and polls.created_at > now() - interval '24 hours'
         and (
           post.status = 'active'
           or post.user_id = (select auth.uid())
@@ -155,6 +157,7 @@ create policy "poll options: read visible public posts" on public.poll_options
       join public.posts post on post.id = poll.post_id
       where poll.id = poll_options.poll_id
         and post.post_type = 'public'
+        and poll.created_at > now() - interval '24 hours'
         and (
           post.status = 'active'
           or post.user_id = (select auth.uid())
