@@ -210,7 +210,7 @@ async function main() {
     const response = await axios.get(SOURCE_URL, {
       timeout: 45_000,
       headers: {
-        "User-Agent": "GistMeSchoolDirectoryImporter/1.0 (school data import; contact: support@gistme.online)",
+        "User-Agent": "GistMeSchoolDirectoryImporter/1.0 (school data import; contact: hello.gistme.online)",
       },
       maxContentLength: 20 * 1024 * 1024,
     });
