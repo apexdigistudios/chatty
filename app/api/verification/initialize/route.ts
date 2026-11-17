@@ -23,12 +23,13 @@ export async function POST(request: Request) {
     const service = createVerificationServiceClient();
     const { data: profile, error: profileError } = await service
       .from("profiles")
-      .select("is_admin, role, is_verified, verified_expires_at")
+      .select("is_admin, role, is_verified, is_ambassador, verified_expires_at")
       .eq("id", user.id)
       .maybeSingle<{
         is_admin: boolean | null;
         role: string | null;
         is_verified: boolean | null;
+        is_ambassador: boolean;
         verified_expires_at: string | null;
       }>();
     if (profileError) throw new Error("Could not check the account verification status.");
@@ -45,12 +46,30 @@ export async function POST(request: Request) {
     ) {
       return NextResponse.json({ error: "Global admin accounts are verified automatically." }, { status: 409 });
     }
+    if (profile.is_ambassador) {
+      return NextResponse.json({ error: "Campus ambassadors receive verification automatically." }, { status: 409 });
+    }
     if (
       profile.is_verified &&
       profile.verified_expires_at &&
       Date.parse(profile.verified_expires_at) > Date.now()
     ) {
       return NextResponse.json({ error: "Your verification is already active." }, { status: 409 });
+    }
+
+    const { data: followerRecord, error: followerError } = await service
+      .from("profile_follow_counts")
+      .select("followers_count")
+      .eq("profile_id", user.id)
+      .maybeSingle<{ followers_count: number }>();
+    if (followerError) throw new Error("Could not check your follower eligibility.");
+    const followerCount = followerRecord?.followers_count ?? 0;
+    if (followerCount < 5000) {
+      return NextResponse.json({
+        error: "Verification requires at least 5,000 followers or campus ambassador status.",
+        followerCount,
+        requiredFollowers: 5000,
+      }, { status: 403 });
     }
 
     const reference = `VER-${crypto.randomUUID().replace(/-/g, "")}`;

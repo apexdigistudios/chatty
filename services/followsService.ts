@@ -39,6 +39,36 @@ export interface FollowSummary {
   isFollowing: boolean;
 }
 
+export interface VerificationEligibility {
+  followerCount: number;
+  isAmbassador: boolean;
+  isVerified: boolean;
+}
+
+export async function fetchVerificationEligibility(profileId: string): Promise<VerificationEligibility> {
+  const [followers, profile] = await Promise.all([
+    supabase
+      .from("profile_follow_counts")
+      .select("followers_count")
+      .eq("profile_id", profileId)
+      .maybeSingle<{ followers_count: number }>(),
+    supabase
+      .from("profiles")
+      .select("is_ambassador, is_verified")
+      .eq("id", profileId)
+      .maybeSingle<{ is_ambassador: boolean; is_verified: boolean }>(),
+  ]);
+  if (followers.error) throw new Error(followers.error.message);
+  if (profile.error) throw new Error(profile.error.message);
+  if (!profile.data) throw new Error("Your profile could not be found.");
+
+  return {
+    followerCount: followers.data?.followers_count ?? 0,
+    isAmbassador: profile.data.is_ambassador,
+    isVerified: profile.data.is_verified,
+  };
+}
+
 export async function fetchFollowProfiles(
   profileId: string,
   relation: "followers" | "following"

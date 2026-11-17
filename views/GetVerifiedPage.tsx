@@ -7,9 +7,11 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { hasActiveVerification, isGlobalAdminProfile } from "@/lib/verification";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
+import { VerificationEligibilityModal } from "@/components/profile/VerificationEligibilityModal";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
+import { fetchVerificationEligibility } from "@/services/followsService";
 
 interface CheckoutResponse {
   access_code: string;
@@ -41,6 +43,7 @@ export function GetVerifiedPage() {
   const [checkout, setCheckout] = useState<CheckoutResponse | null>(null);
   const [verificationRetry, setVerificationRetry] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [verificationModalCount, setVerificationModalCount] = useState<number | null>(null);
 
   const verified = hasActiveVerification({
     isVerified: profile?.isVerified,
@@ -99,6 +102,18 @@ export function GetVerifiedPage() {
     setCheckoutState("initializing");
     setErrorMessage(null);
     try {
+      const eligibility = await fetchVerificationEligibility(user.id);
+      if (
+        eligibility.followerCount < 5000 &&
+        !eligibility.isAmbassador &&
+        !eligibility.isVerified &&
+        !isGlobalAdmin
+      ) {
+        setVerificationModalCount(eligibility.followerCount);
+        setCheckoutState("idle");
+        return;
+      }
+
       const token = await accessToken();
       const response = await fetch("/api/verification/initialize", {
         method: "POST",
@@ -243,6 +258,12 @@ export function GetVerifiedPage() {
           )}
         </CardBody>
       </Card>
+          {verificationModalCount !== null && (
+            <VerificationEligibilityModal
+              followerCount={verificationModalCount}
+              onClose={() => setVerificationModalCount(null)}
+            />
+          )}
     </div>
   );
 }

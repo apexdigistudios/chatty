@@ -26,7 +26,8 @@ import { PageSpinner } from "@/components/ui/PageSpinner";
 import { SafeImage } from "@/components/common/SafeImage";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { FollowListModal } from "@/components/profile/FollowListModal";
-import { fetchFollowSummary, type FollowSummary } from "@/services/followsService";
+import { VerificationEligibilityModal } from "@/components/profile/VerificationEligibilityModal";
+import { fetchFollowSummary, fetchVerificationEligibility, type FollowSummary } from "@/services/followsService";
 import { fetchPostsByIds } from "@/services/postsService";
 import { readSavedPostIds, subscribeToSavedPosts } from "@/lib/savedPosts";
 import { hasActiveVerification, isGlobalAdminProfile } from "@/lib/verification";
@@ -66,6 +67,8 @@ export function ProfilePage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [openGuideline, setOpenGuideline] = useState<string | null>(null);
+  const [verificationModalCount, setVerificationModalCount] = useState<number | null>(null);
+  const [checkingVerificationEligibility, setCheckingVerificationEligibility] = useState(false);
 
   const mySchool = useMemo(() => schools.find((school) => school.id === profile?.schoolId) ?? null, [schools, profile?.schoolId]);
   const activeVerification = hasActiveVerification({
@@ -74,6 +77,32 @@ export function ProfilePage() {
     isAdmin: profile?.isAdmin || isGlobalAdmin,
     role: profile?.role,
   });
+
+  const openVerificationFlow = async () => {
+    if (!user) {
+      navigate("/login?returnTo=%2Fget-verified");
+      return;
+    }
+
+    setCheckingVerificationEligibility(true);
+    try {
+      const eligibility = await fetchVerificationEligibility(user.id);
+      if (
+        eligibility.followerCount < 5000 &&
+        !eligibility.isAmbassador &&
+        !eligibility.isVerified &&
+        !isGlobalAdmin
+      ) {
+        setVerificationModalCount(eligibility.followerCount);
+        return;
+      }
+      navigate("/get-verified");
+    } catch (error) {
+      toast(describeError(error, "Could not check verification eligibility."), "danger");
+    } finally {
+      setCheckingVerificationEligibility(false);
+    }
+  };
   const websiteHref = profile?.website ? safeExternalUrl(profile.website) : null;
   const likesReceived = myPosts.reduce((total, post) => total + post.likeCount, 0);
   const profileTabs = activeVerification ? TABS : TABS.filter(({ id }) => id !== "Brand Deals");
@@ -365,9 +394,10 @@ export function ProfilePage() {
               depthColor="var(--verification-button-edge)"
               className="[--verification-button-edge:#0284c7] dark:[--verification-button-edge:#0369a1] rounded-xl bg-sky-400 px-4 py-2 font-medium text-sky-950 transition-colors hover:bg-sky-500 dark:bg-sky-500 dark:text-neutral-950 dark:hover:bg-sky-400"
               leftIcon={<ShieldCheck size={14} strokeWidth={2.6} aria-hidden />}
-              onClick={() => navigate("/get-verified")}
+              disabled={checkingVerificationEligibility}
+              onClick={() => void openVerificationFlow()}
             >
-              Get Verified
+              {checkingVerificationEligibility ? "Checking…" : "Get Verified"}
             </Button>
           )}
         </div>
@@ -643,6 +673,12 @@ export function ProfilePage() {
         )}
       </div>
       {followList && <FollowListModal profileId={profile.id} relation={followList} onClose={() => setFollowList(null)} />}
+      {verificationModalCount !== null && (
+        <VerificationEligibilityModal
+          followerCount={verificationModalCount}
+          onClose={() => setVerificationModalCount(null)}
+        />
+      )}
     </div>
   );
 }
