@@ -217,7 +217,14 @@ export async function submitConfession(input: SubmitConfessionInput): Promise<Co
       schoolId,
     }),
   });
-  const result = await response.json() as { confession?: RawPublicConfession; error?: string };
+  const result = await response.json() as {
+    confession?: RawPublicConfession;
+    message?: string;
+    error?: string;
+  };
+  if (result.confession?.moderation_status === "REJECTED") {
+    throw new Error(result.message ?? "This confession could not be published under our community guidelines.");
+  }
   if (!response.ok || !result.confession) {
     throw new Error(result.error ?? "Could not submit your confession.");
   }

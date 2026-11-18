@@ -168,7 +168,10 @@ export function ConfessionCard({ confession: initialConfession, pending = false 
           {!pending && (
             <button
               type="button"
-              onClick={() => setMenuOpen((open) => !open)}
+              onClick={() => {
+                if (!requireAuth()) return;
+                setMenuOpen((open) => !open);
+              }}
               aria-label="More confession actions"
               aria-expanded={menuOpen}
               className="-mr-1 -mt-1 flex size-11 shrink-0 items-center justify-center rounded-xl text-ink-muted transition-colors hover:bg-page hover:text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"

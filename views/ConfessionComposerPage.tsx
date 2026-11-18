@@ -52,7 +52,7 @@ export function ConfessionComposerPage() {
 
     setSubmitting(true);
     try {
-      await submitConfession({
+      const confession = await submitConfession({
         content: text.slice(0, MAX_POST_LENGTH),
         category,
         schoolId: schoolId || null,
@@ -60,8 +60,15 @@ export function ConfessionComposerPage() {
       posthog.capture("confession_submitted", {
         category,
         submission_scope: schoolId ? "school" : "global",
+        moderation_status: confession.moderationStatus,
       });
-      toast("Confession submitted for moderator review.", "brand");
+      if (confession.moderationStatus === "APPROVED") {
+        toast("Your confession passed review and is now published.", "success");
+      } else if (confession.moderationStatus === "REJECTED") {
+        toast("This confession could expose someone to harm or private information. Please revise it to follow our community guidelines.", "danger");
+      } else {
+        toast("Your confession was received and is with a moderator for review.", "brand");
+      }
       navigate("/confessions", { replace: true });
     } catch (error) {
       toast(describeError(error, "Could not submit your confession."), "danger");

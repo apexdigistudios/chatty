@@ -1,6 +1,7 @@
--- Preserve each existing moderation decision while moving to the expanded
--- moderation state vocabulary. Existing approved confessions remain public.
+-- Existing confession rows are retained and initialized as approved; future
+-- submissions use PENDING_REVIEW through the server-side RPC.
 alter table public.confessions
+  add column if not exists moderation_status text,
   add column if not exists ai_categories jsonb,
   add column if not exists ai_scores jsonb,
   add column if not exists ai_flags text[] not null default '{}',
@@ -10,17 +11,12 @@ alter table public.confessions
 alter table public.confessions
   drop constraint if exists confessions_moderation_status_check;
 
-update public.confessions
-set moderation_status = case lower(moderation_status)
-  when 'approved' then 'APPROVED'
-  when 'rejected' then 'REJECTED'
-  when 'escalated' then 'ESCALATED'
-  when 'hidden_under_review' then 'HIDDEN_UNDER_REVIEW'
-  else 'PENDING_REVIEW'
-end;
+update public.confessions set moderation_status = 'APPROVED';
 
 alter table public.confessions
   alter column moderation_status set default 'PENDING_REVIEW',
+  alter column moderation_status set not null,
+  drop constraint if exists confessions_report_count_check,
   add constraint confessions_moderation_status_check
     check (moderation_status in (
       'APPROVED',
@@ -31,10 +27,10 @@ alter table public.confessions
     )),
   add constraint confessions_report_count_check check (report_count >= 0);
 
-drop index if exists public.confessions_published_idx;
+drop index if exists public.confessions_moderation_queue_idx;
 create index confessions_moderation_queue_idx
   on public.confessions (moderation_status, created_at);
-create index confessions_published_idx
+create index if not exists confessions_published_idx
   on public.confessions (published_at desc)
   where moderation_status = 'APPROVED';
 create index if not exists confessions_author_created_idx
@@ -172,6 +168,8 @@ drop policy if exists "confessions: author insert" on public.confessions;
 drop policy if exists "confessions: global admin update" on public.confessions;
 drop policy if exists "confessions: author or admin delete" on public.confessions;
 drop policy if exists "confessions: author pending delete" on public.confessions;
+drop policy if exists "confessions: administrators read" on public.confessions;
+drop policy if exists "confessions: administrators delete" on public.confessions;
 create policy "confessions: administrators read"
   on public.confessions for select to authenticated
   using (public.is_confession_admin(auth.uid()));
@@ -472,7 +470,12 @@ begin
     confession_id, moderator_id, action, decision_notes, previous_status, new_status
   ) values (
     p_confession_id, auth.uid(),
-    case v_new_status when 'APPROVED' then 'APPROVED' when 'REJECTED' then 'REJECTED' else 'ESCALATED' end,
+    case
+      when upper(p_status) = 'RESTORED' then 'RESTORED'
+      when v_new_status = 'APPROVED' then 'APPROVED'
+      when v_new_status = 'REJECTED' then 'REJECTED'
+      else 'ESCALATED'
+    end,
     nullif(btrim(p_decision_notes), ''),
     v_previous_status,
     v_new_status

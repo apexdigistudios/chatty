@@ -262,3 +262,150 @@ export async function moderateUploadedMedia(
     throw new CommunitySafetyViolationError(isVideo ? SAFE_VIDEO_MESSAGE : SAFE_UPLOAD_MESSAGE);
   }
 }
+
+export type ConfessionModerationStatus = "APPROVED" | "PENDING_REVIEW" | "REJECTED";
+
+export interface ConfessionModerationDecision {
+  status: ConfessionModerationStatus;
+  categories: Record<string, unknown>;
+  scores: Record<string, unknown>;
+  flags: string[];
+  isUrgentSafeguarding: boolean;
+  rejectionMessage?: string;
+}
+
+function inspectConfessionRules(text: string, schoolName?: string | null) {
+  const normalized = text.normalize("NFKC");
+  const hasTarget = /(?:@[a-z0-9_]{2,}|(?:you|your|that|this)\s+(?:girl|boy|student|person|prefect|teacher)|(?:he|she)\s+(?:is|was|looks))/i.test(normalized);
+  const bullyingLanguage = /\b(?:kwasia|kwashey|mumu|gyimie|borla|fool|idiot|stupid|useless|ugly|worthless|dirty)\b/i.test(normalized);
+  const hasSchoolContext = /\b(?:school|shs|senior high|class|form|dorm|hostel|housemaster|housemistress|prefect|campus)\b/i.test(normalized) ||
+    Boolean(schoolName && normalized.toLowerCase().includes(schoolName.toLowerCase()));
+  const targetedBullying = hasTarget && bullyingLanguage;
+  const targetedShaming = hasTarget && /\b(?:expose|embarrass|shame|humiliate|laugh at|make fun of|share .*photo|post .*picture)\b/i.test(normalized);
+  const ghanaPhone = /\b(?:\+?233|0)[\s-]?(?:20|23|24|25|26|27|28|50|54|55|59)[\s-]?\d{3}[\s-]?\d{4}\b/.test(normalized);
+  const privateLocation = /\b(?:home address|phone number|personal number|dorm(?:itory)? room|hostel room|exact location|live(?:s)? at)\s*(?:is|:)?\s*[a-z0-9]/i.test(normalized);
+  const personalInformationExposure = ghanaPhone || privateLocation;
+  const schoolSpecificPrivacy = hasSchoolContext && /\b(?:exam leak|leaked exam|exam answers|class list|student list|dorm(?:itory)? room|hostel room|private timetable)\b/i.test(normalized);
+  const minorMentioned = /\b(?:underage|minor|(?:i(?:'m| am)|aged?)\s*1[0-7]\b|(?:age|aged)\s*1[0-7]\b)\b/i.test(normalized);
+  const minorSafetyContext = minorMentioned &&
+    (/\b(?:sexual|nudes?|explicit|groom(?:ing)?|meet me alone|private photos?)\b/i.test(normalized) ||
+      personalInformationExposure || targetedShaming);
+  const credibleThreat = /\b(?:i(?:'m| am) going to|i will|we will)\s+(?:beat|stab|shoot|kill|hurt|attack|find)\s+(?:you|him|her|them|that student)\b|\b(?:i know where you live|we are coming for you)\b/i.test(normalized);
+
+  return {
+    targeted_bullying: targetedBullying,
+    targeted_shaming: targetedShaming,
+    personal_information_exposure: personalInformationExposure,
+    school_specific_privacy: schoolSpecificPrivacy,
+    minor_safety_context: minorSafetyContext,
+    credible_threat: credibleThreat,
+  };
+}
+
+function readModerationScores(value: unknown): Record<string, number> {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, number] =>
+      typeof entry[1] === "number" && Number.isFinite(entry[1])
+    )
+  );
+}
+
+function pendingConfessionDecision(
+  rules: ReturnType<typeof inspectConfessionRules>,
+  scores: Record<string, number> = {},
+  openAICategories: Record<string, boolean> = {},
+  urgent = false
+): ConfessionModerationDecision {
+  const flags = Object.entries(rules).filter(([, flagged]) => flagged).map(([name]) => name);
+  if (Object.values(openAICategories).some(Boolean)) flags.push("openai_flagged");
+  const customScores = Object.fromEntries(
+    Object.entries(rules).map(([name, flagged]) => [name, flagged ? 1 : 0])
+  );
+  return {
+    status: "PENDING_REVIEW",
+    categories: { openai: openAICategories, custom_rules: rules },
+    scores: { openai: scores, custom_rules: customScores },
+    flags: flags.length > 0 ? flags : ["moderation_unavailable"],
+    isUrgentSafeguarding: urgent || rules.credible_threat || rules.minor_safety_context,
+  };
+}
+
+function hasSevereAIFlag(categories: Record<string, boolean>, scores: Record<string, number>): boolean {
+  if ((scores["sexual/minors"] ?? 0) >= 0.01) return true;
+  if ((categories["harassment/threatening"] ?? false) && (scores["harassment/threatening"] ?? 0) >= 0.8) return true;
+  return Object.entries(scores).some(([category, score]) =>
+    score >= 0.9 &&
+    (category.includes("threatening") || category.startsWith("self-harm/") || category === "violence")
+  );
+}
+
+/**
+ * Confession checks fail closed to private review if OpenAI is unavailable.
+ * The confession text is not logged or sent to analytics.
+ */
+export async function moderateConfessionText(
+  text: string,
+  schoolName?: string | null
+): Promise<ConfessionModerationDecision> {
+  const rules = inspectConfessionRules(text, schoolName);
+  const ruleFlagged = Object.values(rules).some(Boolean);
+  const apiKey = process.env.OPENAI_API_KEY?.trim().split(/\s+/)[0];
+  if (!apiKey) {
+    console.warn("OpenAI moderation is unavailable; confession will remain private for review.");
+    return pendingConfessionDecision(rules);
+  }
+
+  try {
+    const client = new OpenAI({ apiKey, timeout: 5_000, maxRetries: 0 });
+    const response = await client.moderations.create({ model: MODERATION_MODEL, input: text });
+    const result = response.results[0];
+    if (!result) {
+      console.error("OpenAI moderation returned no result for confession.");
+      return pendingConfessionDecision(rules);
+    }
+
+    const categories = result.categories as unknown as Record<string, boolean>;
+    const scores = readModerationScores(result.category_scores);
+    const aiFlagged = result.flagged || Object.values(categories).some(Boolean);
+    const hardCustomRisk = rules.credible_threat || rules.personal_information_exposure;
+    const urgentRisk = rules.credible_threat ||
+      rules.minor_safety_context ||
+      categories["self-harm/intent"] === true ||
+      ((scores["harassment/threatening"] ?? 0) >= 0.8);
+    if (hardCustomRisk || hasSevereAIFlag(categories, scores)) {
+      return {
+        status: "REJECTED",
+        categories: { openai: categories, custom_rules: rules },
+        scores: {
+          openai: scores,
+          custom_rules: Object.fromEntries(Object.entries(rules).map(([name, flagged]) => [name, flagged ? 1 : 0])),
+        },
+        flags: [
+          ...Object.entries(rules).filter(([, flagged]) => flagged).map(([name]) => name),
+          ...(aiFlagged ? ["openai_flagged"] : []),
+        ],
+        isUrgentSafeguarding: urgentRisk,
+        rejectionMessage: "This confession could expose someone to harm or private information. Please revise it to follow our community guidelines.",
+      };
+    }
+
+    if (aiFlagged || ruleFlagged || Object.values(scores).some((score) => score >= 0.25)) {
+      return pendingConfessionDecision(rules, scores, categories, urgentRisk);
+    }
+
+    return {
+      status: "APPROVED",
+      categories: { openai: categories, custom_rules: rules },
+      scores: {
+        openai: scores,
+        custom_rules: Object.fromEntries(Object.entries(rules).map(([name, flagged]) => [name, flagged ? 1 : 0])),
+      },
+      flags: [],
+      isUrgentSafeguarding: false,
+    };
+  } catch {
+    console.error("OpenAI confession moderation failed; confession will remain private for review.");
+    return pendingConfessionDecision(rules);
+  }
+}

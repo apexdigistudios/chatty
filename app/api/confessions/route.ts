@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { moderateConfessionText, type ConfessionModerationStatus } from "@/lib/moderation";
 
 export const runtime = "nodejs";
 
@@ -8,6 +9,16 @@ const CONFESSION_CATEGORIES = [
   "Relationship Gist",
   "Friendship Gist",
 ] as const;
+
+interface ConfessionSubmissionRow {
+  id: string;
+  school_id: string | null;
+  category: string;
+  content: string;
+  created_at: string;
+  published_at: string | null;
+  moderation_status: ConfessionModerationStatus;
+}
 
 function errorResponse(message: string, status: number): Response {
   return Response.json({ error: message }, { status });
@@ -78,28 +89,68 @@ export async function POST(request: Request): Promise<Response> {
       return errorResponse("Confessions can only be submitted to your own school community.", 403);
     }
 
-    const { data, error } = await serviceClient
+    const { data: school, error: schoolError } = await serviceClient
+      .from("schools")
+      .select("name")
+      .eq("id", body.schoolId)
+      .maybeSingle<{ name: string }>();
+    if (schoolError) throw new Error("Could not verify the selected school.");
+    if (!school) return errorResponse("The selected school could not be found.", 400);
+
+    // Reserve the submission while private first. This applies the atomic
+    // database rate limit before spending an OpenAI moderation request.
+    const { data: reservedConfession, error: submitError } = await serviceClient
       .rpc("submit_confession_for_review", {
         p_author_id: authData.user.id,
         p_school_id: body.schoolId,
         p_category: body.category,
         p_content: body.content.trim(),
       })
-      .single();
+      .single<ConfessionSubmissionRow>();
 
-    if (error) {
-      if (error.message.includes("rate limit")) {
-        return errorResponse(error.message, 429);
+    if (submitError) {
+      if (submitError.message.includes("rate limit")) {
+        return errorResponse(submitError.message, 429);
       }
-      if (error.message.includes("restricted")) {
-        return errorResponse(error.message, 403);
+      if (submitError.message.includes("restricted")) {
+        return errorResponse(submitError.message, 403);
       }
-      if (error.code === "42501") return errorResponse("Confession publishing is not authorized.", 403);
-      if (error.code === "22023") return errorResponse(error.message, 400);
+      if (submitError.code === "42501") return errorResponse("Confession publishing is not authorized.", 403);
+      if (submitError.code === "22023") return errorResponse(submitError.message, 400);
       throw new Error("Could not submit your confession for review.");
     }
 
-    return Response.json({ confession: data }, { status: 201 });
+    const decision = await moderateConfessionText(body.content.trim(), school.name);
+    const { error: finalizeError } = await serviceClient.rpc("finalize_confession_moderation", {
+      p_confession_id: reservedConfession.id,
+      p_moderation_status: decision.status,
+      p_ai_categories: decision.categories,
+      p_ai_scores: decision.scores,
+      p_ai_flags: decision.flags,
+      p_is_urgent_safeguarding: decision.isUrgentSafeguarding,
+    });
+    if (finalizeError) {
+      console.error("Could not finalize confession moderation; submission remains private.", finalizeError.message);
+      return errorResponse(
+        "Your confession was saved privately for moderator review. Automated checks could not be finalized.",
+        503
+      );
+    }
+
+    const { data: confession, error: resultError } = await serviceClient
+      .from("confessions")
+      .select("id, school_id, category, content, created_at, published_at, moderation_status")
+      .eq("id", reservedConfession.id)
+      .single<ConfessionSubmissionRow>();
+    if (resultError) {
+      console.error("Could not read the finalized confession result.", resultError.message);
+      return errorResponse("Your confession was processed but its status could not be loaded. Please check your submissions.", 503);
+    }
+
+    return Response.json({
+      confession,
+      message: decision.status === "REJECTED" ? decision.rejectionMessage : undefined,
+    }, { status: decision.status === "REJECTED" ? 422 : 201 });
   } catch (error) {
     console.error("Could not submit confession.", error);
     return errorResponse(error instanceof Error ? error.message : "Could not submit your confession.", 500);

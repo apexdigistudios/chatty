@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Flag, Loader2, ShieldCheck, Trash2, X } from "lucide-react";
 import { describeError } from "@/lib/supabase";
 import { submitReport } from "@/services/moderationService";
+import { ConfessionReportModal } from "@/components/feed/ConfessionReportModal";
 import { springs } from "@/theme/tokens";
 import type { ReportTargetType } from "@/types/models";
 import { useToast } from "@/components/ui/Toast";
@@ -28,13 +29,23 @@ export function ReportMenu({ open, onClose, targetType, targetId, schoolId, mode
   const { toast } = useToast();
   const [busy, setBusy] = useState<string | null>(null);
 
+  if (targetType === "confession") {
+    return (
+      <ConfessionReportModal
+        open={open}
+        confessionId={targetId}
+        onClose={onClose}
+      />
+    );
+  }
+
   const report = async (reason: string) => {
     if (!requireAuth()) return;
     setBusy(reason);
     try {
       await submitReport({ targetType, targetId, schoolId, reason });
       toast(
-        schoolId && targetType !== "confession"
+        schoolId
           ? "Reported to the school moderators."
           : "Reported to the Gist me safety team.",
         "danger"
