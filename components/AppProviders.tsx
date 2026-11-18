@@ -5,6 +5,7 @@ import { AnimatePresence, MotionConfig } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { StandaloneAdminLayout } from "@/components/layout/StandaloneAdminLayout";
 import { NavigationFeedback } from "@/components/layout/NavigationFeedback";
 import { AuthGateModal } from "@/components/auth/AuthGateModal";
 import { OfflineSyncListener } from "@/components/common/OfflineSyncListener";
@@ -37,7 +38,7 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { loading, user, profile, isGlobalAdmin } = useAuth();
   const isLegalPage = pathname === "/privacy" || pathname === "/terms";
-  const isStandaloneAdminPage = pathname === "/admin/confessions";
+  const isStandalonePanelRoute = pathname.startsWith("/admin") || pathname.startsWith("/vvip");
   const navigationHidden = useScrollDirection(pathname);
   const [spotlightNavigationHidden, setSpotlightNavigationHidden] = useState(false);
   const loadFeed = useGistStore((state) => state.loadFeed);
@@ -45,16 +46,16 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
   const feedHasLoaded = useGistStore((state) => state.feedHasLoaded);
   const schoolsHasLoaded = useGistStore((state) => state.schoolsHasLoaded);
   useEffect(() => {
-    if (isLegalPage || isStandaloneAdminPage || !isSupabaseConfigured || schoolsHasLoaded) return;
+    if (isLegalPage || isStandalonePanelRoute || !isSupabaseConfigured || schoolsHasLoaded) return;
     if (pathname === "/schools") return;
     void loadSchools();
-  }, [isLegalPage, isStandaloneAdminPage, loadSchools, pathname, schoolsHasLoaded]);
+  }, [isLegalPage, isStandalonePanelRoute, loadSchools, pathname, schoolsHasLoaded]);
 
   useEffect(() => {
-    if (isLegalPage || isStandaloneAdminPage || !isSupabaseConfigured || loading || feedHasLoaded) return;
+    if (isLegalPage || isStandalonePanelRoute || !isSupabaseConfigured || loading || feedHasLoaded) return;
     if (pathname === "/" || pathname === "/trending" || pathname === "/spotlight") return;
     void loadFeed();
-  }, [feedHasLoaded, isLegalPage, isStandaloneAdminPage, loading, loadFeed, pathname]);
+  }, [feedHasLoaded, isLegalPage, isStandalonePanelRoute, loading, loadFeed, pathname]);
 
   useEffect(() => {
     if (loading) return;
@@ -89,10 +90,10 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
 
   return (
     <MotionConfig reducedMotion="user">
-      {!isLegalPage && !isStandaloneAdminPage && <NavigationFeedback />}
-      {!isLegalPage && !isStandaloneAdminPage && <PWAInstallPrompt />}
-      {!isLegalPage && !isStandaloneAdminPage && <SEOHead />}
-      {!isLegalPage && !isStandaloneAdminPage && !loading && (
+      {!isLegalPage && !isStandalonePanelRoute && <NavigationFeedback />}
+      {!isLegalPage && !isStandalonePanelRoute && <PWAInstallPrompt />}
+      {!isLegalPage && !isStandalonePanelRoute && <SEOHead />}
+      {!isLegalPage && !isStandalonePanelRoute && !loading && (
         <>
           <NotificationListener />
           <OfflineSyncListener />
@@ -102,11 +103,11 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
           <ToastViewport />
         </>
       )}
-      {isStandaloneAdminPage && <ToastViewport />}
+      {isStandalonePanelRoute && <ToastViewport />}
       {isLegalPage ? (
         children
-      ) : isStandaloneAdminPage ? (
-        children
+      ) : isStandalonePanelRoute ? (
+        <StandaloneAdminLayout pathname={pathname}>{children}</StandaloneAdminLayout>
       ) : standaloneAuth || standaloneOnboarding ? (
         children
       ) : (
@@ -119,7 +120,7 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
         </AppLayout>
       )}
       <AnimatePresence>
-        {loading && !isLegalPage && !isStandaloneAdminPage && <SplashScreen key="startup-splash" />}
+        {loading && !isLegalPage && !isStandalonePanelRoute && <SplashScreen key="startup-splash" />}
       </AnimatePresence>
     </MotionConfig>
   );

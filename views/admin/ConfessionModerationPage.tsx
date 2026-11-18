@@ -1,10 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import {
   AlertTriangle,
-  ArrowUpRight,
   BadgeCheck,
   Check,
   Clock3,
@@ -293,22 +291,7 @@ export function ConfessionModerationPage() {
   }
 
   return (
-    <main className="min-h-dvh bg-page text-ink">
-      <header className="sticky top-0 z-30 border-b-2 border-line bg-card/95 backdrop-blur">
-        <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-          <Link href="/" className="flex min-w-0 items-center gap-2.5 rounded-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft" aria-label="GistMe moderation dashboard">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-deep text-base font-black text-brand-contrast">G</span>
-            <span className="truncate text-base font-black tracking-tight text-ink">GistMe</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <Badge tone="brand"><ShieldCheck size={12} aria-hidden />Admin</Badge>
-            <Link href="/" className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-2.5 text-xs font-extrabold text-ink-soft transition-colors hover:bg-page hover:text-brand-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft sm:px-3">
-              Return to App <ArrowUpRight size={14} aria-hidden />
-            </Link>
-          </div>
-        </div>
-      </header>
-
+    <main className="text-ink">
       <div className="mx-auto w-full max-w-6xl px-4 pb-12 pt-6 sm:px-6 sm:pt-9">
         <section className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
