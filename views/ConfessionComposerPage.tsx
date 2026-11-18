@@ -63,11 +63,9 @@ export function ConfessionComposerPage() {
         moderation_status: confession.moderationStatus,
       });
       if (confession.moderationStatus === "APPROVED") {
-        toast("Your confession passed review and is now published.", "success");
-      } else if (confession.moderationStatus === "REJECTED") {
-        toast("This confession could expose someone to harm or private information. Please revise it to follow our community guidelines.", "danger");
+        toast("Your confession has been published!", "success");
       } else {
-        toast("Your confession was received and is with a moderator for review.", "brand");
+        toast("Your confession is awaiting review.", "brand");
       }
       navigate("/confessions", { replace: true });
     } catch (error) {

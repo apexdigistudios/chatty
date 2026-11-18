@@ -223,7 +223,7 @@ export async function submitConfession(input: SubmitConfessionInput): Promise<Co
     error?: string;
   };
   if (result.confession?.moderation_status === "REJECTED") {
-    throw new Error(result.message ?? "This confession could not be published under our community guidelines.");
+    throw new Error("Your confession could not be published. Please review our community guidelines.");
   }
   if (!response.ok || !result.confession) {
     throw new Error(result.error ?? "Could not submit your confession.");
