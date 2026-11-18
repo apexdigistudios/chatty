@@ -1,5 +1,4 @@
 import { currentUserId, requireUserId, supabase } from "@/lib/supabase";
-import { isUserGlobalAdmin } from "@/lib/adminAccess";
 import {
   emptyReactions,
   type Confession,
@@ -122,7 +121,7 @@ async function attachReactions(rows: RawPublicConfession[]): Promise<Confession[
     schoolId: row.school_id,
     schoolName: row.school_name ?? null,
     schoolCrestUrl: row.school_crest_url ?? null,
-    moderationStatus: row.moderation_status ?? "approved",
+    moderationStatus: row.moderation_status ?? "APPROVED",
     createdAt: row.created_at,
     publishedAt: row.published_at,
     reactions: engagement.get(row.id)?.reactions ?? emptyReactions(),
@@ -181,15 +180,11 @@ export async function fetchApprovedConfession(id: string): Promise<Confession | 
 
 /** The signed-in author's own submissions (any moderation status). */
 export async function fetchMyConfessions(): Promise<Confession[]> {
-  const userId = await requireUserId();
-  const { data, error } = await supabase
-    .from("confessions")
-    .select("id, school_id, category, content, created_at, published_at, moderation_status")
-    .eq("author_id", userId)
-    .order("created_at", { ascending: false })
-    .returns<RawPublicConfession[]>();
+  await requireUserId();
+  const { data, error } = await supabase.rpc("get_my_confessions");
   if (error) throw new Error(error.message);
-  return attachReactions(data ?? []);
+  if (!Array.isArray(data)) throw new Error("Your confession history could not be loaded.");
+  return attachReactions(data as RawPublicConfession[]);
 }
 
 export interface SubmitConfessionInput {
@@ -199,29 +194,34 @@ export interface SubmitConfessionInput {
 }
 
 export async function submitConfession(input: SubmitConfessionInput): Promise<Confession> {
-  const userId = await requireUserId();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError) throw new Error(userError.message);
+  await requireUserId();
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw new Error(sessionError.message);
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) throw new Error("Please sign in to submit a confession.");
   const schoolId = input.schoolId?.trim() || null;
-  const isGlobalAdmin = isUserGlobalAdmin(user?.email);
-  if (!schoolId && !isGlobalAdmin) {
+  if (!schoolId) {
     throw new Error("Choose your school before submitting a confession.");
   }
-  const publishedAt = isGlobalAdmin ? new Date().toISOString() : null;
-  const { data, error } = await supabase
-    .from("confessions")
-    .insert({
-      author_id: userId,
-      school_id: schoolId,
-      category: input.category,
+
+  const response = await fetch("/api/confessions", {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
       content: input.content.trim(),
-      moderation_status: isGlobalAdmin ? "approved" : "pending",
-      published_at: publishedAt,
-    })
-    .select("id, school_id, category, content, created_at, published_at, moderation_status")
-    .single<RawPublicConfession>();
-  if (error) throw new Error(error.message);
-  const [confession] = await attachReactions([data]);
+      category: input.category,
+      schoolId,
+    }),
+  });
+  const result = await response.json() as { confession?: RawPublicConfession; error?: string };
+  if (!response.ok || !result.confession) {
+    throw new Error(result.error ?? "Could not submit your confession.");
+  }
+  const [confession] = await attachReactions([result.confession]);
   return confession!;
 }
 

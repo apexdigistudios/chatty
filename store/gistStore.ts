@@ -603,7 +603,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
   },
 
   upsertPublicConfession: (confession) => {
-    if (confession.moderationStatus !== "approved") return;
+    if (confession.moderationStatus !== "APPROVED") return;
     set((state) => ({
       confessions: [confession, ...state.confessions.filter((item) => item.id !== confession.id)]
         .sort((left, right) => Date.parse(right.publishedAt ?? right.createdAt) - Date.parse(left.publishedAt ?? left.createdAt)),
@@ -613,7 +613,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
   submitConfession: async (input) => {
     const confession = await confessionsService.submitConfession(input);
     set((state) => ({
-      confessions: confession.moderationStatus === "approved"
+      confessions: confession.moderationStatus === "APPROVED"
         ? [confession, ...state.confessions.filter((item) => item.id !== confession.id)]
             .sort((left, right) => Date.parse(right.publishedAt ?? right.createdAt) - Date.parse(left.publishedAt ?? left.createdAt))
         : state.confessions,
@@ -624,7 +624,7 @@ export const useGistStore = create<GistState>()((set, get) => ({
   },
 
   publishConfessionLocally: (confession) => set((state) => {
-    const approved = { ...confession, moderationStatus: "approved" as const };
+    const approved = { ...confession, moderationStatus: "APPROVED" as const };
     return {
       confessions: [approved, ...state.confessions.filter((item) => item.id !== approved.id)]
         .sort((left, right) => Date.parse(right.publishedAt ?? right.createdAt) - Date.parse(left.publishedAt ?? left.createdAt)),

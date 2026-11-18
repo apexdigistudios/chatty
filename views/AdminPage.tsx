@@ -120,7 +120,7 @@ export function AdminPage() {
                     </div>
                     <p className="mt-3 whitespace-pre-wrap text-[15px] font-semibold leading-relaxed text-ink-soft">{confession.content}</p>
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <Button size="sm" disabled={busy !== null} leftIcon={busy === `approve-${confession.id}` ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <CheckCircle2 size={14} strokeWidth={2.6} aria-hidden />} onClick={() => run(`approve-${confession.id}`, async () => { const publishedAt = await approveConfession(confession.id); setQueue((current) => current.filter((item) => item.id !== confession.id)); publishConfessionLocally({ ...confession, moderationStatus: "approved", publishedAt }); void loadConfessions(); }, "Confession approved and published.")}>
+                      <Button size="sm" disabled={busy !== null} leftIcon={busy === `approve-${confession.id}` ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <CheckCircle2 size={14} strokeWidth={2.6} aria-hidden />} onClick={() => run(`approve-${confession.id}`, async () => { const publishedAt = await approveConfession(confession.id); setQueue((current) => current.filter((item) => item.id !== confession.id)); publishConfessionLocally({ ...confession, moderationStatus: "APPROVED", publishedAt }); void loadConfessions(); }, "Confession approved and published.")}>
                         Approve
                       </Button>
                       <Button size="sm" variant="danger" disabled={busy !== null} leftIcon={<XCircle size={14} strokeWidth={2.6} aria-hidden />} onClick={() => run(`reject-${confession.id}`, () => rejectConfession(confession.id), "Confession rejected.")}>

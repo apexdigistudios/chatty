@@ -38,6 +38,7 @@ create table if not exists public.profiles (
   avatar_url  text,
   cover_url   text,
   bio         text not null default '' check (char_length(bio) <= 160),
+  is_admin    boolean not null default false,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
@@ -106,12 +107,68 @@ create table if not exists public.confessions (
   category           text not null default 'School Secret'
                      check (category in ('Crush Confession','School Secret','Relationship Gist','Friendship Gist')),
   content            text not null check (char_length(content) between 1 and 300),
-  moderation_status  text not null default 'pending'
-                     check (moderation_status in ('pending','approved','rejected')),
+  moderation_status  text not null default 'PENDING_REVIEW'
+                     check (moderation_status in ('APPROVED','PENDING_REVIEW','REJECTED','ESCALATED','HIDDEN_UNDER_REVIEW')),
+  ai_categories      jsonb,
+  ai_scores          jsonb,
+  ai_flags           text[] not null default '{}',
+  is_urgent_safeguarding boolean not null default false,
+  report_count       integer not null default 0 check (report_count >= 0),
   reviewed_by        uuid references public.profiles (id) on delete set null,
   rejection_reason   text,
   created_at         timestamptz not null default now(),
   published_at       timestamptz
+);
+
+create table if not exists public.moderation_logs (
+  id uuid primary key default gen_random_uuid(),
+  confession_id uuid not null references public.confessions(id) on delete cascade,
+  moderator_id uuid not null references public.profiles(id) on delete restrict,
+  action text not null check (action in (
+    'APPROVED','REJECTED','ESCALATED','RESTORED','USER_WARNED','USER_RESTRICTED','USER_SUSPENDED'
+  )),
+  decision_notes text,
+  previous_status text,
+  new_status text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.confession_reports (
+  id uuid primary key default gen_random_uuid(),
+  confession_id uuid not null references public.confessions(id) on delete cascade,
+  reporter_id uuid not null references public.profiles(id) on delete cascade,
+  reason text not null check (reason in (
+    'Bullying','Sexual content','Personal information exposure','Threats',
+    'Hate speech','False accusations','Other inappropriate content'
+  )),
+  details text,
+  status text not null default 'OPEN' check (status in ('OPEN','RESOLVED')),
+  created_at timestamptz not null default now(),
+  unique (confession_id, reporter_id)
+);
+
+create or replace function public.increment_confession_report_count()
+returns trigger language plpgsql security definer set search_path = ''
+as $$
+begin
+  update public.confessions set report_count = report_count + 1 where id = new.confession_id;
+  return new;
+end;
+$$;
+revoke all on function public.increment_confession_report_count() from public, anon, authenticated;
+grant execute on function public.increment_confession_report_count() to service_role;
+drop trigger if exists confession_reports_increment_count on public.confession_reports;
+create trigger confession_reports_increment_count after insert on public.confession_reports
+for each row execute function public.increment_confession_report_count();
+
+create table if not exists public.user_moderation_records (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  warning_count integer not null default 0 check (warning_count >= 0),
+  strike_count integer not null default 0 check (strike_count >= 0),
+  restriction_level text not null default 'NONE'
+    check (restriction_level in ('NONE','WARNING','TEMP_RESTRICTED','SUSPENDED')),
+  restricted_until timestamptz,
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.confession_comments (
@@ -349,7 +406,8 @@ create index if not exists confession_comments_thread_idx on public.confession_c
 create index if not exists confession_comments_parent_idx on public.confession_comments (parent_id);
 create index if not exists likes_user_created_idx        on public.likes (user_id, created_at desc);
 create index if not exists confessions_queue_idx         on public.confessions (moderation_status, created_at desc);
-create index if not exists confessions_published_idx     on public.confessions (published_at desc) where moderation_status = 'approved';
+create index if not exists confessions_moderation_queue_idx on public.confessions (moderation_status, created_at);
+create index if not exists confessions_published_idx     on public.confessions (published_at desc) where moderation_status = 'APPROVED';
 create index if not exists confessions_author_idx        on public.confessions (author_id);
 create index if not exists reactions_confession_idx      on public.confession_reactions (confession_id);
 create index if not exists reports_school_status_idx     on public.reports (school_id, status, created_at desc);
@@ -398,6 +456,23 @@ revoke all on function public.is_global_admin(uuid) from public;
 revoke all on function public.is_school_moderator(uuid, uuid) from public;
 grant execute on function public.is_global_admin(uuid) to anon, authenticated;
 grant execute on function public.is_school_moderator(uuid, uuid) to anon, authenticated;
+
+create or replace function public.is_confession_admin(p_user_id uuid default auth.uid())
+returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select coalesce(
+    p_user_id is not null
+    and (p_user_id = auth.uid() or coalesce(auth.role(), '') = 'service_role')
+    and (
+      exists (select 1 from public.profiles p where p.id = p_user_id and p.is_admin is true)
+      or public.is_global_admin(p_user_id)
+    ),
+    false
+  );
+$$;
+revoke all on function public.is_confession_admin(uuid) from public, anon;
+grant execute on function public.is_confession_admin(uuid) to authenticated, service_role;
 
 -- ─────────────────────────── Triggers ──────────────────────────────────────
 
@@ -546,7 +621,7 @@ grant execute on function public.claim_school(uuid) to authenticated;
 create or replace view public.public_confessions as
   select c.id, c.school_id, c.category, c.content, c.created_at, c.published_at
   from public.confessions c
-  where c.moderation_status = 'approved';
+  where c.moderation_status = 'APPROVED';
 
 grant select on public.public_confessions to anon, authenticated;
 
@@ -582,6 +657,9 @@ alter table public.post_media            enable row level security;
 alter table public.polls                 enable row level security;
 alter table public.poll_options          enable row level security;
 alter table public.poll_votes            enable row level security;
+alter table public.moderation_logs     enable row level security;
+alter table public.confession_reports  enable row level security;
+alter table public.user_moderation_records enable row level security;
 
 -- schools ------------------------------------------------------------------
 drop policy if exists "schools: public read"            on public.schools;
@@ -828,22 +906,148 @@ drop policy if exists "confessions: author or admin read"  on public.confessions
 drop policy if exists "confessions: author insert"         on public.confessions;
 drop policy if exists "confessions: global admin update"   on public.confessions;
 drop policy if exists "confessions: author or admin delete" on public.confessions;
+drop policy if exists "confessions: administrators read" on public.confessions;
+drop policy if exists "confessions: administrators delete" on public.confessions;
+drop policy if exists "confessions: author pending delete" on public.confessions;
+create policy "confessions: administrators read" on public.confessions
+  for select to authenticated using (public.is_confession_admin(auth.uid()));
+create policy "confessions: administrators delete" on public.confessions
+  for delete to authenticated using (public.is_confession_admin(auth.uid()));
+create policy "confessions: author pending delete" on public.confessions
+  for delete to authenticated using (author_id = auth.uid() and moderation_status = 'PENDING_REVIEW');
+revoke all on public.confessions from public, anon, authenticated;
+grant select, delete on public.confessions to authenticated;
+grant all on public.confessions to service_role;
 
-create policy "confessions: author or admin read" on public.confessions
-  for select to authenticated using (author_id = auth.uid() or public.is_global_admin());
-create policy "confessions: author insert" on public.confessions
-  for insert to authenticated with check (
-    author_id = auth.uid()
-    and (
-      moderation_status = 'pending'
-      or (moderation_status = 'approved' and public.is_global_admin(auth.uid()))
-    )
+drop policy if exists "moderation logs: global admins only" on public.moderation_logs;
+create policy "moderation logs: global admins only" on public.moderation_logs
+  for all to authenticated
+  using (public.is_confession_admin(auth.uid()))
+  with check (public.is_confession_admin(auth.uid()));
+drop policy if exists "confession reports: global admins only" on public.confession_reports;
+create policy "confession reports: global admins only" on public.confession_reports
+  for all to authenticated
+  using (public.is_confession_admin(auth.uid()))
+  with check (public.is_confession_admin(auth.uid()));
+drop policy if exists "user moderation records: global admins only" on public.user_moderation_records;
+create policy "user moderation records: global admins only" on public.user_moderation_records
+  for all to authenticated
+  using (public.is_confession_admin(auth.uid()))
+  with check (public.is_confession_admin(auth.uid()));
+revoke all on public.moderation_logs, public.confession_reports, public.user_moderation_records
+  from public, anon, authenticated;
+grant select, insert, update on public.moderation_logs, public.confession_reports, public.user_moderation_records
+  to authenticated;
+grant all on public.moderation_logs, public.confession_reports, public.user_moderation_records
+  to service_role;
+
+create or replace function public.get_my_confessions()
+returns table (id uuid, school_id uuid, category text, content text, created_at timestamptz, published_at timestamptz, moderation_status text)
+language sql stable security definer set search_path = ''
+as $$
+  select c.id, c.school_id, c.category, c.content, c.created_at, c.published_at, c.moderation_status
+  from public.confessions c
+  where c.author_id = auth.uid()
+  order by c.created_at desc;
+$$;
+revoke all on function public.get_my_confessions() from public, anon;
+grant execute on function public.get_my_confessions() to authenticated;
+
+create or replace function public.submit_confession_for_review(
+  p_author_id uuid, p_school_id uuid, p_category text, p_content text
+)
+returns table (id uuid, school_id uuid, category text, content text, created_at timestamptz, published_at timestamptz, moderation_status text)
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_record public.user_moderation_records%rowtype;
+  v_recent_count integer;
+begin
+  if coalesce(auth.role(), '') <> 'service_role' then
+    raise exception 'Server-side confession submission required.' using errcode = '42501';
+  end if;
+  if p_author_id is null or p_school_id is null or p_content is null
+    or char_length(btrim(p_content)) not between 1 and 300
+    or p_category not in ('Crush Confession','School Secret','Relationship Gist','Friendship Gist') then
+    raise exception 'Invalid confession details.' using errcode = '22023';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended(p_author_id::text, 0));
+  insert into public.user_moderation_records (user_id) values (p_author_id)
+  on conflict (user_id) do nothing;
+  select * into v_record from public.user_moderation_records where user_id = p_author_id for update;
+  if v_record.restriction_level = 'SUSPENDED'
+    or (v_record.restriction_level = 'TEMP_RESTRICTED'
+      and (v_record.restricted_until is null or v_record.restricted_until > pg_catalog.now())) then
+    raise exception 'Your account is restricted from submitting confessions.' using errcode = 'P0001';
+  end if;
+
+  select count(*)::integer into v_recent_count from public.confessions c
+  where c.author_id = p_author_id and c.created_at >= pg_catalog.now() - interval '1 hour';
+  if v_recent_count >= 3 then
+    raise exception 'Confession rate limit reached. You can submit up to 3 confessions per hour.' using errcode = 'P0001';
+  end if;
+
+  return query insert into public.confessions as new_confession (author_id, school_id, category, content, moderation_status, published_at)
+  values (p_author_id, p_school_id, p_category, btrim(p_content), 'PENDING_REVIEW', null)
+  returning new_confession.id, new_confession.school_id, new_confession.category, new_confession.content,
+    new_confession.created_at, new_confession.published_at, new_confession.moderation_status;
+end;
+$$;
+revoke all on function public.submit_confession_for_review(uuid, uuid, text, text) from public, anon, authenticated;
+grant execute on function public.submit_confession_for_review(uuid, uuid, text, text) to service_role;
+
+create or replace function public.admin_moderate_confession(
+  p_confession_id uuid, p_status text, p_decision_notes text default null
+)
+returns timestamptz
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_published_at timestamptz;
+  v_previous_status text;
+  v_author_id uuid;
+  v_new_status text;
+begin
+  if not public.is_confession_admin(auth.uid()) then
+    raise exception 'Administrator access required.';
+  end if;
+  if upper(p_status) not in ('APPROVED','REJECTED','ESCALATED','RESTORED','HIDDEN_UNDER_REVIEW') then
+    raise exception 'Unsupported confession moderation status.';
+  end if;
+  v_new_status := case when upper(p_status) = 'RESTORED' then 'APPROVED' else upper(p_status) end;
+  select c.moderation_status, c.author_id into v_previous_status, v_author_id
+  from public.confessions c where c.id = p_confession_id for update;
+  if not found then raise exception 'Confession not found.'; end if;
+
+  update public.confessions set moderation_status = v_new_status,
+    published_at = case when v_new_status = 'APPROVED' then coalesce(published_at, pg_catalog.now()) else null end,
+    reviewed_by = auth.uid()
+  where id = p_confession_id returning published_at into v_published_at;
+
+  insert into public.moderation_logs (confession_id, moderator_id, action, decision_notes, previous_status, new_status)
+  values (
+    p_confession_id, auth.uid(),
+    case when upper(p_status) = 'RESTORED' then 'RESTORED'
+      when v_new_status = 'APPROVED' then 'APPROVED'
+      when v_new_status = 'REJECTED' then 'REJECTED'
+      else 'ESCALATED' end,
+    nullif(btrim(p_decision_notes), ''), v_previous_status, v_new_status
   );
-create policy "confessions: global admin update" on public.confessions
-  for update to authenticated using (public.is_global_admin()) with check (public.is_global_admin());
-create policy "confessions: author or admin delete" on public.confessions
-  for delete to authenticated
-  using (public.is_global_admin() or (author_id = auth.uid() and moderation_status = 'pending'));
+  if v_new_status = 'REJECTED' and v_author_id is not null then
+    insert into public.user_moderation_records (user_id, strike_count, restriction_level)
+    values (v_author_id, 1, 'WARNING')
+    on conflict (user_id) do update
+    set strike_count = public.user_moderation_records.strike_count + 1,
+        restriction_level = case when public.user_moderation_records.restriction_level = 'NONE'
+          then 'WARNING' else public.user_moderation_records.restriction_level end,
+        updated_at = pg_catalog.now();
+  end if;
+  return v_published_at;
+end;
+$$;
+revoke all on function public.admin_moderate_confession(uuid, text, text) from public, anon;
+grant execute on function public.admin_moderate_confession(uuid, text, text) to authenticated;
 
 create or replace function public.admin_update_moderation_status(
   p_item_id uuid,
@@ -863,13 +1067,17 @@ begin
   end if;
 
   if p_item_type = 'confession' then
-    if p_status is null or p_status not in ('approved', 'rejected') then
+    if p_status is null or lower(p_status) not in ('approved', 'rejected', 'escalated', 'restored', 'hidden_under_review') then
       raise exception 'Unsupported confession moderation status: %', p_status;
     end if;
 
     update public.confessions
-    set moderation_status = p_status,
-        published_at = case when p_status = 'approved' then now() else null end,
+    set moderation_status = case lower(p_status)
+          when 'restored' then 'APPROVED'
+          when 'hidden_under_review' then 'HIDDEN_UNDER_REVIEW'
+          else upper(p_status)
+        end,
+        published_at = case when lower(p_status) in ('approved', 'restored') then now() else null end,
         reviewed_by = auth.uid()
     where id = p_item_id
     returning published_at into v_published_at;

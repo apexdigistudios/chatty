@@ -113,7 +113,7 @@ export function ConfessionCard({ confession: initialConfession, pending = false 
     }
   };
 
-  const status = pending ? confession.moderationStatus : "approved";
+  const status = pending ? confession.moderationStatus : "APPROVED";
   const showSchool = Boolean(confession.seedUsername);
 
   return (
@@ -210,14 +210,14 @@ export function ConfessionCard({ confession: initialConfession, pending = false 
           <div
             className={cn(
               "mt-3 flex items-start gap-2 rounded-2xl border-2 px-3 py-2.5",
-              status === "rejected" ? "border-danger-soft bg-danger-wash" : status === "approved" ? "border-success-soft bg-success-wash" : "border-warning-soft bg-warning-wash"
+              status === "REJECTED" ? "border-danger-soft bg-danger-wash" : status === "APPROVED" ? "border-success-soft bg-success-wash" : "border-warning-soft bg-warning-wash"
             )}
           >
-            <ShieldCheck size={16} strokeWidth={2.5} className={cn("mt-0.5 shrink-0", status === "rejected" ? "text-danger-deep" : status === "approved" ? "text-success-deep" : "text-warning-deep")} aria-hidden />
-            <p className={cn("text-[11px] font-semibold leading-relaxed", status === "rejected" ? "text-danger-deep" : status === "approved" ? "text-success-deep" : "text-warning-deep")}>
-              {status === "approved"
+            <ShieldCheck size={16} strokeWidth={2.5} className={cn("mt-0.5 shrink-0", status === "REJECTED" ? "text-danger-deep" : status === "APPROVED" ? "text-success-deep" : "text-warning-deep")} aria-hidden />
+            <p className={cn("text-[11px] font-semibold leading-relaxed", status === "REJECTED" ? "text-danger-deep" : status === "APPROVED" ? "text-success-deep" : "text-warning-deep")}>
+              {status === "APPROVED"
                 ? "Approved and live on the confessions portal."
-                : status === "rejected"
+                : status === "REJECTED"
                   ? "A moderator declined this confession under the community guidelines."
                   : "Under moderator review. Only you can see it for now."}
             </p>

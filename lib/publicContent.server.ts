@@ -326,7 +326,7 @@ async function mapPublicConfessions(rows: PublicConfessionRow[]): Promise<Confes
     content: row.content,
     category: row.category,
     schoolId: row.school_id,
-    moderationStatus: "approved",
+    moderationStatus: "APPROVED",
     createdAt: row.created_at,
     publishedAt: row.published_at,
     reactions: reactionCounts.get(row.id) ?? emptyReactions(),

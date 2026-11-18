@@ -57,7 +57,7 @@ export function ConfessionsPage({
     () => (filter === "All" ? publicConfessions : publicConfessions.filter((item) => item.category === filter)),
     [publicConfessions, filter]
   );
-  const mine = useMemo(() => myConfessions.filter((item) => item.moderationStatus !== "approved"), [myConfessions]);
+  const mine = useMemo(() => myConfessions.filter((item) => item.moderationStatus !== "APPROVED"), [myConfessions]);
 
   const startConfession = () => {
     if (!user) {

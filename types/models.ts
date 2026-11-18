@@ -2,7 +2,12 @@
 
 export type PostType = "public" | "confession";
 export type PostStatus = "active" | "flagged" | "removed";
-export type ModerationStatus = "pending" | "approved" | "rejected";
+export type ModerationStatus =
+  | "APPROVED"
+  | "PENDING_REVIEW"
+  | "REJECTED"
+  | "ESCALATED"
+  | "HIDDEN_UNDER_REVIEW";
 export type ReportTargetType = "post" | "comment" | "confession";
 export type ReportStatus = "pending" | "resolved";
 export type AdminRoleKind = "global_admin" | "school_moderator";

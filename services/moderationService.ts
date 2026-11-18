@@ -186,7 +186,7 @@ interface RawQueuedConfession {
   content: string;
   created_at: string;
   published_at: string | null;
-  moderation_status: "pending" | "approved" | "rejected";
+  moderation_status: "PENDING_REVIEW" | "APPROVED" | "REJECTED" | "ESCALATED" | "HIDDEN_UNDER_REVIEW";
 }
 
 function mapQueued(row: RawQueuedConfession): Confession {
@@ -208,7 +208,7 @@ export async function fetchGlobalPendingConfessions(): Promise<Confession[]> {
   const { data, error } = await supabase
     .from("confessions")
     .select("id, school_id, category, content, created_at, published_at, moderation_status")
-    .eq("moderation_status", "pending")
+    .eq("moderation_status", "PENDING_REVIEW")
     .order("created_at", { ascending: true })
     .returns<RawQueuedConfession[]>();
   if (error) throw new Error(error.message);
@@ -216,10 +216,10 @@ export async function fetchGlobalPendingConfessions(): Promise<Confession[]> {
 }
 
 export async function approveConfession(confessionId: string): Promise<string> {
-  const { data, error } = await supabase.rpc("admin_update_moderation_status", {
-    p_item_id: confessionId,
-    p_item_type: "confession",
-    p_status: "approved",
+  const { data, error } = await supabase.rpc("admin_moderate_confession", {
+    p_confession_id: confessionId,
+    p_status: "APPROVED",
+    p_decision_notes: null,
   });
   if (error) throw new Error(error.message);
   if (typeof data !== "string") throw new Error("Moderation approval returned no publish timestamp.");
@@ -227,10 +227,11 @@ export async function approveConfession(confessionId: string): Promise<string> {
 }
 
 export async function rejectConfession(confessionId: string, reason = "Declined under community guidelines"): Promise<void> {
-  const { error } = await supabase
-    .from("confessions")
-    .update({ moderation_status: "rejected", published_at: null, reviewed_by: await requireUserId(), rejection_reason: reason })
-    .eq("id", confessionId);
+  const { error } = await supabase.rpc("admin_moderate_confession", {
+    p_confession_id: confessionId,
+    p_status: "REJECTED",
+    p_decision_notes: reason,
+  });
   if (error) throw new Error(error.message);
   await resolveReportsFor("confession", confessionId);
 }
