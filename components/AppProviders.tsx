@@ -37,6 +37,7 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { loading, user, profile, isGlobalAdmin } = useAuth();
   const isLegalPage = pathname === "/privacy" || pathname === "/terms";
+  const isStandaloneAdminPage = pathname === "/admin/confessions";
   const navigationHidden = useScrollDirection(pathname);
   const [spotlightNavigationHidden, setSpotlightNavigationHidden] = useState(false);
   const loadFeed = useGistStore((state) => state.loadFeed);
@@ -44,16 +45,16 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
   const feedHasLoaded = useGistStore((state) => state.feedHasLoaded);
   const schoolsHasLoaded = useGistStore((state) => state.schoolsHasLoaded);
   useEffect(() => {
-    if (isLegalPage || !isSupabaseConfigured || schoolsHasLoaded) return;
+    if (isLegalPage || isStandaloneAdminPage || !isSupabaseConfigured || schoolsHasLoaded) return;
     if (pathname === "/schools") return;
     void loadSchools();
-  }, [isLegalPage, loadSchools, pathname, schoolsHasLoaded]);
+  }, [isLegalPage, isStandaloneAdminPage, loadSchools, pathname, schoolsHasLoaded]);
 
   useEffect(() => {
-    if (isLegalPage || !isSupabaseConfigured || loading || feedHasLoaded) return;
+    if (isLegalPage || isStandaloneAdminPage || !isSupabaseConfigured || loading || feedHasLoaded) return;
     if (pathname === "/" || pathname === "/trending" || pathname === "/spotlight") return;
     void loadFeed();
-  }, [feedHasLoaded, isLegalPage, loading, loadFeed, pathname]);
+  }, [feedHasLoaded, isLegalPage, isStandaloneAdminPage, loading, loadFeed, pathname]);
 
   useEffect(() => {
     if (loading) return;
@@ -88,10 +89,10 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
 
   return (
     <MotionConfig reducedMotion="user">
-      {!isLegalPage && <NavigationFeedback />}
-      {!isLegalPage && <PWAInstallPrompt />}
-      {!isLegalPage && <SEOHead />}
-      {!isLegalPage && !loading && (
+      {!isLegalPage && !isStandaloneAdminPage && <NavigationFeedback />}
+      {!isLegalPage && !isStandaloneAdminPage && <PWAInstallPrompt />}
+      {!isLegalPage && !isStandaloneAdminPage && <SEOHead />}
+      {!isLegalPage && !isStandaloneAdminPage && !loading && (
         <>
           <NotificationListener />
           <OfflineSyncListener />
@@ -101,7 +102,10 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
           <ToastViewport />
         </>
       )}
+      {isStandaloneAdminPage && <ToastViewport />}
       {isLegalPage ? (
+        children
+      ) : isStandaloneAdminPage ? (
         children
       ) : standaloneAuth || standaloneOnboarding ? (
         children
@@ -115,7 +119,7 @@ function RoutedApp({ children }: { children: React.ReactNode }) {
         </AppLayout>
       )}
       <AnimatePresence>
-        {loading && !isLegalPage && <SplashScreen key="startup-splash" />}
+        {loading && !isLegalPage && !isStandaloneAdminPage && <SplashScreen key="startup-splash" />}
       </AnimatePresence>
     </MotionConfig>
   );
